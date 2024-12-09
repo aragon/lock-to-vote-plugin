@@ -1,0 +1,24 @@
+LockToVoteTest:
+  # contract lifecycle
+  - when: deploying the contract
+    then:
+      - it: should initialize normally
+  - given: a deployed contract
+    then:
+      - it: should refuse to initialize again
+  - given: a new instance
+    and:
+      - given: calling initialize
+        and:
+          - it: should set the DAO address
+
+  - when: calling updateSettings
+    and:
+      - when: updateSettings without the permission
+        then:
+          - it: should revert
+
+  - when: calling supportsInterface
+    then:
+      - it: does not support the empty interface
+      - it: supports IERC165Upgradeable

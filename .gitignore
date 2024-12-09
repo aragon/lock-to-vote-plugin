@@ -12,3 +12,15 @@ docs/
 
 # Dotenv file
 .env
+
+# Development
+.DS_Store
+lcov.info
+report
+*.tree
+
+# Deployment
+logs/*
+
+# Draw.io backup files
+*.drawio.bkp
