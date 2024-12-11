@@ -3,8 +3,9 @@ pragma solidity ^0.8.13;
 
 import {ILockToVote} from "./interfaces/ILockToVote.sol";
 
-contract LockToVotePlugin is ILockToVote {
+contract LockToVotePlugin {
+    // is ILockToVote
     struct PluginSettings {
-        uint64 proposlDuration;
+        uint64 proposalDuration;
     }
 }

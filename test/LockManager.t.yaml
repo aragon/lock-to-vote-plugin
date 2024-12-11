@@ -1,4 +1,7 @@
 LockManagerTest:
+  - when: Deploying the contract
+    then:
+      - it: Registers the DAO address
   - when: calling updateSettings
     and:
       - when: updateSettings without the permission

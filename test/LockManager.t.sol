@@ -4,6 +4,10 @@ pragma solidity 0.8.17;
 import {AragonTest} from "./util/AragonTest.sol";
 
 contract LockManagerTest is AragonTest {
+    function test_WhenDeployingTheContract() external {
+        // It Registers the DAO address
+    }
+
     modifier whenCallingUpdateSettings() {
         _;
     }
