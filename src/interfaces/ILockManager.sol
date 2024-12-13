@@ -12,14 +12,12 @@ interface ILockManager {
     function lock() external;
 
     /// @notice Locks the balance currently allowed by msg.sender on this contract and registers a vote on the target plugin
-    /// @param plugin The address of the lock to vote plugin where the lock will be used
     /// @param proposalId The ID of the proposal where the vote will be registered
-    function lockAndVote(ILockToVote plugin, uint256 proposalId) external;
+    function lockAndVote(uint256 proposalId) external;
 
     /// @notice Uses the locked balance to place a vote on the given proposal for the given plugin
-    /// @param plugin The address of the lock to vote plugin where the locked balance will be used
     /// @param proposalId The ID of the proposal where the vote will be registered
-    function vote(ILockToVote plugin, uint256 proposalId) external;
+    function vote(uint256 proposalId) external;
 
     /// @notice If the mode allows it, releases all active locks placed on active proposals and transfers msg.sender's locked balance back. Depending on the current mode, it withdraws only if no locks are being used in active proposals.
     function unlock() external;
