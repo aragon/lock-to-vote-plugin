@@ -28,14 +28,23 @@ contract LockManager is ILockManager, DaoAuthorizable {
     Settings public settings;
 
     /// @notice Keeps track of the amount of tokens locked by address
-    mapping(address => uint256) lockedBalance;
+    mapping(address => uint256) lockedBalances;
 
     /// @notice Keeps a list of the known active proposal ID's
     /// @dev Executed proposals will be actively reported, but defeated proposals will need to be garbage collected over time.
     uint256[] knownProposalIds;
 
+    /// @notice Emitted when a token holder locks funds into the manager contract
+    event BalanceLocked(address voter, uint256 amount);
+
+    /// @notice Emitted when a token holder unlocks funds from the manager contract
+    event BalanceUnlocked(address voter, uint256 amount);
+
     /// @notice Thrown when trying to assign an invalid lock mode
     error InvalidUnlockMode();
+
+    /// @notice Thrown when the address calling proposalEnded() is not the plugin's
+    error InvalidPluginAddress();
 
     /// @notice Raised when the caller holds no tokens or didn't lock any tokens
     error NoBalance();
@@ -58,24 +67,37 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     /// @inheritdoc ILockManager
     function lock() public {
-        // Register the token if not present
-        //
+        _lock();
     }
 
     /// @inheritdoc ILockManager
-    function lockAndVote(uint256 proposalId) public {
-        //
+    function lockAndVote(uint256 _proposalId) public {
+        _lock();
+
+        _vote(_proposalId);
     }
 
     /// @inheritdoc ILockManager
-    function vote(uint256 proposalId) public {
-        uint256 newVotingPower = lockedBalance[msg.sender];
-        settings.plugin.vote(proposalId, msg.sender, newVotingPower);
+    function canVote(
+        uint256 _proposalId,
+        address _voter
+    ) external view returns (bool) {
+        uint256 availableBalance = lockedBalances[_voter] -
+            settings.plugin.usedVotingPower(_proposalId, _voter);
+        if (availableBalance == 0) return false;
+
+        (bool open, bool executed, ) = settings.plugin.getProposal(_proposalId);
+        return !executed && open;
+    }
+
+    /// @inheritdoc ILockManager
+    function vote(uint256 _proposalId) public {
+        _vote(_proposalId);
     }
 
     /// @inheritdoc ILockManager
     function unlock() public {
-        if (lockedBalance[msg.sender] == 0) {
+        if (lockedBalances[msg.sender] == 0) {
             revert NoBalance();
         }
 
@@ -87,30 +109,69 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
         // All votes clear
 
-        // Refund
-        uint256 refundBalance = lockedBalance[msg.sender];
-        lockedBalance[msg.sender] = 0;
+        uint256 _refundableBalance = lockedBalances[msg.sender];
+        lockedBalances[msg.sender] = 0;
 
-        settings.token.transfer(msg.sender, refundBalance);
+        // Refund
+        settings.token.transfer(msg.sender, _refundableBalance);
+        emit BalanceUnlocked(msg.sender, _refundableBalance);
     }
 
     /// @inheritdoc ILockManager
-    function releaseLock(uint256 proposalId) public {
-        //
+    function proposalEnded(uint256 _proposalId) public {
+        if (msg.sender != address(settings.plugin)) {
+            revert InvalidPluginAddress();
+        }
+
+        for (uint _i; _i < knownProposalIds.length; ) {
+            if (knownProposalIds[_i] == _proposalId) {
+                removeKnownProposalId(_i);
+                return;
+            }
+        }
     }
 
     // Internal
 
+    function _lock() internal {
+        uint256 _allowance = settings.token.allowance(
+            msg.sender,
+            address(this)
+        );
+        if (_allowance == 0) {
+            revert NoBalance();
+        }
+
+        settings.token.transferFrom(msg.sender, address(this), _allowance);
+        lockedBalances[msg.sender] += _allowance;
+        emit BalanceLocked(msg.sender, _allowance);
+    }
+
+    function _vote(uint256 _proposalId) internal {
+        uint256 _newVotingPower = lockedBalances[msg.sender];
+        if (_newVotingPower == 0) {
+            revert NoBalance();
+        } else if (
+            _newVotingPower ==
+            settings.plugin.usedVotingPower(_proposalId, msg.sender)
+        ) {
+            return;
+        }
+
+        settings.plugin.vote(_proposalId, msg.sender, _newVotingPower);
+    }
+
     function hasActiveLocks() internal returns (bool) {
         uint256 _proposalCount = knownProposalIds.length;
         for (uint256 _i; _i < _proposalCount; ) {
-            (bool open, ) = settings.plugin.getProposal(knownProposalIds[_i]);
+            // (bool open, ) = settings.plugin.getProposal(knownProposalIds[_i]);
+            bool open = true;
             if (!open) {
-                cleanKnownProposalId(_i);
+                removeKnownProposalId(_i);
+                _proposalCount = knownProposalIds.length;
 
                 // Are we at the last item?
-                /// @dev Comparing to `_proposalCount` instead of `_proposalCount - 1`, because the array is now shorter
-                if (_i == _proposalCount) {
+                if (_i == _proposalCount - 1) {
                     return false;
                 }
 
@@ -118,7 +179,12 @@ contract LockManager is ILockManager, DaoAuthorizable {
                 continue;
             }
 
-            if (settings.plugin.hasVoted(msg.sender)) {
+            if (
+                settings.plugin.usedVotingPower(
+                    knownProposalIds[_i],
+                    msg.sender
+                ) > 0
+            ) {
                 return true;
             }
 
@@ -131,13 +197,14 @@ contract LockManager is ILockManager, DaoAuthorizable {
     function withdrawActiveVotingPower() internal {
         uint256 _proposalCount = knownProposalIds.length;
         for (uint256 _i; _i < _proposalCount; ) {
-            (bool open, ) = settings.plugin.getProposal(knownProposalIds[_i]);
+            // (bool open, ) = settings.plugin.getProposal(knownProposalIds[_i]);
+            bool open = true;
             if (!open) {
-                cleanKnownProposalId(_i);
+                removeKnownProposalId(_i);
+                _proposalCount = knownProposalIds.length;
 
                 // Are we at the last item?
-                /// @dev Comparing to `_proposalCount` instead of `_proposalCount - 1`, because the array is now shorter
-                if (_i == _proposalCount) {
+                if (_i == _proposalCount - 1) {
                     return;
                 }
 
@@ -145,8 +212,12 @@ contract LockManager is ILockManager, DaoAuthorizable {
                 continue;
             }
 
-            uint votedBalance = settings.plugin.votedBalance(msg.sender);
-            if (votedBalance > 0) {
+            if (
+                settings.plugin.usedVotingPower(
+                    knownProposalIds[_i],
+                    msg.sender
+                ) > 0
+            ) {
                 settings.plugin.clearVote(knownProposalIds[_i], msg.sender);
             }
 
@@ -157,15 +228,15 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @dev Cleaning up ended proposals, otherwise they would pile up and make unlocks more and more gas costly over time
-    function cleanKnownProposalId(uint _arrayIndex) internal {
+    function removeKnownProposalId(uint _arrayIndex) internal {
+        uint _lastItemIdx = knownProposalIds.length - 1;
+
         // Swap the current item with the last, if needed
-        if (_arrayIndex < knownProposalIds.length - 1) {
-            knownProposalIds[_arrayIndex] = knownProposalIds[
-                knownProposalIds.length - 1
-            ];
+        if (_arrayIndex < _lastItemIdx) {
+            knownProposalIds[_arrayIndex] = knownProposalIds[_lastItemIdx];
         }
 
         // Trim the array's last item
-        knownProposalIds.length -= 1;
+        knownProposalIds.pop();
     }
 }

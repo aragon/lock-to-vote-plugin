@@ -29,20 +29,6 @@ interface ILockToVote {
         uint64 duration
     ) external returns (uint256 proposalId);
 
-    /// @notice Checks if an account can participate on a proposal. This can be because the proposal
-    /// - has not started,
-    /// - has ended,
-    /// - was executed, or
-    /// - the voter doesn't have any tokens locked.
-    /// @param proposalId The proposal Id.
-    /// @param voter The account address to be checked.
-    /// @return Returns true if the account is allowed to vote.
-    /// @dev The function assumes that the queried proposal exists.
-    function canVote(
-        uint256 proposalId,
-        address voter
-    ) external view returns (bool);
-
     /// @notice Registers an approval vote for the given proposal.
     /// @param proposalId The ID of the proposal to vote on.
     /// @param voter The address of the account whose vote will be registered
@@ -62,8 +48,8 @@ interface ILockToVote {
     /// @notice Returns whether the account has voted for the proposal.
     /// @param proposalId The ID of the proposal.
     /// @param voter The account address to be checked.
-    /// @return The amount of balance that has been allocated for to the proposal by the given account.
-    function votedBalance(
+    /// @return The amount of balance that has been allocated to the proposal by the given account.
+    function usedVotingPower(
         uint256 proposalId,
         address voter
     ) external view returns (uint256);
