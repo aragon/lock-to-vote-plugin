@@ -2,16 +2,16 @@ LockToVoteTest:
   # contract lifecycle
   - when: deploying the contract
     then:
-      - it: should initialize normally
+      - it: should disable the initializers
+  - given: A new proxy
+    then:
+      - when: calling initialize
+        and:
+          - it: should set the DAO address
+          - it: should initialize normally
   - given: a deployed contract
     then:
       - it: should refuse to initialize again
-  - given: a new instance
-    and:
-      - given: calling initialize
-        and:
-          - it: should set the DAO address
-
   - when: calling updateSettings
     and:
       - when: updateSettings without the permission

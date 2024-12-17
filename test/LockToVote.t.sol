@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.17;
 
-import {Test} from "forge-std/Test.sol";
 import {AragonTest} from "./util/AragonTest.sol";
 
 contract LockToVoteTest is AragonTest {
     function test_WhenDeployingTheContract() external {
+        // It should disable the initializers
+        vm.skip(true);
+    }
+
+    modifier givenANewProxy() {
+        _;
+    }
+
+    function test_WhenCallingInitialize() external givenANewProxy {
+        // It should set the DAO address
         // It should initialize normally
         vm.skip(true);
     }
 
     function test_GivenADeployedContract() external {
         // It should refuse to initialize again
-        vm.skip(true);
-    }
-
-    modifier givenANewInstance() {
-        _;
-    }
-
-    function test_GivenCallingInitialize() external givenANewInstance {
-        // It should set the DAO address
         vm.skip(true);
     }
 

@@ -1,0 +1,137 @@
+LockManagerTest:
+  - when: Deploying the contract
+    then:
+      - it: Registers the DAO address
+  - when: calling updateSettings
+    and:
+      - when: updateSettings without the permission
+        then:
+          - it: should revert
+      - when: updateSettings with the permission
+        then:
+          - it: should update the mode
+      - when: Calling getSettings
+        then:
+          - it: Should return the right value
+
+  - when: calling supportsInterface
+    then:
+      - it: does not support the empty interface
+      - it: supports IERC165Upgradeable
+      - it: supports ILockManager
+
+  - when: Locking tokens
+    then:
+      - it: Should allow any token holder to lock
+      - it: Should use the full allowance
+
+  - when: Locking and / or voting
+    and:
+      - given: Invalid plugin
+        then:
+          - it: Locking and voting should revert
+          - it: Voting should revert
+      - given: Valid lock to vote plugin
+        then:
+          - when: No token balance
+            then:
+              - it: Should revert
+          - when: No token allowance
+            then:
+              - it: Should revert
+          - when: Invalid or inactive proposal
+            then:
+              - it: Locking and voting should revert
+              - it: Voting should revert
+          - when: Valid proposal
+            and:
+              - when: Already voted
+                then:
+                  - it: Should update the voting balance and the proposal tally
+                  - it: Should increase the voting power by the full allowance
+              - when: Not voted yet
+                then:
+                  - it: Should allow any token holder to vote
+                  - it: Should use the full allowance to vote
+
+              - when: Calling getTokens
+                then:
+                  - it: Should return the token addresses where votes have been cast
+              - given: Calling getLocks
+                then:
+                  - it: Should return the active proposals with 1+ locks
+
+  - given: Strict mode is set
+    and:
+      - given: Didn't lock anything [strict]
+        and:
+          - when: Trying to unlock [1 strict]
+            then:
+              - it: Should do nothing
+      - given: Locked but didn't vote anywhere [strict]
+        then:
+          - when: Trying to unlock [2 strict]
+            then:
+              - it: Should unlock and refund the full amount right away
+      - given: Locked but voted on ended or executed proposals [strict]
+        then:
+          - when: Trying to unlock [3 strict]
+            then:
+              - it: Should unlock and refund the full amount right away
+      - given: Locked anv voted on currently active proposals [strict]
+        then:
+          - when: Trying to unlock [4 strict]
+            then:
+              - it: Should revert
+
+  - given: Flexible mode is set
+    and:
+      - given: Didn't lock anything [flexible]
+        and:
+          - when: Trying to unlock [1 flexible]
+            then:
+              - it: Should do nothing
+      - given: Locked but didn't vote anywhere [flexible]
+        then:
+          - when: Trying to unlock [2 flexible]
+            then:
+              - it: Should unlock and refund the full amount right away
+      - given: Locked but voted on ended or executed proposals [flexible]
+        then:
+          - when: Trying to unlock [3 flexible]
+            then:
+              - it: Should unlock and refund the full amount right away
+      - given: Locked anv voted on currently active proposals [flexible]
+        then:
+          - when: Trying to unlock [4 flexible]
+            then:
+              - it: Should deallocate the existing voting power from active proposals
+              - it: Should unlock and refund the full amount
+
+  - given: A proposal has ended
+    and:
+      - given: Before releaseLock is called
+        then:
+          - given: Proposal voter calls unlock [no releaseLock]
+            and:
+              - when: Executed proposal
+                then:
+                  # Slightly redundant, because execute() will trigger releaseLock()
+                  - it: Should allow voters from that proposal to unlock right away
+              - when: Defeated proposal
+                then:
+                  - it: Should allow voters from that proposal to unlock right away
+              - when: Active proposal
+                then:
+                  - it: Should revert
+      - when: After releaseLock is called
+        then:
+          - when: Proposal voter calls unlock [released]
+            then:
+              - it: Should allow voters from that proposal to unlock right away
+              - it: Should revert on voters who have any other unreleased proposal votes
+
+  - given: Permissions
+    then:
+      - it: Should revert if releaseLock is called by an incompatible plugin
+      - it: Should revert if updateSettings is called by an address without the permission
