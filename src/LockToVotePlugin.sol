@@ -28,6 +28,7 @@ contract LockToVotePlugin is
 
     LockToVoteSettings public settings;
 
+    /// @inheritdoc ILockToVote
     ILockManager public lockManager;
 
     mapping(uint256 => Proposal) proposals;
@@ -260,7 +261,12 @@ contract LockToVotePlugin is
     }
 
     /// @inheritdoc ILockToVote
-    function votingToken() external view returns (IERC20) {
+    function underlyingToken() external view returns (IERC20) {
+        return lockManager.underlyingToken();
+    }
+
+    /// @inheritdoc ILockToVote
+    function token() external view returns (IERC20) {
         return lockManager.token();
     }
 
@@ -306,10 +312,19 @@ contract LockToVotePlugin is
         return true;
     }
 
+    function _minApprovalTally(Proposal storage proposal_) internal view returns (uint256 _minTally) {
+        /// @dev Checking against the totalSupply() of the **underlying token**.
+        /// @dev LP tokens could have important supply variations and this would impact the value of existing votes, after created.
+        /// @dev However, the total supply of the underlying token (USDC, USDT, DAI, etc) will experiment little to no variations in comparison.
+
+        // NOTE: Assuming a 1:1 correlation between token() and underlyingToken()
+
+        _minTally =
+            _applyRatioCeiled(lockManager.underlyingToken().totalSupply(), proposal_.parameters.minApprovalRatio);
+    }
+
     function _hasSucceeded(Proposal storage proposal_) internal view returns (bool) {
-        uint256 _minApprovalTally =
-            _applyRatioCeiled(lockManager.token().totalSupply(), proposal_.parameters.minApprovalRatio);
-        return proposal_.approvalTally >= _minApprovalTally;
+        return proposal_.approvalTally >= _minApprovalTally(proposal_);
     }
 
     /// @notice Validates and returns the proposal dates.

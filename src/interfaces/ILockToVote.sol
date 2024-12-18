@@ -7,6 +7,7 @@ import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol"
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
+import {ILockManager} from "./ILockManager.sol";
 
 /// @notice A container for proposal-related information.
 /// @param executed Whether the proposal is executed or not.
@@ -54,9 +55,16 @@ struct LockToVoteSettings {
 /// @author Aragon X
 /// @notice Governance plugin allowing token holders to use tokens locked without a snapshot requirement and engage in proposals immediately
 interface ILockToVote {
+    /// @notice Returns the address of the manager contract, which holds the locked balances and the allocated vote balances.
+    function lockManager() external view returns (ILockManager);
+
     /// @notice Returns the address of the token contract used to determine the voting power.
-    /// @return The token used for voting.
-    function votingToken() external view returns (IERC20);
+    /// @return The address of the token used for voting.
+    function token() external view returns (IERC20);
+
+    /// @notice If applicable, returns the address of the token that can be stacked to obtain `token()`. Else, it returns the voting token's address.
+    /// @return The address of the underlying token.
+    function underlyingToken() external view returns (IERC20);
 
     /// @notice Internal function to check if a proposal is still open.
     /// @param _proposalId The ID of the proposal.

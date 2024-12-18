@@ -7,6 +7,9 @@ import {DaoAuthorizable} from "@aragon/osx-commons-contracts/src/permission/auth
 import {ILockToVote} from "./interfaces/ILockToVote.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+/// @title LockManager
+/// @author Aragon X 2024
+/// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice The current LockManager settings
     LockManagerSettings public settings;
@@ -16,6 +19,9 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     /// @notice The address of the token contract
     IERC20 public immutable token;
+
+    /// @notice The address of the underlying token from which "token" originates, if applicable
+    IERC20 immutable underlyingTokenAddress;
 
     /// @notice Keeps track of the amount of tokens locked by address
     mapping(address => uint256) public lockedBalances;
@@ -42,9 +48,13 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Raised when attempting to unlock while active votes are cast in strict mode
     error LocksStillActive();
 
-    constructor(IDAO _dao, LockManagerSettings memory _settings, ILockToVote _plugin, IERC20 _token)
-        DaoAuthorizable(_dao)
-    {
+    constructor(
+        IDAO _dao,
+        LockManagerSettings memory _settings,
+        ILockToVote _plugin,
+        IERC20 _token,
+        IERC20 _underlyingToken
+    ) DaoAuthorizable(_dao) {
         if (_settings.unlockMode != UnlockMode.STRICT && _settings.unlockMode != UnlockMode.EARLY) {
             revert InvalidUnlockMode();
         }
@@ -52,6 +62,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
         settings.unlockMode = _settings.unlockMode;
         plugin = _plugin;
         token = _token;
+        underlyingTokenAddress = _underlyingToken;
     }
 
     /// @inheritdoc ILockManager
@@ -110,6 +121,13 @@ contract LockManager is ILockManager, DaoAuthorizable {
                 return;
             }
         }
+    }
+
+    function underlyingToken() external view returns (IERC20) {
+        if (address(underlyingTokenAddress) == address(0)) {
+            return token;
+        }
+        return underlyingTokenAddress;
     }
 
     // Internal

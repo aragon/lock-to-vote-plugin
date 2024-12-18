@@ -18,7 +18,7 @@ struct LockManagerSettings {
 }
 
 /// @title ILockManager
-/// @author Aragon X
+/// @author Aragon X 2024
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 interface ILockManager {
     /// @notice Returns the address of the voting plugin.
@@ -28,6 +28,10 @@ interface ILockManager {
     /// @notice Returns the address of the token contract used to determine the voting power.
     /// @return The token used for voting.
     function token() external view returns (IERC20);
+
+    /// @notice If applicable, returns the address of the token that can be staked to obtain `token()`. Else, it returns the main token's address.
+    /// @return The address of the underlying token.
+    function underlyingToken() external view returns (IERC20);
 
     /// @notice Returns the currently locked balance that the given account has on the contract.
     function lockedBalances(address account) external view returns (uint256);
