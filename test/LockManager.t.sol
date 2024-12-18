@@ -1,11 +1,23 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.17;
 
-import {AragonTest} from "./util/AragonTest.sol";
+import {Test} from "forge-std/Test.sol";
 
-contract LockManagerTest is AragonTest {
-    function test_WhenDeployingTheContract() external {
+contract LockManagerTest is Test {
+    modifier givenDeployingTheContract() {
+        _;
+    }
+
+    function test_RevertWhen_ConstructorHasInvalidUnlockMode() external givenDeployingTheContract {
+        // It Should revert
+        vm.skip(true);
+    }
+
+    function test_WhenConstructorWithValidParams() external givenDeployingTheContract {
         // It Registers the DAO address
+        // It Stores the given settings
+        // It Stores the given plugin and token addresses
+        vm.skip(true);
     }
 
     modifier whenCallingUpdateSettings() {
@@ -34,65 +46,147 @@ contract LockManagerTest is AragonTest {
         vm.skip(true);
     }
 
-    function test_WhenLockingTokens() external {
+    modifier givenNoLockedTokens() {
+        _;
+    }
+
+    modifier givenNoTokenAllowanceNoLocked() {
+        _;
+    }
+
+    function test_RevertWhen_CallingLock1() external givenNoLockedTokens givenNoTokenAllowanceNoLocked {
+        // It Should revert
+        vm.skip(true);
+    }
+
+    function test_RevertWhen_CallingLockAndVote1() external givenNoLockedTokens givenNoTokenAllowanceNoLocked {
+        // It Should revert
+        vm.skip(true);
+    }
+
+    function test_RevertWhen_CallingVote1() external givenNoLockedTokens givenNoTokenAllowanceNoLocked {
+        // It Should revert
+        vm.skip(true);
+    }
+
+    modifier givenWithTokenAllowanceNoLocked() {
+        _;
+    }
+
+    function test_WhenCallingLock2() external givenNoLockedTokens givenWithTokenAllowanceNoLocked {
         // It Should allow any token holder to lock
-        // It Should use the full allowance
+        // It Should approve with the full token balance
         vm.skip(true);
     }
 
-    modifier whenLockingAndOrVoting() {
+    function test_WhenCallingLockAndVote2() external givenNoLockedTokens givenWithTokenAllowanceNoLocked {
+        // It Should allow any token holder to lock
+        // It Should approve with the full token balance
+        // It The allocated token balance should have the full new balance
+        vm.skip(true);
+    }
+
+    function test_RevertWhen_CallingVote2() external givenNoLockedTokens givenWithTokenAllowanceNoLocked {
+        // It Should revert
+        vm.skip(true);
+    }
+
+    modifier givenLockedTokens() {
         _;
     }
 
-    function test_GivenInvalidPlugin() external whenLockingAndOrVoting {
+    modifier givenNoTokenAllowanceSomeLocked() {
+        _;
+    }
+
+    function test_RevertWhen_CallingLock3() external givenLockedTokens givenNoTokenAllowanceSomeLocked {
+        // It Should revert
+        vm.skip(true);
+    }
+
+    function test_RevertWhen_CallingLockAndVote3() external givenLockedTokens givenNoTokenAllowanceSomeLocked {
+        // It Should revert
+        vm.skip(true);
+    }
+
+    function test_RevertWhen_CallingVoteSameBalance3() external givenLockedTokens givenNoTokenAllowanceSomeLocked {
+        // It Should revert
+        vm.skip(true);
+    }
+
+    function test_WhenCallingVoteMoreLockedBalance3() external givenLockedTokens givenNoTokenAllowanceSomeLocked {
+        // It Should approve with the full token balance
+        vm.skip(true);
+    }
+
+    modifier givenWithTokenAllowanceSomeLocked() {
+        _;
+    }
+
+    function test_WhenCallingLock4() external givenLockedTokens givenWithTokenAllowanceSomeLocked {
+        // It Should allow any token holder to lock
+        // It Should approve with the full token balance
+        // It Should increase the locked amount
+        vm.skip(true);
+    }
+
+    function test_WhenCallingLockAndVoteNoPriorVotes4() external givenLockedTokens givenWithTokenAllowanceSomeLocked {
+        // It Should allow any token holder to lock
+        // It Should approve with the full token balance
+        // It Should increase the locked amount
+        // It The allocated token balance should have the full new balance
+        vm.skip(true);
+    }
+
+    function test_WhenCallingLockAndVoteWithPriorVotes4()
+        external
+        givenLockedTokens
+        givenWithTokenAllowanceSomeLocked
+    {
+        // It Should allow any token holder to lock
+        // It Should approve with the full token balance
+        // It Should increase the locked amount
+        // It The allocated token balance should have the full new balance
+        vm.skip(true);
+    }
+
+    function test_RevertWhen_CallingVoteSameBalance4() external givenLockedTokens givenWithTokenAllowanceSomeLocked {
+        // It Should revert
+        vm.skip(true);
+    }
+
+    function test_WhenCallingVoteMoreLockedBalance4() external givenLockedTokens givenWithTokenAllowanceSomeLocked {
+        // It Should approve with the full token balance
+        vm.skip(true);
+    }
+
+    modifier givenCallingLockOrLockToVote() {
+        _;
+    }
+
+    function test_GivenInvalidPlugin() external givenCallingLockOrLockToVote {
+        // It Locking and voting should revert
+        vm.skip(true);
+    }
+
+    function test_GivenInvalidToken() external givenCallingLockOrLockToVote {
+        // It Locking should revert
         // It Locking and voting should revert
         // It Voting should revert
         vm.skip(true);
     }
 
-    modifier givenValidLockToVotePlugin() {
+    modifier givenProposalEndedIsCalled() {
         _;
     }
 
-    function test_RevertWhen_NoTokenBalance() external whenLockingAndOrVoting givenValidLockToVotePlugin {
+    function test_RevertWhen_TheCallerIsNotThePlugin() external givenProposalEndedIsCalled {
         // It Should revert
         vm.skip(true);
     }
 
-    function test_RevertWhen_NoTokenAllowance() external whenLockingAndOrVoting givenValidLockToVotePlugin {
-        // It Should revert
-        vm.skip(true);
-    }
-
-    function test_WhenInvalidOrInactiveProposal() external whenLockingAndOrVoting givenValidLockToVotePlugin {
-        // It Locking and voting should revert
-        // It Voting should revert
-        vm.skip(true);
-    }
-
-    modifier whenValidProposal() {
-        _;
-    }
-
-    function test_WhenAlreadyVoted() external whenLockingAndOrVoting givenValidLockToVotePlugin whenValidProposal {
-        // It Should update the voting balance and the proposal tally
-        // It Should increase the voting power by the full allowance
-        vm.skip(true);
-    }
-
-    function test_WhenNotVotedYet() external whenLockingAndOrVoting givenValidLockToVotePlugin whenValidProposal {
-        // It Should allow any token holder to vote
-        // It Should use the full allowance to vote
-        vm.skip(true);
-    }
-
-    function test_WhenCallingGetTokens() external whenLockingAndOrVoting givenValidLockToVotePlugin whenValidProposal {
-        // It Should return the token addresses where votes have been cast
-        vm.skip(true);
-    }
-
-    function test_GivenCallingGetLocks() external whenLockingAndOrVoting givenValidLockToVotePlugin whenValidProposal {
-        // It Should return the active proposals with 1+ locks
+    function test_WhenTheCallerIsThePlugin() external givenProposalEndedIsCalled {
+        // It Removes the proposal ID from the list of known proposals
         vm.skip(true);
     }
 
@@ -201,19 +295,19 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    modifier givenBeforeReleaseLockIsCalled() {
+    modifier givenBeforeProposalEndedIsCalled() {
         _;
     }
 
-    modifier givenProposalVoterCallsUnlockNoReleaseLock() {
+    modifier givenProposalVoterCallsUnlockNoProposalEnded() {
         _;
     }
 
     function test_WhenExecutedProposal()
         external
         givenAProposalHasEnded
-        givenBeforeReleaseLockIsCalled
-        givenProposalVoterCallsUnlockNoReleaseLock
+        givenBeforeProposalEndedIsCalled
+        givenProposalVoterCallsUnlockNoProposalEnded
     {
         // It Should allow voters from that proposal to unlock right away
         vm.skip(true);
@@ -222,8 +316,8 @@ contract LockManagerTest is AragonTest {
     function test_WhenDefeatedProposal()
         external
         givenAProposalHasEnded
-        givenBeforeReleaseLockIsCalled
-        givenProposalVoterCallsUnlockNoReleaseLock
+        givenBeforeProposalEndedIsCalled
+        givenProposalVoterCallsUnlockNoProposalEnded
     {
         // It Should allow voters from that proposal to unlock right away
         vm.skip(true);
@@ -232,26 +326,29 @@ contract LockManagerTest is AragonTest {
     function test_RevertWhen_ActiveProposal()
         external
         givenAProposalHasEnded
-        givenBeforeReleaseLockIsCalled
-        givenProposalVoterCallsUnlockNoReleaseLock
+        givenBeforeProposalEndedIsCalled
+        givenProposalVoterCallsUnlockNoProposalEnded
     {
         // It Should revert
         vm.skip(true);
     }
 
-    modifier whenAfterReleaseLockIsCalled() {
+    modifier whenAfterProposalEndedIsCalled() {
         _;
     }
 
-    function test_WhenProposalVoterCallsUnlockReleased() external givenAProposalHasEnded whenAfterReleaseLockIsCalled {
+    function test_WhenProposalVoterCallsUnlockReleased()
+        external
+        givenAProposalHasEnded
+        whenAfterProposalEndedIsCalled
+    {
         // It Should allow voters from that proposal to unlock right away
         // It Should revert on voters who have any other unreleased proposal votes
         vm.skip(true);
     }
 
     function test_GivenPermissions() external {
-        // It Should revert if releaseLock is called by an incompatible plugin
-        // It Should revert if updateSettings is called by an address without the permission
+        // It Should revert if proposalEnded is called by an incompatible plugin
         vm.skip(true);
     }
 }

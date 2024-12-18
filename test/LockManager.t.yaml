@@ -1,7 +1,15 @@
 LockManagerTest:
-  - when: Deploying the contract
-    then:
-      - it: Registers the DAO address
+  - given: Deploying the contract
+    and:
+      - when: Constructor has invalid unlock mode
+        then:
+          - it: Should revert
+      - when: Constructor with valid params
+        then:
+          - it: Registers the DAO address
+          - it: Stores the given settings
+          - it: Stores the given plugin and token addresses
+
   - when: calling updateSettings
     and:
       - when: updateSettings without the permission
@@ -20,47 +28,101 @@ LockManagerTest:
       - it: supports IERC165Upgradeable
       - it: supports ILockManager
 
-  - when: Locking tokens
-    then:
-      - it: Should allow any token holder to lock
-      - it: Should use the full allowance
+  # Locking and voting calls
 
-  - when: Locking and / or voting
+  - given: No locked tokens
     and:
+      - given: No token allowance [no locked]
+        and:
+          - when: Calling lock() 1
+            then:
+              - it: Should revert
+          - when: Calling lockAndVote() 1
+            then:
+              - it: Should revert
+          - when: Calling vote() 1
+            then:
+              - it: Should revert
+      - given: With token allowance [no locked]
+        and:
+          - when: Calling lock() 2
+            then:
+              - it: Should allow any token holder to lock
+              - it: Should approve with the full token balance
+          - when: Calling lockAndVote() 2
+            then:
+              - it: Should allow any token holder to lock
+              - it: Should approve with the full token balance
+              - it: The allocated token balance should have the full new balance
+          - when: Calling vote() 2
+            then:
+              - it: Should revert
+
+  - given: Locked tokens
+    and:
+      - given: No token allowance [some locked]
+        and:
+          - when: Calling lock() 3
+            then:
+              - it: Should revert
+          - when: Calling lockAndVote() 3
+            then:
+              - it: Should revert
+          - when: Calling vote() [same balance] 3
+            then:
+              - it: Should revert
+          - when: Calling vote() [more locked balance] 3
+            then:
+              - it: Should approve with the full token balance
+      - given: With token allowance [some locked]
+        and:
+          - when: Calling lock() 4
+            then:
+              - it: Should allow any token holder to lock
+              - it: Should approve with the full token balance
+              - it: Should increase the locked amount
+          - when: Calling lockAndVote() [no prior votes] 4
+            then:
+              - it: Should allow any token holder to lock
+              - it: Should approve with the full token balance
+              - it: Should increase the locked amount
+              - it: The allocated token balance should have the full new balance
+          - when: Calling lockAndVote() [with prior votes] 4
+            then:
+              - it: Should allow any token holder to lock
+              - it: Should approve with the full token balance
+              - it: Should increase the locked amount
+              - it: The allocated token balance should have the full new balance
+          - when: Calling vote() [same balance] 4
+            then:
+              - it: Should revert
+          - when: Calling vote() [more locked balance] 4
+            then:
+              - it: Should approve with the full token balance
+
+  # Invalid config's
+
+  - given: Calling lock() or lockToVote()
+    then:
       - given: Invalid plugin
-        then:
+        and:
+          - it: Locking and voting should revert
+      - given: Invalid token
+        and:
+          - it: Locking should revert
           - it: Locking and voting should revert
           - it: Voting should revert
-      - given: Valid lock to vote plugin
+
+  - given: ProposalEnded is called
+    and:
+      - when: The caller is not the plugin
         then:
-          - when: No token balance
-            then:
-              - it: Should revert
-          - when: No token allowance
-            then:
-              - it: Should revert
-          - when: Invalid or inactive proposal
-            then:
-              - it: Locking and voting should revert
-              - it: Voting should revert
-          - when: Valid proposal
-            and:
-              - when: Already voted
-                then:
-                  - it: Should update the voting balance and the proposal tally
-                  - it: Should increase the voting power by the full allowance
-              - when: Not voted yet
-                then:
-                  - it: Should allow any token holder to vote
-                  - it: Should use the full allowance to vote
+          - it: Should revert
+      - when: The caller is the plugin
+        then:
+          - it: Removes the proposal ID from the list of known proposals
 
-              - when: Calling getTokens
-                then:
-                  - it: Should return the token addresses where votes have been cast
-              - given: Calling getLocks
-                then:
-                  - it: Should return the active proposals with 1+ locks
-
+  # Calling unlock
   - given: Strict mode is set
     and:
       - given: Didn't lock anything [strict]
@@ -110,13 +172,13 @@ LockManagerTest:
 
   - given: A proposal has ended
     and:
-      - given: Before releaseLock is called
+      - given: Before proposalEnded is called
         then:
-          - given: Proposal voter calls unlock [no releaseLock]
+          - given: Proposal voter calls unlock [no proposalEnded]
             and:
               - when: Executed proposal
                 then:
-                  # Slightly redundant, because execute() will trigger releaseLock()
+                  # Slightly redundant, because execute() will trigger proposalEnded()
                   - it: Should allow voters from that proposal to unlock right away
               - when: Defeated proposal
                 then:
@@ -124,7 +186,7 @@ LockManagerTest:
               - when: Active proposal
                 then:
                   - it: Should revert
-      - when: After releaseLock is called
+      - when: After proposalEnded is called
         then:
           - when: Proposal voter calls unlock [released]
             then:
@@ -133,5 +195,4 @@ LockManagerTest:
 
   - given: Permissions
     then:
-      - it: Should revert if releaseLock is called by an incompatible plugin
-      - it: Should revert if updateSettings is called by an address without the permission
+      - it: Should revert if proposalEnded is called by an incompatible plugin
