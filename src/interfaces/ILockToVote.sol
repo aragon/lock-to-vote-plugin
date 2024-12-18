@@ -64,21 +64,14 @@ interface ILockToVote {
     function isProposalOpen(uint256 _proposalId) external view returns (bool);
 
     /// @notice Returns wether the given address can vote or increase the amount of tokens assigned to a proposal
-    function canVote(
-        uint256 proposalId,
-        address voter
-    ) external view returns (bool);
+    function canVote(uint256 proposalId, address voter) external view returns (bool);
 
     /// @notice Registers an approval vote for the given proposal.
     /// @param proposalId The ID of the proposal to vote on.
     /// @param voter The address of the account whose vote will be registered
     /// @param newVotingPower The new balance that should be allocated to the voter. It can only be bigger.
     /// @dev newVotingPower updates any prior voting power, it does not add to the existing amount.
-    function vote(
-        uint256 proposalId,
-        address voter,
-        uint newVotingPower
-    ) external;
+    function vote(uint256 proposalId, address voter, uint256 newVotingPower) external;
 
     /// @notice Reverts the existing voter's vote, if any.
     /// @param proposalId The ID of the proposal.
@@ -89,16 +82,11 @@ interface ILockToVote {
     /// @param proposalId The ID of the proposal.
     /// @param voter The account address to be checked.
     /// @return The amount of balance that has been allocated to the proposal by the given account.
-    function usedVotingPower(
-        uint256 proposalId,
-        address voter
-    ) external view returns (uint256);
+    function usedVotingPower(uint256 proposalId, address voter) external view returns (uint256);
 
     /// @notice Updates the voting settings, which will be applied to the next proposal being created.
     /// @param newSettings The new settings, including the minimum approval ratio and the minimum proposal duration.
-    function updatePluginSettings(
-        LockToVoteSettings calldata newSettings
-    ) external;
+    function updatePluginSettings(LockToVoteSettings calldata newSettings) external;
 
     error NoVotingPower();
     error ProposalAlreadyExists(uint256 proposalId);

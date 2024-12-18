@@ -12,18 +12,12 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_RevertWhen_UpdateSettingsWithoutThePermission()
-        external
-        whenCallingUpdateSettings
-    {
+    function test_RevertWhen_UpdateSettingsWithoutThePermission() external whenCallingUpdateSettings {
         // It should revert
         vm.skip(true);
     }
 
-    function test_WhenUpdateSettingsWithThePermission()
-        external
-        whenCallingUpdateSettings
-    {
+    function test_WhenUpdateSettingsWithThePermission() external whenCallingUpdateSettings {
         // It should update the mode
         vm.skip(true);
     }
@@ -60,29 +54,17 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_RevertWhen_NoTokenBalance()
-        external
-        whenLockingAndOrVoting
-        givenValidLockToVotePlugin
-    {
+    function test_RevertWhen_NoTokenBalance() external whenLockingAndOrVoting givenValidLockToVotePlugin {
         // It Should revert
         vm.skip(true);
     }
 
-    function test_RevertWhen_NoTokenAllowance()
-        external
-        whenLockingAndOrVoting
-        givenValidLockToVotePlugin
-    {
+    function test_RevertWhen_NoTokenAllowance() external whenLockingAndOrVoting givenValidLockToVotePlugin {
         // It Should revert
         vm.skip(true);
     }
 
-    function test_WhenInvalidOrInactiveProposal()
-        external
-        whenLockingAndOrVoting
-        givenValidLockToVotePlugin
-    {
+    function test_WhenInvalidOrInactiveProposal() external whenLockingAndOrVoting givenValidLockToVotePlugin {
         // It Locking and voting should revert
         // It Voting should revert
         vm.skip(true);
@@ -92,44 +74,24 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenAlreadyVoted()
-        external
-        whenLockingAndOrVoting
-        givenValidLockToVotePlugin
-        whenValidProposal
-    {
+    function test_WhenAlreadyVoted() external whenLockingAndOrVoting givenValidLockToVotePlugin whenValidProposal {
         // It Should update the voting balance and the proposal tally
         // It Should increase the voting power by the full allowance
         vm.skip(true);
     }
 
-    function test_WhenNotVotedYet()
-        external
-        whenLockingAndOrVoting
-        givenValidLockToVotePlugin
-        whenValidProposal
-    {
+    function test_WhenNotVotedYet() external whenLockingAndOrVoting givenValidLockToVotePlugin whenValidProposal {
         // It Should allow any token holder to vote
         // It Should use the full allowance to vote
         vm.skip(true);
     }
 
-    function test_WhenCallingGetTokens()
-        external
-        whenLockingAndOrVoting
-        givenValidLockToVotePlugin
-        whenValidProposal
-    {
+    function test_WhenCallingGetTokens() external whenLockingAndOrVoting givenValidLockToVotePlugin whenValidProposal {
         // It Should return the token addresses where votes have been cast
         vm.skip(true);
     }
 
-    function test_GivenCallingGetLocks()
-        external
-        whenLockingAndOrVoting
-        givenValidLockToVotePlugin
-        whenValidProposal
-    {
+    function test_GivenCallingGetLocks() external whenLockingAndOrVoting givenValidLockToVotePlugin whenValidProposal {
         // It Should return the active proposals with 1+ locks
         vm.skip(true);
     }
@@ -142,11 +104,7 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenTryingToUnlock1Strict()
-        external
-        givenStrictModeIsSet
-        givenDidntLockAnythingStrict
-    {
+    function test_WhenTryingToUnlock1Strict() external givenStrictModeIsSet givenDidntLockAnythingStrict {
         // It Should do nothing
         vm.skip(true);
     }
@@ -155,11 +113,7 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenTryingToUnlock2Strict()
-        external
-        givenStrictModeIsSet
-        givenLockedButDidntVoteAnywhereStrict
-    {
+    function test_WhenTryingToUnlock2Strict() external givenStrictModeIsSet givenLockedButDidntVoteAnywhereStrict {
         // It Should unlock and refund the full amount right away
         vm.skip(true);
     }
@@ -198,11 +152,7 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenTryingToUnlock1Flexible()
-        external
-        givenFlexibleModeIsSet
-        givenDidntLockAnythingFlexible
-    {
+    function test_WhenTryingToUnlock1Flexible() external givenFlexibleModeIsSet givenDidntLockAnythingFlexible {
         // It Should do nothing
         vm.skip(true);
     }
@@ -293,11 +243,7 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenProposalVoterCallsUnlockReleased()
-        external
-        givenAProposalHasEnded
-        whenAfterReleaseLockIsCalled
-    {
+    function test_WhenProposalVoterCallsUnlockReleased() external givenAProposalHasEnded whenAfterReleaseLockIsCalled {
         // It Should allow voters from that proposal to unlock right away
         // It Should revert on voters who have any other unreleased proposal votes
         vm.skip(true);

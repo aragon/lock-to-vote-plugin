@@ -28,10 +28,7 @@ contract LockToVoteTest is AragonTest {
         _;
     }
 
-    function test_RevertWhen_UpdateSettingsWithoutThePermission()
-        external
-        whenCallingUpdateSettings
-    {
+    function test_RevertWhen_UpdateSettingsWithoutThePermission() external whenCallingUpdateSettings {
         // It should revert
         vm.skip(true);
     }

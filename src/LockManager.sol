@@ -42,16 +42,10 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Raised when attempting to unlock while active votes are cast in strict mode
     error LocksStillActive();
 
-    constructor(
-        IDAO _dao,
-        LockManagerSettings memory _settings,
-        ILockToVote _plugin,
-        IERC20 _token
-    ) DaoAuthorizable(_dao) {
-        if (
-            _settings.unlockMode != UnlockMode.STRICT &&
-            _settings.unlockMode != UnlockMode.EARLY
-        ) {
+    constructor(IDAO _dao, LockManagerSettings memory _settings, ILockToVote _plugin, IERC20 _token)
+        DaoAuthorizable(_dao)
+    {
+        if (_settings.unlockMode != UnlockMode.STRICT && _settings.unlockMode != UnlockMode.EARLY) {
             revert InvalidUnlockMode();
         }
 
@@ -78,10 +72,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function canVote(
-        uint256 _proposalId,
-        address _voter
-    ) external view returns (bool) {
+    function canVote(uint256 _proposalId, address _voter) external view returns (bool) {
         return plugin.canVote(_proposalId, _voter);
     }
 
@@ -113,7 +104,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
             revert InvalidPluginAddress();
         }
 
-        for (uint _i; _i < knownProposalIds.length; ) {
+        for (uint256 _i; _i < knownProposalIds.length;) {
             if (knownProposalIds[_i] == _proposalId) {
                 _removeKnownProposalId(_i);
                 return;
@@ -138,9 +129,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
         uint256 _newVotingPower = lockedBalances[msg.sender];
         if (_newVotingPower == 0) {
             revert NoBalance();
-        } else if (
-            _newVotingPower == plugin.usedVotingPower(_proposalId, msg.sender)
-        ) {
+        } else if (_newVotingPower == plugin.usedVotingPower(_proposalId, msg.sender)) {
             return;
         }
 
@@ -149,7 +138,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     function _hasActiveLocks() internal returns (bool _activeLocks) {
         uint256 _proposalCount = knownProposalIds.length;
-        for (uint256 _i; _i < _proposalCount; ) {
+        for (uint256 _i; _i < _proposalCount;) {
             if (!plugin.isProposalOpen(knownProposalIds[_i])) {
                 _removeKnownProposalId(_i);
                 _proposalCount = knownProposalIds.length;
@@ -175,7 +164,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     function _withdrawActiveVotingPower() internal {
         uint256 _proposalCount = knownProposalIds.length;
-        for (uint256 _i; _i < _proposalCount; ) {
+        for (uint256 _i; _i < _proposalCount;) {
             if (!plugin.isProposalOpen(knownProposalIds[_i])) {
                 _removeKnownProposalId(_i);
                 _proposalCount = knownProposalIds.length;
@@ -200,8 +189,8 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @dev Cleaning up ended proposals, otherwise they would pile up and make unlocks more and more gas costly over time
-    function _removeKnownProposalId(uint _arrayIndex) internal {
-        uint _lastItemIdx = knownProposalIds.length - 1;
+    function _removeKnownProposalId(uint256 _arrayIndex) internal {
+        uint256 _lastItemIdx = knownProposalIds.length - 1;
 
         // Swap the current item with the last, if needed
         if (_arrayIndex < _lastItemIdx) {

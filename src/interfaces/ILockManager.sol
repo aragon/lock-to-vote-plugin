@@ -52,10 +52,7 @@ interface ILockManager {
     /// @param voter The account address to be checked.
     /// @return Returns true if the account is allowed to vote.
     /// @dev The function assumes that the queried proposal exists.
-    function canVote(
-        uint256 proposalId,
-        address voter
-    ) external view returns (bool);
+    function canVote(uint256 proposalId, address voter) external view returns (bool);
 
     /// @notice If the mode allows it, releases all active locks placed on active proposals and transfers msg.sender's locked balance back. Depending on the current mode, it withdraws only if no locks are being used in active proposals.
     function unlock() external;
