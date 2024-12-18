@@ -1,10 +1,10 @@
-# Lock to Vote Plugin - OSx
+# Lock to Vote Plugin
 
-This reposity contains the codebase of the Lock to Vote plugin, along with its helper contract.
+NOTE: This is a work in progress plugin, early alpha stage. The contracts haven't been reviewed, tested or audited yet. DO NOT USE on any serious deployment.
+
+This reposity contains the codebase of the Lock to Vote plugin for OSx, along with its helper contract.
 
 ## Overview
-
-This is a work in progress
 
 ## Get Started
 

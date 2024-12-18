@@ -2,17 +2,17 @@
 
 pragma solidity ^0.8.17;
 
-import {IDAO} from "@aragon/osx-commons-contracts/dao/IDAO.sol";
-import {Action} from "@aragon/osx-commons-contracts/executors/IExecutor.sol";
+import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
+import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/plugin/PluginUUPSUpgradeable.sol";
-import {IPlugin} from "@aragon/osx-commons-contracts/plugin/IPlugin.sol";
+import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
+import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 
 /// @notice A container for proposal-related information.
 /// @param executed Whether the proposal is executed or not.
 /// @param parameters The proposal parameters at the time of the proposal creation.
 /// @param approvalTally The vote tally of the proposal.
-/// @param votes The voting power cast by each voter.
+/// @param approvals The voting power cast by each voter.
 /// @param actions The actions to be executed when the proposal passes.
 /// @param allowFailureMap A bitmap allowing the proposal to succeed, even if individual actions might revert.
 ///     If the bit at index `i` is 1, the proposal succeeds even if the `i`th action reverts.
@@ -24,7 +24,7 @@ struct Proposal {
     bool executed;
     ProposalParameters parameters;
     uint256 approvalTally;
-    mapping(address => uint256) votes;
+    mapping(address => uint256) approvals;
     Action[] actions;
     uint256 allowFailureMap;
     IPlugin.TargetConfig targetConfig;
@@ -52,11 +52,22 @@ struct LockToVoteSettings {
 
 /// @title ILockToVote
 /// @author Aragon X
-/// @notice
+/// @notice Governance plugin allowing token holders to use tokens locked without a snapshot requirement and engage in proposals immediately
 interface ILockToVote {
     /// @notice Returns the address of the token contract used to determine the voting power.
     /// @return The token used for voting.
     function votingToken() external view returns (IERC20);
+
+    /// @notice Internal function to check if a proposal is still open.
+    /// @param _proposalId The ID of the proposal.
+    /// @return True if the proposal is open, false otherwise.
+    function isProposalOpen(uint256 _proposalId) external view returns (bool);
+
+    /// @notice Returns wether the given address can vote or increase the amount of tokens assigned to a proposal
+    function canVote(
+        uint256 proposalId,
+        address voter
+    ) external view returns (bool);
 
     /// @notice Registers an approval vote for the given proposal.
     /// @param proposalId The ID of the proposal to vote on.
@@ -83,18 +94,19 @@ interface ILockToVote {
         address voter
     ) external view returns (uint256);
 
-    /// @notice Checks if the amount of locked votes for the given proposal is greater than the approval threshold.
-    /// @param proposalId The ID of the proposal.
-    /// @return Returns `true` if the total approval power against the proposal is greater or equal than the threshold and `false` otherwise.
-    function isMinApprovalReached(
-        uint256 proposalId
-    ) external view returns (bool);
-
-    /// @notice If the given proposal is no longer active, it allows to notify the manager.
-    /// @param proposalId The ID of the proposal to clean up for.
-    function releaseLock(uint256 proposalId) external;
+    /// @notice Updates the voting settings, which will be applied to the next proposal being created.
+    /// @param newSettings The new settings, including the minimum approval ratio and the minimum proposal duration.
+    function updatePluginSettings(
+        LockToVoteSettings calldata newSettings
+    ) external;
 
     error NoVotingPower();
     error ProposalAlreadyExists(uint256 proposalId);
     error DateOutOfBounds(uint256 limit, uint256 actual);
+    error VoteCastForbidden(uint256 proposalId, address voter);
+    error ExecutionForbidden(uint256 proposalId);
+
+    event VoteCast(uint256 proposalId, address voter, uint256 newVotingPower);
+    event VoteCleared(uint256 proposalId, address voter);
+    event Executed(uint256 proposalId);
 }

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.13;
 
 import {ILockManager, LockManagerSettings, UnlockMode} from "./interfaces/ILockManager.sol";
-import {IDAO} from "@aragon/osx/core/dao/IDAO.sol";
-import {DaoAuthorizable} from "@aragon/osx/core/plugin/dao-authorizable/DaoAuthorizable.sol";
+import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
+import {DaoAuthorizable} from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizable.sol";
 import {ILockToVote} from "./interfaces/ILockToVote.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -18,7 +18,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     IERC20 public immutable token;
 
     /// @notice Keeps track of the amount of tokens locked by address
-    mapping(address => uint256) lockedBalances;
+    mapping(address => uint256) public lockedBalances;
 
     /// @notice Keeps a list of the known active proposal ID's
     /// @dev Executed proposals will be actively reported, but defeated proposals will need to be garbage collected over time.
@@ -73,21 +73,16 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
+    function vote(uint256 _proposalId) public {
+        _vote(_proposalId);
+    }
+
+    /// @inheritdoc ILockManager
     function canVote(
         uint256 _proposalId,
         address _voter
     ) external view returns (bool) {
-        uint256 availableBalance = lockedBalances[_voter] -
-            plugin.usedVotingPower(_proposalId, _voter);
-        if (availableBalance == 0) return false;
-
-        (bool open, bool executed, ) = plugin.getProposal(_proposalId);
-        return !executed && open;
-    }
-
-    /// @inheritdoc ILockManager
-    function vote(uint256 _proposalId) public {
-        _vote(_proposalId);
+        return plugin.canVote(_proposalId, _voter);
     }
 
     /// @inheritdoc ILockManager
@@ -152,11 +147,10 @@ contract LockManager is ILockManager, DaoAuthorizable {
         plugin.vote(_proposalId, msg.sender, _newVotingPower);
     }
 
-    function _hasActiveLocks() internal returns (bool) {
+    function _hasActiveLocks() internal returns (bool _activeLocks) {
         uint256 _proposalCount = knownProposalIds.length;
         for (uint256 _i; _i < _proposalCount; ) {
-            (bool open, ) = plugin.getProposal(knownProposalIds[_i]);
-            if (!open) {
+            if (!plugin.isProposalOpen(knownProposalIds[_i])) {
                 _removeKnownProposalId(_i);
                 _proposalCount = knownProposalIds.length;
 
@@ -182,8 +176,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     function _withdrawActiveVotingPower() internal {
         uint256 _proposalCount = knownProposalIds.length;
         for (uint256 _i; _i < _proposalCount; ) {
-            (bool open, ) = plugin.getProposal(knownProposalIds[_i]);
-            if (!open) {
+            if (!plugin.isProposalOpen(knownProposalIds[_i])) {
                 _removeKnownProposalId(_i);
                 _proposalCount = knownProposalIds.length;
 

@@ -2,14 +2,12 @@
 pragma solidity ^0.8.17;
 
 import {Script, console} from "forge-std/Script.sol";
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
+import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
-import {GovernanceERC20} from "@aragon/osx/token/ERC20/governance/GovernanceERC20.sol";
-import {GovernanceWrappedERC20} from "@aragon/osx/token/ERC20/governance/GovernanceWrappedERC20.sol";
 import {LockToVotePluginSetup} from "../src/setup/LockToVotePluginSetup.sol";
-import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
-import {PluginSetupProcessor} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
-import {GovernanceERC20Mock} from "../test/mocks/GovernanceERC20Mock.sol";
+import {PluginRepoFactory} from "@aragon/osx/src/framework/plugin/repo/PluginRepoFactory.sol";
+import {PluginSetupProcessor} from "@aragon/osx/src/framework/plugin/setup/PluginSetupProcessor.sol";
+import {TestToken} from "../test/mocks/TestToken.sol";
 
 contract Deploy is Script {
     LockToVotePluginSetup lockToVotePluginSetup;

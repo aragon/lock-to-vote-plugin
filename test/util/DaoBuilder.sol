@@ -1,13 +1,12 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
+import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {createProxyAndCall} from "./proxy.sol";
 import {ALICE_ADDRESS} from "../constants.sol";
 import {LockToVotePlugin} from "../../src/LockToVotePlugin.sol";
 import {LockManager} from "../../src/LockManager.sol";
-import {GovernanceERC20Mock} from "../mocks/GovernanceERC20Mock.sol";
 
 contract DaoBuilder is Test {
     // address immutable DAO_BASE = address(new DAO());

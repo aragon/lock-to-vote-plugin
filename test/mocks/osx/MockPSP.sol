@@ -4,16 +4,14 @@ pragma solidity ^0.8.17;
 
 import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 
-import {DAO, IDAO} from "@aragon/osx/core/dao/DAO.sol";
-import {PermissionLib} from "@aragon/osx/core/permission/PermissionLib.sol";
-import {PluginUUPSUpgradeable} from "@aragon/osx/core/plugin/PluginUUPSUpgradeable.sol";
-import {IPlugin} from "@aragon/osx/core/plugin/IPlugin.sol";
+import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
+import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
+import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
+import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 
-import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
-
-import {IPluginSetup} from "@aragon/osx/framework/plugin/setup/IPluginSetup.sol";
-import {PluginSetup} from "@aragon/osx/framework/plugin/setup/PluginSetup.sol";
-import {PluginSetupRef, hashHelpers, hashPermissions, _getPreparedSetupId, _getAppliedSetupId, _getPluginInstallationId, PreparationType} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
+import {PluginRepo} from "@aragon/osx/src/framework/plugin/repo/PluginRepo.sol";
+import {PluginSetup, IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/PluginSetup.sol";
+import {PluginSetupRef, hashHelpers, hashPermissions, _getPreparedSetupId, _getAppliedSetupId, _getPluginInstallationId, PreparationType} from "@aragon/osx/src/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
 
 /// @title PluginSetupProcessor
 /// @author Aragon Association - 2022-2023

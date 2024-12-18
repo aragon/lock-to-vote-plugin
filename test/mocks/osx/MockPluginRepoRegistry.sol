@@ -2,9 +2,9 @@
 
 pragma solidity 0.8.17;
 
-import {IDAO} from "@aragon/osx/core/dao/IDAO.sol";
-import {InterfaceBasedRegistry} from "@aragon/osx/test/utils/InterfaceBasedRegistryMock.sol";
-import {IPluginRepo} from "@aragon/osx/framework/plugin/repo/IPluginRepo.sol";
+import {IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
+import {InterfaceBasedRegistry} from "@aragon/osx/src/test/utils/InterfaceBasedRegistryMock.sol";
+import {IPluginRepo} from "@aragon/osx/src/framework/plugin/repo/IPluginRepo.sol";
 
 /// @title MockPluginRepoRegistry
 /// @author Aragon Association - 2022-2023
@@ -41,22 +41,19 @@ contract MockPluginRepoRegistry is InterfaceBasedRegistry {
     /// @notice Registers a plugin repository with a subdomain and address.
     /// @param subdomain The subdomain of the PluginRepo.
     /// @param pluginRepo The address of the PluginRepo contract.
-    function registerPluginRepo(string calldata subdomain, address pluginRepo) external
-    // auth(REGISTER_PLUGIN_REPO_PERMISSION_ID)
-    {
+    function registerPluginRepo(
+        string calldata subdomain,
+        address pluginRepo // auth(REGISTER_PLUGIN_REPO_PERMISSION_ID)
+    ) external {
         // if (!(bytes(subdomain).length > 0)) {
         //     revert EmptyPluginRepoSubdomain();
         // }
-
         // if (!isSubdomainValid(subdomain)) {
         //     revert InvalidPluginSubdomain({subdomain: subdomain});
         // }
-
         // bytes32 labelhash = keccak256(bytes(subdomain));
         // subdomainRegistrar.registerSubnode(labelhash, pluginRepo);
-
         // _register(pluginRepo);
-
         // emit PluginRepoRegistered(subdomain, pluginRepo);
     }
 
