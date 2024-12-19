@@ -6,16 +6,20 @@ import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {DaoAuthorizable} from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizable.sol";
 import {ILockToVote} from "./interfaces/ILockToVote.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /// @title LockManager
 /// @author Aragon X 2024
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 contract LockManager is ILockManager, DaoAuthorizable {
+    /// @notice The ID of the permission required to call the `updateVotingSettings` function.
+    bytes32 public constant UPDATE_SETTINGS_PERMISSION_ID = keccak256("UPDATE_SETTINGS_PERMISSION");
+
     /// @notice The current LockManager settings
     LockManagerSettings public settings;
 
     /// @notice The address of the lock to vote plugin to use
-    ILockToVote public immutable plugin;
+    ILockToVote public plugin;
 
     /// @notice The address of the token contract
     IERC20 public immutable token;
@@ -48,19 +52,14 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Raised when attempting to unlock while active votes are cast in strict mode
     error LocksStillActive();
 
-    constructor(
-        IDAO _dao,
-        LockManagerSettings memory _settings,
-        ILockToVote _plugin,
-        IERC20 _token,
-        IERC20 _underlyingToken
-    ) DaoAuthorizable(_dao) {
+    constructor(IDAO _dao, LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken)
+        DaoAuthorizable(_dao)
+    {
         if (_settings.unlockMode != UnlockMode.STRICT && _settings.unlockMode != UnlockMode.EARLY) {
             revert InvalidUnlockMode();
         }
 
         settings.unlockMode = _settings.unlockMode;
-        plugin = _plugin;
         token = _token;
         underlyingTokenAddress = _underlyingToken;
     }
@@ -123,11 +122,21 @@ contract LockManager is ILockManager, DaoAuthorizable {
         }
     }
 
+    /// @inheritdoc ILockManager
     function underlyingToken() external view returns (IERC20) {
         if (address(underlyingTokenAddress) == address(0)) {
             return token;
         }
         return underlyingTokenAddress;
+    }
+
+    /// @inheritdoc ILockManager
+    function setPluginAddress(ILockToVote _plugin) public auth(UPDATE_SETTINGS_PERMISSION_ID) {
+        if (!IERC165(address(_plugin)).supportsInterface(type(ILockToVote).interfaceId)) {
+            revert InvalidPlugin();
+        }
+
+        plugin = _plugin;
     }
 
     // Internal

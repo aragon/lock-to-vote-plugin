@@ -193,6 +193,26 @@ LockManagerTest:
               - it: Should allow voters from that proposal to unlock right away
               - it: Should revert on voters who have any other unreleased proposal votes
 
+  - when: Calling plugin()
+    then:
+      - it: Should return the right address
+
+  - when: Calling token()
+    then:
+      - it: Should return the right address
+
+  - given: No underlying token
+    then:
+      - when: Calling underlyingToken() empty
+        then:
+          - it: Should return the token address
+
+  - given: Underlying token defined
+    then:
+      - when: Calling underlyingToken() set
+        then:
+          - it: Should return the right address
+
   - given: Permissions
     then:
       - it: Should revert if proposalEnded is called by an incompatible plugin

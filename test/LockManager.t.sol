@@ -1,9 +1,42 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.17;
 
-import {Test} from "forge-std/Test.sol";
+import {AragonTest} from "./util/AragonTest.sol";
+import {DaoBuilder} from "./util/DaoBuilder.sol";
+import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
+import {createProxyAndCall} from "../src/util/proxy.sol";
+import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
+import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
+import {LockToVotePlugin} from "../src/LockToVotePlugin.sol";
+import {LockManagerSettings, UnlockMode} from "../src/interfaces/ILockManager.sol";
+import {LockManager} from "../src/LockManager.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract LockManagerTest is Test {
+contract LockManagerTest is AragonTest {
+    DaoBuilder builder;
+    DAO dao;
+    LockToVotePlugin plugin;
+    LockManager lockManager;
+    IERC20 lockableToken;
+    IERC20 underlyingToken;
+
+    address immutable LOCK_TO_VOTE_BASE = address(new LockToVotePlugin());
+    address immutable LOCK_MANAGER_BASE = address(
+        new LockManager(
+            IDAO(address(0)), LockManagerSettings(UnlockMode.STRICT), IERC20(address(0)), IERC20(address(0))
+        )
+    );
+
+    function setUp() public {
+        vm.startPrank(alice);
+        vm.warp(1 days);
+        vm.roll(100);
+
+        builder = new DaoBuilder();
+        (dao, plugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).build();
+    }
+
     modifier givenDeployingTheContract() {
         _;
     }
@@ -344,6 +377,34 @@ contract LockManagerTest is Test {
     {
         // It Should allow voters from that proposal to unlock right away
         // It Should revert on voters who have any other unreleased proposal votes
+        vm.skip(true);
+    }
+
+    function test_WhenCallingPlugin() external {
+        // It Should return the right address
+        vm.skip(true);
+    }
+
+    function test_WhenCallingToken() external {
+        // It Should return the right address
+        vm.skip(true);
+    }
+
+    modifier givenNoUnderlyingToken() {
+        _;
+    }
+
+    function test_WhenCallingUnderlyingTokenEmpty() external givenNoUnderlyingToken {
+        // It Should return the token address
+        vm.skip(true);
+    }
+
+    modifier givenUnderlyingTokenDefined() {
+        _;
+    }
+
+    function test_WhenCallingUnderlyingTokenSet() external givenUnderlyingTokenDefined {
+        // It Should return the right address
         vm.skip(true);
     }
 
