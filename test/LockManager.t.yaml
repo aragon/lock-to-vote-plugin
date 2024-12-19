@@ -8,19 +8,16 @@ LockManagerTest:
         then:
           - it: Registers the DAO address
           - it: Stores the given settings
-          - it: Stores the given plugin and token addresses
+          - it: Stores the given token addresses
 
-  - when: calling updateSettings
+  - when: calling setPluginAddress
     and:
-      - when: updateSettings without the permission
+      - when: setPluginAddress without the permission
         then:
           - it: should revert
-      - when: updateSettings with the permission
+      - when: setPluginAddress with the permission
         then:
-          - it: should update the mode
-      - when: Calling getSettings
-        then:
-          - it: Should return the right value
+          - it: should update the address
 
   - when: calling supportsInterface
     then:

@@ -52,6 +52,12 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Raised when attempting to unlock while active votes are cast in strict mode
     error LocksStillActive();
 
+    /// @notice Thrown when trying to set an invalid contract as the plugin
+    error InvalidPlugin();
+
+    /// @notice Thrown when trying to define the address of the plugin after it already was
+    error CannotUpdatePlugin();
+
     constructor(IDAO _dao, LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken)
         DaoAuthorizable(_dao)
     {
@@ -134,6 +140,8 @@ contract LockManager is ILockManager, DaoAuthorizable {
     function setPluginAddress(ILockToVote _plugin) public auth(UPDATE_SETTINGS_PERMISSION_ID) {
         if (!IERC165(address(_plugin)).supportsInterface(type(ILockToVote).interfaceId)) {
             revert InvalidPlugin();
+        } else if (address(plugin) != address(0)) {
+            revert CannotUpdatePlugin();
         }
 
         plugin = _plugin;

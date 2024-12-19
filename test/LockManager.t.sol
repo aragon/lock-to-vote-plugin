@@ -27,6 +27,8 @@ contract LockManagerTest is AragonTest {
         )
     );
 
+    error InvalidUnlockMode();
+
     function setUp() public {
         vm.startPrank(alice);
         vm.warp(1 days);
@@ -43,33 +45,94 @@ contract LockManagerTest is AragonTest {
 
     function test_RevertWhen_ConstructorHasInvalidUnlockMode() external givenDeployingTheContract {
         // It Should revert
-        vm.skip(true);
+        vm.expectRevert();
+        new LockManager(
+            IDAO(address(0)), LockManagerSettings(UnlockMode(uint8(2))), IERC20(address(0)), IERC20(address(0))
+        );
+
+        vm.expectRevert();
+        new LockManager(
+            IDAO(address(0)), LockManagerSettings(UnlockMode(uint8(0))), IERC20(address(0)), IERC20(address(0))
+        );
+
+        // OK
+        new LockManager(
+            IDAO(address(0)), LockManagerSettings(UnlockMode.STRICT), IERC20(address(0)), IERC20(address(0))
+        );
+        new LockManager(IDAO(address(0)), LockManagerSettings(UnlockMode.EARLY), IERC20(address(0)), IERC20(address(0)));
     }
 
     function test_WhenConstructorWithValidParams() external givenDeployingTheContract {
         // It Registers the DAO address
         // It Stores the given settings
-        // It Stores the given plugin and token addresses
-        vm.skip(true);
+        // It Stores the given token addresses
+
+        // 1
+        lockManager = new LockManager(
+            IDAO(address(1234)), LockManagerSettings(UnlockMode.STRICT), IERC20(address(2345)), IERC20(address(3456))
+        );
+        assertEq(address(lockManager.dao()), address(1234));
+        assertEq(address(lockManager.token()), address(2345));
+        assertEq(address(lockManager.underlyingToken()), address(3456));
+
+        // 2
+        lockManager = new LockManager(
+            IDAO(address(5555)), LockManagerSettings(UnlockMode.EARLY), IERC20(address(6666)), IERC20(address(7777))
+        );
+        assertEq(address(lockManager.dao()), address(5555));
+        assertEq(address(lockManager.token()), address(6666));
+        assertEq(address(lockManager.underlyingToken()), address(7777));
     }
 
-    modifier whenCallingUpdateSettings() {
+    modifier whenCallingSetPluginAddress() {
         _;
     }
 
-    function test_RevertWhen_UpdateSettingsWithoutThePermission() external whenCallingUpdateSettings {
+    function test_RevertWhen_SetPluginAddressWithoutThePermission() external whenCallingSetPluginAddress {
         // It should revert
-        vm.skip(true);
+
+        (, LockToVotePlugin plugin2,,,) = builder.build();
+        (, LockToVotePlugin plugin3,,,) = builder.build();
+
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+
+        // 1
+        vm.expectRevert();
+        lockManager.setPluginAddress(plugin2);
+
+        // 2
+        vm.expectRevert();
+        lockManager.setPluginAddress(plugin3);
+
+        // OK
+
+        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
+        lockManager.setPluginAddress(plugin2);
+
+        // OK 2
+
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
+        lockManager.setPluginAddress(plugin3);
     }
 
-    function test_WhenUpdateSettingsWithThePermission() external whenCallingUpdateSettings {
-        // It should update the mode
-        vm.skip(true);
-    }
+    function test_WhenSetPluginAddressWithThePermission() external whenCallingSetPluginAddress {
+        // It should update the address
 
-    function test_WhenCallingGetSettings() external whenCallingUpdateSettings {
-        // It Should return the right value
-        vm.skip(true);
+        (, LockToVotePlugin plugin2,,,) = builder.build();
+        (, LockToVotePlugin plugin3,,,) = builder.build();
+
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
+        lockManager.setPluginAddress(plugin2);
+        assertEq(address(lockManager.plugin()), address(plugin2));
+
+        // OK 2
+
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
+        lockManager.setPluginAddress(plugin3);
+        assertEq(address(lockManager.plugin()), address(plugin3));
     }
 
     function test_WhenCallingSupportsInterface() external {

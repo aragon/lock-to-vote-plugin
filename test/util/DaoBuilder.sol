@@ -107,6 +107,10 @@ contract DaoBuilder is Test {
                     )
                 )
             );
+
+            dao.grant(address(helper), address(this), helper.UPDATE_SETTINGS_PERMISSION_ID());
+            helper.setPluginAddress(plugin);
+            dao.revoke(address(helper), address(this), helper.UPDATE_SETTINGS_PERMISSION_ID());
         }
 
         // The plugin can execute on the DAO

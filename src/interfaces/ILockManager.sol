@@ -67,7 +67,4 @@ interface ILockManager {
 
     /// @notice Defines the given plugin address as the target for voting
     function setPluginAddress(ILockToVote _plugin) external;
-
-    /// @notice Thrown then trying to set an invalid contract as the plugin
-    error InvalidPlugin();
 }
