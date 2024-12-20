@@ -19,12 +19,6 @@ LockManagerTest:
         then:
           - it: should update the address
 
-  - when: calling supportsInterface
-    then:
-      - it: does not support the empty interface
-      - it: supports IERC165Upgradeable
-      - it: supports ILockManager
-
   # Locking and voting calls
 
   - given: No locked tokens

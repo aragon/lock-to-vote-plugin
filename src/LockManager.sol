@@ -32,7 +32,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     /// @notice Keeps a list of the known active proposal ID's
     /// @dev Executed proposals will be actively reported, but defeated proposals will need to be garbage collected over time.
-    uint256[] knownProposalIds;
+    uint256[] public knownProposalIds;
 
     /// @notice Emitted when a token holder locks funds into the manager contract
     event BalanceLocked(address voter, uint256 amount);

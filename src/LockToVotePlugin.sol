@@ -89,7 +89,7 @@ contract LockToVotePlugin is
     /// @dev Requires the `CREATE_PROPOSAL_PERMISSION_ID` permission.
     function createProposal(
         bytes calldata _metadata,
-        Action[] calldata _actions,
+        Action[] memory _actions,
         uint64 _startDate,
         uint64 _endDate,
         bytes memory _data
