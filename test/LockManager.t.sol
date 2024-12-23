@@ -524,6 +524,9 @@ contract LockManagerTest is AragonTest {
     }
 
     modifier givenStrictModeIsSet() {
+        Action[] memory _actions = new Action[](0);
+        proposalId = plugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
         _;
     }
 
@@ -533,7 +536,14 @@ contract LockManagerTest is AragonTest {
 
     function test_WhenTryingToUnlock1Strict() external givenStrictModeIsSet givenDidntLockAnythingStrict {
         // It Should do nothing
-        vm.skip(true);
+
+        (UnlockMode mode) = lockManager.settings();
+        assertEq(uint8(mode), uint8(UnlockMode.STRICT));
+
+        // vm.startPrank(alice);
+        uint256 initialBalance = lockableToken.balanceOf(alice);
+        lockManager.unlock();
+        assertEq(lockableToken.balanceOf(alice), initialBalance);
     }
 
     modifier givenLockedButDidntVoteAnywhereStrict() {
@@ -542,7 +552,14 @@ contract LockManagerTest is AragonTest {
 
     function test_WhenTryingToUnlock2Strict() external givenStrictModeIsSet givenLockedButDidntVoteAnywhereStrict {
         // It Should unlock and refund the full amount right away
-        vm.skip(true);
+
+        // vm.startPrank(alice);
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lock();
+        
+        uint256 initialBalance = lockableToken.balanceOf(alice);
+        lockManager.unlock();
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
     }
 
     modifier givenLockedButVotedOnEndedOrExecutedProposalsStrict() {
@@ -555,7 +572,20 @@ contract LockManagerTest is AragonTest {
         givenLockedButVotedOnEndedOrExecutedProposalsStrict
     {
         // It Should unlock and refund the full amount right away
-        vm.skip(true);
+
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId);
+
+        vm.expectRevert(LockManager.LocksStillActive.selector);
+        lockManager.unlock();
+
+        vm.startPrank(address(plugin));
+        lockManager.proposalEnded(proposalId);
+        
+        vm.startPrank(alice);
+        uint256 initialBalance = lockableToken.balanceOf(alice);
+        lockManager.unlock();
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
     }
 
     modifier givenLockedAnvVotedOnCurrentlyActiveProposalsStrict() {
@@ -568,10 +598,23 @@ contract LockManagerTest is AragonTest {
         givenLockedAnvVotedOnCurrentlyActiveProposalsStrict
     {
         // It Should revert
-        vm.skip(true);
+
+        // vm.startPrank(alice);
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId);
+
+        vm.expectRevert(LockManager.LocksStillActive.selector);
+        lockManager.unlock();
     }
 
     modifier givenFlexibleModeIsSet() {
+        (dao, plugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
+            .withUnlockMode(UnlockMode.EARLY).build();
+
+        Action[] memory _actions = new Action[](0);
+        proposalId = plugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
         _;
     }
 
@@ -581,7 +624,11 @@ contract LockManagerTest is AragonTest {
 
     function test_WhenTryingToUnlock1Flexible() external givenFlexibleModeIsSet givenDidntLockAnythingFlexible {
         // It Should do nothing
-        vm.skip(true);
+
+        // vm.startPrank(alice);
+        uint256 initialBalance = lockableToken.balanceOf(alice);
+        lockManager.unlock();
+        assertEq(lockableToken.balanceOf(alice), initialBalance);
     }
 
     modifier givenLockedButDidntVoteAnywhereFlexible() {
@@ -594,7 +641,14 @@ contract LockManagerTest is AragonTest {
         givenLockedButDidntVoteAnywhereFlexible
     {
         // It Should unlock and refund the full amount right away
-        vm.skip(true);
+
+        // vm.startPrank(alice);
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lock();
+
+        uint256 initialBalance = lockableToken.balanceOf(alice);
+        lockManager.unlock();
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
     }
 
     modifier givenLockedButVotedOnEndedOrExecutedProposalsFlexible() {
@@ -607,7 +661,17 @@ contract LockManagerTest is AragonTest {
         givenLockedButVotedOnEndedOrExecutedProposalsFlexible
     {
         // It Should unlock and refund the full amount right away
-        vm.skip(true);
+
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId);
+
+        vm.startPrank(address(plugin));
+        lockManager.proposalEnded(proposalId);
+
+        vm.startPrank(alice);
+        uint256 initialBalance = lockableToken.balanceOf(alice);
+        lockManager.unlock();
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
     }
 
     modifier givenLockedAnvVotedOnCurrentlyActiveProposalsFlexible() {
@@ -621,7 +685,17 @@ contract LockManagerTest is AragonTest {
     {
         // It Should deallocate the existing voting power from active proposals
         // It Should unlock and refund the full amount
-        vm.skip(true);
+
+        // vm.startPrank(alice);
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId);
+        assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
+
+        uint256 initialBalance = lockableToken.balanceOf(alice);
+        lockManager.unlock();
+
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
+        assertEq(plugin.usedVotingPower(proposalId, alice), 0);
     }
 
     modifier givenAProposalHasEnded() {
@@ -643,7 +717,17 @@ contract LockManagerTest is AragonTest {
         givenProposalVoterCallsUnlockNoProposalEnded
     {
         // It Should allow voters from that proposal to unlock right away
-        vm.skip(true);
+
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId);
+
+        vm.startPrank(address(plugin));
+        lockManager.proposalEnded(proposalId);
+        
+        vm.startPrank(alice);
+        uint256 initialBalance = lockableToken.balanceOf(alice);
+        lockManager.unlock();
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
     }
 
     function test_WhenDefeatedProposal()
@@ -653,7 +737,16 @@ contract LockManagerTest is AragonTest {
         givenProposalVoterCallsUnlockNoProposalEnded
     {
         // It Should allow voters from that proposal to unlock right away
-        vm.skip(true);
+
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId);
+
+        vm.warp(10 days + 1);
+
+        vm.startPrank(alice);
+        uint256 initialBalance = lockableToken.balanceOf(alice);
+        lockManager.unlock();
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
     }
 
     function test_RevertWhen_ActiveProposal()
@@ -663,7 +756,12 @@ contract LockManagerTest is AragonTest {
         givenProposalVoterCallsUnlockNoProposalEnded
     {
         // It Should revert
-        vm.skip(true);
+
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId);
+
+        vm.expectRevert(LockManager.LocksStillActive.selector);
+        lockManager.unlock();
     }
 
     modifier whenAfterProposalEndedIsCalled() {
@@ -680,21 +778,23 @@ contract LockManagerTest is AragonTest {
         vm.skip(true);
     }
 
-    function test_WhenCallingPlugin() external {
+    function test_WhenCallingPlugin() external view {
         // It Should return the right address
-        vm.skip(true);
+
+        assertEq(address(lockManager.plugin()), address(plugin));
     }
 
-    function test_WhenCallingToken() external {
+    function test_WhenCallingToken() external view {
         // It Should return the right address
-        vm.skip(true);
+
+        assertEq(address(lockManager.token()), address(lockableToken));
     }
 
     modifier givenNoUnderlyingToken() {
         _;
     }
 
-    function test_WhenCallingUnderlyingTokenEmpty() external givenNoUnderlyingToken {
+    function test_WhenCallingUnderlyingTokenEmpty() external view givenNoUnderlyingToken {
         // It Should return the token address
         vm.skip(true);
     }
@@ -703,9 +803,9 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenCallingUnderlyingTokenSet() external givenUnderlyingTokenDefined {
+    function test_WhenCallingUnderlyingTokenSet() external view givenUnderlyingTokenDefined {
         // It Should return the right address
-        vm.skip(true);
+        assertEq(address(lockManager.underlyingToken()), address(underlyingToken));
     }
 
     function test_GivenPermissions() external {

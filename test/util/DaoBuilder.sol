@@ -31,6 +31,7 @@ contract DaoBuilder is Test {
     bool onlyListed = true;
     uint32 minApprovalRatio = 1;
     uint32 minProposalDuration = 10 days;
+    UnlockMode unlockMode = UnlockMode.STRICT;
 
     function withDaoOwner(address newOwner) public returns (DaoBuilder) {
         owner = newOwner;
@@ -55,6 +56,11 @@ contract DaoBuilder is Test {
 
     function withProposer(address newProposer) public returns (DaoBuilder) {
         proposers.push(newProposer);
+        return this;
+    }
+
+    function withUnlockMode(UnlockMode newUnlockMode) public returns (DaoBuilder) {
+        unlockMode = newUnlockMode;
         return this;
     }
 
@@ -90,7 +96,7 @@ contract DaoBuilder is Test {
         {
             // Plugin and helper
 
-            helper = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+            helper = new LockManager(dao, LockManagerSettings(unlockMode), lockableToken, underlyingToken);
 
             LockToVoteSettings memory targetContractSettings =
                 LockToVoteSettings({minApprovalRatio: minApprovalRatio, minProposalDuration: minProposalDuration});
