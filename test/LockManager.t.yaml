@@ -12,6 +12,9 @@ LockManagerTest:
 
   - when: calling setPluginAddress
     and:
+      - given: Invalid plugin
+        and:
+          - it: should revert
       - when: setPluginAddress without the permission
         then:
           - it: should revert
@@ -95,7 +98,7 @@ LockManagerTest:
 
   - given: Calling lock() or lockToVote()
     then:
-      - given: Invalid plugin
+      - given: Empty plugin
         and:
           - it: Locking and voting should revert
       - given: Invalid token

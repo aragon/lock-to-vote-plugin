@@ -13,7 +13,8 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice The ID of the permission required to call the `updateVotingSettings` function.
-    bytes32 public constant UPDATE_SETTINGS_PERMISSION_ID = keccak256("UPDATE_SETTINGS_PERMISSION");
+    bytes32 public constant UPDATE_SETTINGS_PERMISSION_ID =
+        keccak256("UPDATE_SETTINGS_PERMISSION");
 
     /// @notice The current LockManager settings
     LockManagerSettings public settings;
@@ -58,10 +59,16 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Thrown when trying to define the address of the plugin after it already was
     error CannotUpdatePlugin();
 
-    constructor(IDAO _dao, LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken)
-        DaoAuthorizable(_dao)
-    {
-        if (_settings.unlockMode != UnlockMode.STRICT && _settings.unlockMode != UnlockMode.EARLY) {
+    constructor(
+        IDAO _dao,
+        LockManagerSettings memory _settings,
+        IERC20 _token,
+        IERC20 _underlyingToken
+    ) DaoAuthorizable(_dao) {
+        if (
+            _settings.unlockMode != UnlockMode.STRICT &&
+            _settings.unlockMode != UnlockMode.EARLY
+        ) {
             revert InvalidUnlockMode();
         }
 
@@ -88,7 +95,10 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function canVote(uint256 _proposalId, address _voter) external view returns (bool) {
+    function canVote(
+        uint256 _proposalId,
+        address _voter
+    ) external view returns (bool) {
         return plugin.canVote(_proposalId, _voter);
     }
 
@@ -120,7 +130,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
             revert InvalidPluginAddress();
         }
 
-        for (uint256 _i; _i < knownProposalIds.length;) {
+        for (uint256 _i; _i < knownProposalIds.length; ) {
             if (knownProposalIds[_i] == _proposalId) {
                 _removeKnownProposalId(_i);
                 return;
@@ -137,14 +147,20 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function setPluginAddress(ILockToVote _plugin) public auth(UPDATE_SETTINGS_PERMISSION_ID) {
-        if (!IERC165(address(_plugin)).supportsInterface(type(ILockToVote).interfaceId)) {
+    function setPluginAddress(
+        ILockToVote _newPluginAddress
+    ) public auth(UPDATE_SETTINGS_PERMISSION_ID) {
+        if (
+            !IERC165(address(_newPluginAddress)).supportsInterface(
+                type(ILockToVote).interfaceId
+            )
+        ) {
             revert InvalidPlugin();
         } else if (address(plugin) != address(0)) {
             revert CannotUpdatePlugin();
         }
 
-        plugin = _plugin;
+        plugin = _newPluginAddress;
     }
 
     // Internal
@@ -164,7 +180,9 @@ contract LockManager is ILockManager, DaoAuthorizable {
         uint256 _newVotingPower = lockedBalances[msg.sender];
         if (_newVotingPower == 0) {
             revert NoBalance();
-        } else if (_newVotingPower == plugin.usedVotingPower(_proposalId, msg.sender)) {
+        } else if (
+            _newVotingPower == plugin.usedVotingPower(_proposalId, msg.sender)
+        ) {
             return;
         }
 
@@ -173,7 +191,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     function _hasActiveLocks() internal returns (bool _activeLocks) {
         uint256 _proposalCount = knownProposalIds.length;
-        for (uint256 _i; _i < _proposalCount;) {
+        for (uint256 _i; _i < _proposalCount; ) {
             if (!plugin.isProposalOpen(knownProposalIds[_i])) {
                 _removeKnownProposalId(_i);
                 _proposalCount = knownProposalIds.length;
@@ -199,7 +217,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     function _withdrawActiveVotingPower() internal {
         uint256 _proposalCount = knownProposalIds.length;
-        for (uint256 _i; _i < _proposalCount;) {
+        for (uint256 _i; _i < _proposalCount; ) {
             if (!plugin.isProposalOpen(knownProposalIds[_i])) {
                 _removeKnownProposalId(_i);
                 _proposalCount = knownProposalIds.length;

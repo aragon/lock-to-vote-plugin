@@ -122,6 +122,9 @@ contract DaoBuilder is Test {
         // The plugin can execute on the DAO
         dao.grant(address(dao), address(plugin), dao.EXECUTE_PERMISSION_ID());
 
+        // The LockManager can manage the plugin
+        dao.grant(address(plugin), address(helper), plugin.LOCK_MANAGER_PERMISSION_ID());
+
         if (proposers.length > 0) {
             for (uint256 i = 0; i < proposers.length; i++) {
                 dao.grant(address(plugin), proposers[i], plugin.CREATE_PROPOSAL_PERMISSION_ID());

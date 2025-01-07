@@ -91,6 +91,15 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
+    function test_RevertGiven_InvalidPlugin() external whenCallingSetPluginAddress {
+        // It should revert
+
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
+        vm.expectRevert();
+        lockManager.setPluginAddress(LockToVotePlugin(address(0x5555)));
+    }
+
     function test_RevertWhen_SetPluginAddressWithoutThePermission() external whenCallingSetPluginAddress {
         // It should revert
 
@@ -462,15 +471,11 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_GivenInvalidPlugin() external givenCallingLockOrLockToVote {
+    function test_GivenEmptyPlugin() external givenCallingLockOrLockToVote {
         // It Locking and voting should revert
 
         lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
-        lockManager.setPluginAddress(LockToVotePlugin(address(0x5555)));
 
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        
         vm.expectRevert();
         lockManager.lockAndVote(proposalId);
 
@@ -556,7 +561,7 @@ contract LockManagerTest is AragonTest {
         // vm.startPrank(alice);
         lockableToken.approve(address(lockManager), 0.1 ether);
         lockManager.lock();
-        
+
         uint256 initialBalance = lockableToken.balanceOf(alice);
         lockManager.unlock();
         assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
@@ -609,8 +614,9 @@ contract LockManagerTest is AragonTest {
 
     modifier givenFlexibleModeIsSet() {
         (dao, plugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
-            .withUnlockMode(UnlockMode.EARLY).build();
+            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).withUnlockMode(
+            UnlockMode.EARLY
+        ).build();
 
         Action[] memory _actions = new Action[](0);
         proposalId = plugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -699,6 +705,11 @@ contract LockManagerTest is AragonTest {
     }
 
     modifier givenAProposalHasEnded() {
+        Action[] memory _actions = new Action[](0);
+        proposalId = plugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
+        vm.warp(15 days);
+        
         _;
     }
 
@@ -723,7 +734,7 @@ contract LockManagerTest is AragonTest {
 
         vm.startPrank(address(plugin));
         lockManager.proposalEnded(proposalId);
-        
+
         vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
         lockManager.unlock();
