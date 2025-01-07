@@ -438,7 +438,7 @@ contract LockManagerTest is AragonTest {
 
         // vm.startPrank(alice);
         lockManager.vote(proposalId);
-        
+
         vm.expectRevert();
         lockManager.vote(proposalId);
     }
@@ -505,7 +505,7 @@ contract LockManagerTest is AragonTest {
 
         vm.expectRevert();
         lockManager.proposalEnded(proposalId);
-        
+
         vm.startPrank(bob);
         vm.expectRevert();
         lockManager.proposalEnded(proposalId);
@@ -581,7 +581,7 @@ contract LockManagerTest is AragonTest {
 
         vm.startPrank(address(plugin));
         lockManager.proposalEnded(proposalId);
-        
+
         vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
         lockManager.unlock();
@@ -775,7 +775,31 @@ contract LockManagerTest is AragonTest {
     {
         // It Should allow voters from that proposal to unlock right away
         // It Should revert on voters who have any other unreleased proposal votes
-        vm.skip(true);
+
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId);
+
+        // proposal 2
+        Action[] memory _actions = new Action[](0);
+        uint256 proposalId2 = plugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
+        vm.startPrank(bob);
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId2);
+
+        vm.warp(2 days);
+
+        vm.startPrank(address(plugin));
+        lockManager.proposalEnded(proposalId);
+
+        vm.startPrank(alice);
+        uint256 initialBalance = lockableToken.balanceOf(alice);
+        lockManager.unlock();
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
+
+        vm.startPrank(bob);
+        vm.expectRevert(LockManager.LocksStillActive.selector);
+        lockManager.unlock();
     }
 
     function test_WhenCallingPlugin() external view {
@@ -794,9 +818,12 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenCallingUnderlyingTokenEmpty() external view givenNoUnderlyingToken {
+    function test_WhenCallingUnderlyingTokenEmpty() external givenNoUnderlyingToken {
         // It Should return the token address
+
         vm.skip(true);
+
+        // assertEq(address(lockManager.underlyingToken()), address(lockableToken));
     }
 
     modifier givenUnderlyingTokenDefined() {
