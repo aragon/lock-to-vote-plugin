@@ -86,6 +86,11 @@ contract LockToVotePlugin is
     }
 
     /// @inheritdoc IProposal
+    function customProposalParamsABI() external pure override returns (string memory) {
+        return "(uint256 allowFailureMap)";
+    }
+
+    /// @inheritdoc IProposal
     /// @dev Requires the `CREATE_PROPOSAL_PERMISSION_ID` permission.
     function createProposal(
         bytes calldata _metadata,
@@ -134,11 +139,6 @@ contract LockToVotePlugin is
         }
 
         emit ProposalCreated(proposalId, _msgSender(), _startDate, _endDate, _metadata, _actions, _allowFailureMap);
-    }
-
-    /// @inheritdoc IProposal
-    function customProposalParamsABI() external pure override returns (string memory) {
-        return "(uint256 allowFailureMap)";
     }
 
     /// @notice Returns all information for a proposal by its ID.

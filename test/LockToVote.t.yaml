@@ -1,5 +1,5 @@
 LockToVoteTest:
-  # contract lifecycle
+  # Contract lifecycle
   - when: deploying the contract
     then:
       - it: should disable the initializers
@@ -22,3 +22,167 @@ LockToVoteTest:
     then:
       - it: does not support the empty interface
       - it: supports IERC165Upgradeable
+      - it: supports IMembership
+      - it: supports ILockToVote
+
+  # Proposal lifecycle
+  - given: Proposal not created
+    and:
+      - given: No proposal creation permission
+        and:
+          - when: Calling createProposal [no perm]
+            then:
+              - it: Should revert
+      - given: Proposal creation permission granted
+        and:
+          - when: Calling createProposal [empty dates]
+            then:
+              - it: Should register the new proposal
+              - it: Should assign a unique proposalId to it
+              - it: Should register the given parameters
+              - it: Should start immediately
+              - it: Should end after minDuration
+              - it: Should emit an event
+          - when: Calling createProposal [explicit dates]
+            then:
+              - it: Should start at the given startDate
+              - it: Should revert if endDate is before minDuration
+              - it: Should end on the given endDate
+            - it: Should emit an event
+      - when: Calling the getters [not created]
+        then:
+          - it: getProposal should return empty values
+          - it: isProposalOpen should return false
+          - it: canVote should return false
+          - it: hasSucceeded should return false
+          - it: canExecute should return false
+      - when: Calling the rest of methods
+        then:
+          - it: Should revert, even with the required permissions
+
+  - given: Proposal created
+    and:
+      - when: Calling getProposal
+        then:
+          - it: Should return the right values
+      - when: Calling isProposalOpen
+        then:
+          - it: Should return true
+      - when: Calling canVote
+        then:
+          - it: Should return true when there is balance left to allocate
+      - given: No lock manager permission
+        then:
+          - when: Calling vote
+            then:
+              - it: Reverts, regardless of the balance
+          - when: Calling clearVote
+            then:
+              - it: Reverts, regardless of the balance
+      - given: Lock manager permission is granted
+        then:
+          - given: Proposal created unstarted
+            then:
+              - it: Calling vote should revert, with or without balance
+              - it: Calling clearVote should revert, with or without balance
+          - given: Proposal created and started
+            and:
+              - when: Calling vote no new locked balance
+                then:
+                  - it: Should revert
+              - when: Calling vote new locked balance
+                then:
+                  - it: Should increase the tally by the new amount
+                  - it: Should emit an event
+              - when: Calling clearVote no vote balance
+                then:
+                  - it: Should do nothing
+              - when: Calling clearVote with vote balance
+                then:
+                  - it: Should unassign the current voter's approval
+                  - it: Should decrease the proposal tally by the right amount
+                  - it: Should emit an event
+                  - it: usedVotingPower should return the right value
+      - when: Calling hasSucceeded canExecute [created]
+        then:
+          - it: hasSucceeded should return false
+          - it: canExecute should return false
+      - when: Calling execute [created]
+        then:
+          - it: Should revert, even with the required permission
+
+  - given: Proposal defeated
+    and:
+      - when: Calling the getters [defeated]
+        then:
+          - it: getProposal should return the right values
+          - it: isProposalOpen should return false
+          - it: canVote should return false
+          - it: hasSucceeded should return false
+          - it: canExecute should return false
+      - when: Calling vote or clearVote [defeated]
+        then:
+          - it: Should revert, despite having the permission
+      - when: Calling execute [defeated]
+        then:
+          - it: Should revert, with or without permission
+
+  - given: Proposal passed
+    and:
+      - when: Calling the getters [passed]
+        then:
+          - it: getProposal should return the right values
+          - it: isProposalOpen should return false
+          - it: canVote should return false
+          - it: hasSucceeded should return true
+          - it: canExecute should return true
+      - when: Calling vote or clearVote [passed]
+        then:
+          - it: Should revert, despite having the permission
+      - given: No execute proposal permission
+        and:
+          - when: Calling execute [no perm]
+            then:
+              - it: Should revert
+      - given: Execute proposal permission
+        and:
+          - when: Calling execute [passed]
+            then:
+              - it: Should execute the actions of the proposal on the target
+              - it: Should call proposalEnded on the LockManager
+              - it: Should emit an event
+
+  - given: Proposal executed
+    and:
+      - when: Calling the getters [executed]
+        then:
+          - it: getProposal should return the right values
+          - it: isProposalOpen should return false
+          - it: canVote should return false
+          - it: hasSucceeded should return false
+          - it: canExecute should return false
+      - when: Calling vote or clearVote [executed]
+        then:
+          - it: Should revert, despite having the permission
+      - when: Calling execute [executed]
+        then:
+          - it: Should revert regardless of the permission
+
+  # Membership
+  - when: Calling isMember
+    then:
+      - it: Should return true when the sender has positive balance or locked tokens
+      - it: Should return false otherwise
+
+  # Settings
+  - given: Update voting settings permission granted
+    and:
+      - when: Calling updatePluginSettings [granted]
+        then: 
+          - it: Should set the new values
+          - it: Settings() should return the right values
+  - given: No update voting settings permission
+    and:
+      - when: Calling updatePluginSettings [not granted]
+        then:
+          - it: Should revert
