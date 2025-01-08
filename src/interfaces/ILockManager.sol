@@ -61,6 +61,10 @@ interface ILockManager {
     /// @notice If the mode allows it, releases all active locks placed on active proposals and transfers msg.sender's locked balance back. Depending on the current mode, it withdraws only if no locks are being used in active proposals.
     function unlock() external;
 
+    /// @notice Called by the lock to vote plugin whenever a proposal is created. It instructs the manager to start tracking the given proposal.
+    /// @param proposalId The ID of the proposal that msg.sender is reporting as created.
+    function proposalCreated(uint256 proposalId) external;
+
     /// @notice Called by the lock to vote plugin whenever a proposal is executed (or ended). It instructs the manager to remove the proposal from the list of active proposal locks.
     /// @param proposalId The ID of the proposal that msg.sender is reporting as done.
     function proposalEnded(uint256 proposalId) external;

@@ -139,6 +139,8 @@ contract LockToVotePlugin is
         }
 
         emit ProposalCreated(proposalId, _msgSender(), _startDate, _endDate, _metadata, _actions, _allowFailureMap);
+
+        lockManager.proposalCreated(proposalId);
     }
 
     /// @notice Returns all information for a proposal by its ID.

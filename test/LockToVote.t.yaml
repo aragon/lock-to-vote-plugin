@@ -43,12 +43,14 @@ LockToVoteTest:
               - it: Should start immediately
               - it: Should end after minDuration
               - it: Should emit an event
+              - it: Should call proposalCreated on the manager
           - when: Calling createProposal [explicit dates]
             then:
               - it: Should start at the given startDate
               - it: Should revert if endDate is before minDuration
               - it: Should end on the given endDate
-            - it: Should emit an event
+              - it: Should call proposalCreated on the manager
+              - it: Should emit an event
       - when: Calling the getters [not created]
         then:
           - it: getProposal should return empty values
