@@ -29,7 +29,7 @@ contract DaoBuilder is Test {
     MintEntry[] tokenHolders;
 
     bool onlyListed = true;
-    uint32 minApprovalRatio = 1;
+    uint32 minApprovalRatio = 100000; // 10%
     uint32 minProposalDuration = 10 days;
     UnlockMode unlockMode = UnlockMode.STRICT;
 

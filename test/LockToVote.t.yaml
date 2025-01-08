@@ -9,14 +9,14 @@ LockToVoteTest:
         and:
           - it: should set the DAO address
           - it: should initialize normally
-  - given: a deployed contract
-    then:
-      - it: should refuse to initialize again
   - when: calling updateSettings
     and:
       - when: updateSettings without the permission
         then:
           - it: should revert
+      - when: updateSettings with the permission
+        then:
+          - it: should update the values
 
   - when: calling supportsInterface
     then:
@@ -170,11 +170,14 @@ LockToVoteTest:
         then:
           - it: Should revert regardless of the permission
 
-  # Membership
+  # Getters
   - when: Calling isMember
     then:
       - it: Should return true when the sender has positive balance or locked tokens
       - it: Should return false otherwise
+  - when: Calling customProposalParamsABI
+    then:
+      - it: Should return the right value
 
   # Settings
   - given: Update voting settings permission granted
