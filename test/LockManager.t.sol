@@ -721,6 +721,46 @@ contract LockManagerTest is AragonTest {
         lockManager.vote(proposalId);
     }
 
+    modifier givenProposalCreatedIsCalled() {
+        _;
+    }
+
+    function test_RevertWhen_TheCallerIsNotThePlugin_ProposalCreated()
+        external
+        givenProposalCreatedIsCalled
+    {
+        // It Should revert
+
+        vm.expectRevert();
+        lockManager.proposalCreated(12345);
+
+        vm.startPrank(bob);
+        vm.expectRevert();
+        lockManager.proposalCreated(2345);
+    }
+
+    function test_WhenTheCallerIsThePlugin_ProposalCreated()
+        external
+        givenProposalCreatedIsCalled
+    {
+        // It Removes the proposal ID from the list of known proposals
+        
+        vm.startPrank(address(plugin));
+
+        vm.expectRevert();
+        assertEq(lockManager.knownProposalIds(0), 0);
+
+        lockManager.proposalCreated(1234);
+        assertEq(lockManager.knownProposalIds(0), 1234);
+
+        // 2
+        vm.expectRevert();
+        assertEq(lockManager.knownProposalIds(1), 0);
+
+        lockManager.proposalCreated(2345);
+        assertEq(lockManager.knownProposalIds(1), 2345);
+    }
+
     modifier givenProposalEndedIsCalled() {
         Action[] memory _actions = new Action[](0);
         proposalId = plugin.createProposal(
@@ -734,7 +774,7 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_RevertWhen_TheCallerIsNotThePlugin()
+    function test_RevertWhen_TheCallerIsNotThePlugin_ProposalEnded()
         external
         givenProposalEndedIsCalled
     {
@@ -748,18 +788,18 @@ contract LockManagerTest is AragonTest {
         lockManager.proposalEnded(proposalId);
     }
 
-    function test_WhenTheCallerIsThePlugin()
+    function test_WhenTheCallerIsThePlugin_ProposalEnded()
         external
         givenProposalEndedIsCalled
     {
         // It Removes the proposal ID from the list of known proposals
 
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId);
         assertEq(lockManager.knownProposalIds(0), proposalId);
 
         vm.startPrank(address(plugin));
         lockManager.proposalEnded(proposalId);
+
+        vm.expectRevert();
         assertEq(lockManager.knownProposalIds(0), 0);
     }
 
@@ -785,15 +825,14 @@ contract LockManagerTest is AragonTest {
         givenStrictModeIsSet
         givenDidntLockAnythingStrict
     {
-        // It Should do nothing
+        // It should revert
 
         UnlockMode mode = lockManager.settings();
         assertEq(uint8(mode), uint8(UnlockMode.STRICT));
 
         // vm.startPrank(alice);
-        uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectRevert(NoBalance.selector);
         lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance);
     }
 
     modifier givenLockedButDidntVoteAnywhereStrict() {
@@ -891,12 +930,14 @@ contract LockManagerTest is AragonTest {
         givenFlexibleModeIsSet
         givenDidntLockAnythingFlexible
     {
-        // It Should do nothing
+        // It should revert
+
+        UnlockMode mode = lockManager.settings();
+        assertEq(uint8(mode), uint8(UnlockMode.EARLY));
 
         // vm.startPrank(alice);
-        uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectRevert(NoBalance.selector);
         lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance);
     }
 
     modifier givenLockedButDidntVoteAnywhereFlexible() {
@@ -964,111 +1005,6 @@ contract LockManagerTest is AragonTest {
 
         assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0);
-    }
-
-    modifier givenAProposalHasEnded() {
-        Action[] memory _actions = new Action[](0);
-        proposalId = plugin.createProposal(
-            bytes(""),
-            _actions,
-            0,
-            0,
-            bytes("")
-        );
-
-        _;
-    }
-
-    modifier givenBeforeProposalEndedIsCalled() {
-        _;
-    }
-
-    modifier givenProposalVoterCallsUnlockNoProposalEndedCall() {
-        _;
-    }
-
-    function test_WhenExecutedProposal()
-        external
-        givenAProposalHasEnded
-        givenBeforeProposalEndedIsCalled
-        givenProposalVoterCallsUnlockNoProposalEndedCall
-    {
-        // It Should allow voters from that proposal to unlock right away
-
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId);
-
-        vm.warp(10 days + 1);
-
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-        lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
-    }
-
-    function test_WhenDefeatedProposal()
-        external
-        givenAProposalHasEnded
-        givenBeforeProposalEndedIsCalled
-        givenProposalVoterCallsUnlockNoProposalEndedCall
-    {
-        // It Should allow voters from that proposal to unlock right away
-
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId);
-
-        vm.warp(10 days + 1);
-
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-        lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
-    }
-
-    modifier whenAfterProposalEndedIsCalled() {
-        _;
-    }
-
-    function test_WhenProposalVoterCallsUnlockproposalEndedCalled()
-        external
-        givenAProposalHasEnded
-        whenAfterProposalEndedIsCalled
-    {
-        // It Should allow voters from that proposal to unlock right away
-        // It Should revert on voters who have any other unreleased proposal votes
-
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId);
-
-        // Bob votes on another proposal (not ended)
-        vm.roll(block.number + 1);
-
-        Action[] memory _actions = new Action[](0);
-        uint256 proposalId2 = plugin.createProposal(
-            bytes(""),
-            _actions,
-            0,
-            0,
-            bytes("")
-        );
-
-        vm.startPrank(bob);
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId2);
-
-        vm.warp(1 days);
-
-        // Alice's proposal ends
-        vm.startPrank(address(plugin));
-        lockManager.proposalEnded(proposalId);
-
-        vm.startPrank(alice);
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-        lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
-
-        // Bob's proposal is still on
-        vm.startPrank(bob);
-        vm.expectRevert(LockManager.LocksStillActive.selector);
-        lockManager.unlock();
     }
 
     function test_WhenCallingPlugin() external view {

@@ -114,12 +114,21 @@ LockManagerTest:
           - it: Locking and voting should revert
           - it: Voting should revert
 
-  - given: ProposalEnded is called
+  - given: ProposalCreated is called
     and:
-      - when: The caller is not the plugin
+      - when: The caller is not the plugin [proposalCreated]
         then:
           - it: Should revert
-      - when: The caller is the plugin
+      - when: The caller is the plugin [proposalCreated]
+        then:
+          - it: Adds the proposal ID to the list of known proposals
+
+  - given: ProposalEnded is called
+    and:
+      - when: The caller is not the plugin [ProposalEnded]
+        then:
+          - it: Should revert
+      - when: The caller is the plugin [ProposalEnded]
         then:
           - it: Removes the proposal ID from the list of known proposals
 
@@ -130,7 +139,7 @@ LockManagerTest:
         and:
           - when: Trying to unlock [1 strict]
             then:
-              - it: Should do nothing
+              - it: Should revert
       - given: Locked but didn't vote anywhere [strict]
         then:
           - when: Trying to unlock [2 strict]
@@ -153,7 +162,7 @@ LockManagerTest:
         and:
           - when: Trying to unlock [1 flexible]
             then:
-              - it: Should do nothing
+              - it: Should revert
       - given: Locked but didn't vote anywhere [flexible]
         then:
           - when: Trying to unlock [2 flexible]
@@ -170,26 +179,6 @@ LockManagerTest:
             then:
               - it: Should deallocate the existing voting power from active proposals
               - it: Should unlock and refund the full amount
-
-  - given: A proposal has ended
-    and:
-      - given: Before proposalEnded is called
-        then:
-          - given: Proposal voter calls unlock [no proposalEnded call]
-            and:
-              - when: Executed proposal
-                then:
-                  # Slightly redundant, because execute() will trigger proposalEnded()
-                  - it: Should allow voters from that proposal to unlock right away
-              - when: Defeated proposal
-                then:
-                  - it: Should allow voters from that proposal to unlock right away
-      - when: After proposalEnded is called
-        then:
-          - when: Proposal voter calls unlock [proposalEnded called]
-            then:
-              - it: Should allow voters from that proposal to unlock right away
-              - it: Should revert on voters who have any other unreleased proposal votes
 
   - when: Calling plugin()
     then:
