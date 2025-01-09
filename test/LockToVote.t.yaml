@@ -124,7 +124,8 @@ LockToVoteTest:
           - it: canExecute should return false
       - when: Calling vote or clearVote [defeated]
         then:
-          - it: Should revert, despite having the permission
+          - it: Should revert for vote, despite having the permission
+          - it: Should do nothing for clearVote
       - when: Calling execute [defeated]
         then:
           - it: Should revert, with or without permission

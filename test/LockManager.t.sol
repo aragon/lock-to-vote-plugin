@@ -48,6 +48,7 @@ contract LockManagerTest is AragonTest {
             .withTokenHolder(bob, 10 ether)
             .withTokenHolder(carol, 10 ether)
             .withTokenHolder(david, 15 ether)
+            .withUnlockMode(UnlockMode.STRICT)
             .build();
     }
 
