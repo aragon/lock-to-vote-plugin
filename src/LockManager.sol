@@ -41,6 +41,10 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Emitted when a token holder unlocks funds from the manager contract
     event BalanceUnlocked(address voter, uint256 amount);
 
+    /// @notice Emitted when the plugin reports a proposal as ended
+    /// @param proposalId The ID the proposal where votes can no longer be submitted or cleared
+    event ProposalEnded(uint proposalId);
+
     /// @notice Thrown when trying to assign an invalid lock mode
     error InvalidUnlockMode();
 
@@ -141,6 +145,8 @@ contract LockManager is ILockManager, DaoAuthorizable {
         if (msg.sender != address(plugin)) {
             revert InvalidPluginAddress();
         }
+
+        emit ProposalEnded(_proposalId);
 
         for (uint256 _i; _i < knownProposalIds.length; ) {
             if (knownProposalIds[_i] == _proposalId) {

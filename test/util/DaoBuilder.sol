@@ -86,11 +86,9 @@ contract DaoBuilder is Test {
         if (tokenHolders.length > 0) {
             for (uint256 i = 0; i < tokenHolders.length; i++) {
                 TestToken(address(lockableToken)).mint(tokenHolders[i].tokenHolder, tokenHolders[i].amount);
-                TestToken(address(underlyingToken)).mint(address(0x1234), tokenHolders[i].amount * 1000);
             }
         } else {
             TestToken(address(lockableToken)).mint(owner, 10 ether);
-            TestToken(address(underlyingToken)).mint(address(0x1234), 10000 ether);
         }
 
         {
