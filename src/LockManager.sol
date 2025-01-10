@@ -153,6 +153,10 @@ contract LockManager is ILockManager, DaoAuthorizable {
                 _removeKnownProposalId(_i);
                 return;
             }
+
+            unchecked {
+                _i++;
+            }
         }
     }
 

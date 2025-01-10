@@ -757,6 +757,40 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
+    function test_RevertWhen_TheCallerIsNotThePluginProposalCreated()
+        external
+        givenProposalCreatedIsCalled
+    {
+        // It Should revert
+
+        vm.expectRevert(
+            abi.encodeWithSelector(LockManager.InvalidPluginAddress.selector)
+        );
+        lockManager.proposalCreated(1234);
+
+        vm.startPrank(address(bob));
+        vm.expectRevert(
+            abi.encodeWithSelector(LockManager.InvalidPluginAddress.selector)
+        );
+        lockManager.proposalCreated(1234);
+    }
+
+    function test_WhenTheCallerIsThePluginProposalCreated()
+        external
+        givenProposalCreatedIsCalled
+    {
+        // It Adds the proposal ID to the list of known proposals
+
+        vm.startPrank(address(plugin));
+        lockManager.proposalCreated(1234);
+        lockManager.proposalCreated(2345);
+        lockManager.proposalCreated(3456);
+
+        assertEq(lockManager.knownProposalIds(0), 1234);
+        assertEq(lockManager.knownProposalIds(1), 2345);
+        assertEq(lockManager.knownProposalIds(2), 3456);
+    }
+
     function test_RevertWhen_TheCallerIsNotThePlugin_ProposalCreated()
         external
         givenProposalCreatedIsCalled
@@ -794,16 +828,53 @@ contract LockManagerTest is AragonTest {
     }
 
     modifier givenProposalEndedIsCalled() {
-        Action[] memory _actions = new Action[](0);
-        proposalId = plugin.createProposal(
-            bytes(""),
-            _actions,
-            0,
-            0,
-            bytes("")
-        );
-
         _;
+    }
+
+    function test_RevertWhen_TheCallerIsNotThePluginProposalEnded()
+        external
+        givenProposalEndedIsCalled
+    {
+        // It Should revert
+
+        vm.startPrank(address(plugin));
+        lockManager.proposalCreated(1234);
+        assertEq(lockManager.knownProposalIds(0), 1234);
+
+        vm.startPrank(address(bob));
+        vm.expectRevert(
+            abi.encodeWithSelector(LockManager.InvalidPluginAddress.selector)
+        );
+        lockManager.proposalEnded(1234);
+
+        assertEq(lockManager.knownProposalIds(0), 1234);
+    }
+
+    function test_WhenTheCallerIsThePluginProposalEnded()
+        external
+        givenProposalEndedIsCalled
+    {
+        // It Removes the proposal ID from the list of known proposals
+
+        vm.startPrank(address(plugin));
+        lockManager.proposalCreated(1234);
+        lockManager.proposalCreated(2345);
+        lockManager.proposalCreated(3456);
+        assertEq(lockManager.knownProposalIds(0), 1234);
+        assertEq(lockManager.knownProposalIds(1), 2345);
+        assertEq(lockManager.knownProposalIds(2), 3456);
+
+        lockManager.proposalEnded(3456);
+        vm.expectRevert();
+        lockManager.knownProposalIds(2);
+        
+        lockManager.proposalEnded(2345);
+        vm.expectRevert();
+        lockManager.knownProposalIds(1);
+
+        lockManager.proposalEnded(1234);
+        vm.expectRevert();
+        lockManager.knownProposalIds(0);
     }
 
     function test_RevertWhen_TheCallerIsNotThePlugin_ProposalEnded()
@@ -826,13 +897,14 @@ contract LockManagerTest is AragonTest {
     {
         // It Removes the proposal ID from the list of known proposals
 
-        assertEq(lockManager.knownProposalIds(0), proposalId);
-
         vm.startPrank(address(plugin));
-        lockManager.proposalEnded(proposalId);
+        lockManager.proposalCreated(1234);
+        assertEq(lockManager.knownProposalIds(0), 1234);
+
+        lockManager.proposalEnded(1234);
 
         vm.expectRevert();
-        assertEq(lockManager.knownProposalIds(0), 0);
+        lockManager.knownProposalIds(1234);
     }
 
     modifier givenStrictModeIsSet() {
