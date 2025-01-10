@@ -145,11 +145,13 @@ LockManagerTest:
           - when: Trying to unlock [2 strict]
             then:
               - it: Should unlock and refund the full amount right away
+              - it: Should emit an event
       - given: Locked but voted on ended or executed proposals [strict]
         then:
           - when: Trying to unlock [3 strict]
             then:
               - it: Should unlock and refund the full amount right away
+              - it: Should emit an event
       - given: Locked and voted on currently active proposals [strict]
         then:
           - when: Trying to unlock [4 strict]
@@ -168,17 +170,20 @@ LockManagerTest:
           - when: Trying to unlock [2 flexible]
             then:
               - it: Should unlock and refund the full amount right away
+              - it: Should emit an event
       - given: Locked but voted on ended or executed proposals [flexible]
         then:
           - when: Trying to unlock [3 flexible]
             then:
               - it: Should unlock and refund the full amount right away
+              - it: Should emit an event
       - given: Locked and voted on currently active proposals [flexible]
         then:
           - when: Trying to unlock [4 flexible]
             then:
               - it: Should deallocate the existing voting power from active proposals
               - it: Should unlock and refund the full amount
+              - it: Should emit an event
 
   - when: Calling plugin()
     then:

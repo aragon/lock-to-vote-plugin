@@ -34,6 +34,10 @@ contract LockManagerTest is AragonTest {
             )
         );
 
+    event BalanceLocked(address voter, uint256 amount);
+    event BalanceUnlocked(address voter, uint256 amount);
+    event ProposalEnded(uint proposalId);
+
     error InvalidUnlockMode();
     error NoBalance();
 
@@ -375,6 +379,7 @@ contract LockManagerTest is AragonTest {
     {
         // It Should allow any token holder to lock
         // It Should approve with the full token balance
+        // It Should emit an event
 
         // vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
@@ -382,6 +387,8 @@ contract LockManagerTest is AragonTest {
             alice,
             address(lockManager)
         );
+        vm.expectEmit();
+        emit BalanceLocked(alice, allowance);
         lockManager.lock();
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(alice), allowance);
@@ -390,6 +397,9 @@ contract LockManagerTest is AragonTest {
         vm.startPrank(bob);
         initialBalance = lockableToken.balanceOf(bob);
         allowance = lockableToken.allowance(bob, address(lockManager));
+
+        vm.expectEmit();
+        emit BalanceLocked(bob, allowance);
         lockManager.lock();
         assertEq(lockableToken.balanceOf(bob), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(bob), allowance);
@@ -404,6 +414,7 @@ contract LockManagerTest is AragonTest {
         // It Should allow any token holder to lock
         // It Should approve with the full token balance
         // It The allocated token balance should have the full new balance
+        // It Should emit an event
 
         // vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
@@ -411,6 +422,8 @@ contract LockManagerTest is AragonTest {
             alice,
             address(lockManager)
         );
+        vm.expectEmit();
+        emit BalanceLocked(alice, allowance);
         lockManager.lockAndVote(proposalId);
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(alice), allowance);
@@ -420,6 +433,8 @@ contract LockManagerTest is AragonTest {
         vm.startPrank(bob);
         initialBalance = lockableToken.balanceOf(bob);
         allowance = lockableToken.allowance(bob, address(lockManager));
+        vm.expectEmit();
+        emit BalanceLocked(bob, allowance);
         lockManager.lockAndVote(proposalId);
         assertEq(lockableToken.balanceOf(bob), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(bob), allowance);
@@ -529,6 +544,7 @@ contract LockManagerTest is AragonTest {
         givenNoTokenAllowanceSomeLocked
     {
         // It Should approve with the full token balance
+        // It Should emit an event
 
         // vm.startPrank(alice);
         lockManager.vote(proposalId);
@@ -538,6 +554,9 @@ contract LockManagerTest is AragonTest {
         assertEq(lockManager.lockedBalances(alice), 0.1 ether);
 
         lockableToken.approve(address(lockManager), 0.5 ether);
+
+        vm.expectEmit();
+        emit BalanceLocked(alice, 0.5 ether);
         lockManager.lock();
 
         assertEq(lockManager.lockedBalances(alice), 0.6 ether);
@@ -560,6 +579,7 @@ contract LockManagerTest is AragonTest {
         // It Should allow any token holder to lock
         // It Should approve with the full token balance
         // It Should increase the locked amount
+        // It Should emit an event
 
         // vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
@@ -567,6 +587,8 @@ contract LockManagerTest is AragonTest {
             alice,
             address(lockManager)
         );
+        vm.expectEmit();
+        emit BalanceLocked(alice, allowance);
         lockManager.lock();
 
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance);
@@ -586,6 +608,7 @@ contract LockManagerTest is AragonTest {
         // It Should approve with the full token balance
         // It Should increase the locked amount
         // It The allocated token balance should have the full new balance
+        // It Should emit an event
 
         // vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
@@ -593,6 +616,8 @@ contract LockManagerTest is AragonTest {
             alice,
             address(lockManager)
         );
+        vm.expectEmit();
+        emit BalanceLocked(alice, allowance);
         lockManager.lockAndVote(proposalId);
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(alice), 0.1 ether + allowance);
@@ -617,6 +642,7 @@ contract LockManagerTest is AragonTest {
         // It Should approve with the full token balance
         // It Should increase the locked amount
         // It The allocated token balance should have the full new balance
+        // It Should emit an event
 
         // vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
@@ -624,6 +650,8 @@ contract LockManagerTest is AragonTest {
             alice,
             address(lockManager)
         );
+        vm.expectEmit();
+        emit BalanceLocked(alice, allowance);
         lockManager.lockAndVote(proposalId);
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(alice), 0.1 ether + allowance);
@@ -659,9 +687,12 @@ contract LockManagerTest is AragonTest {
         lockManager.vote(proposalId);
 
         // It Should approve with the full token balance
+        // It Should emit an event
 
         // vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceLocked(alice, 0.5 ether);
         lockManager.lock();
 
         assertEq(lockableToken.balanceOf(alice), initialBalance - 0.5 ether);
@@ -846,12 +877,15 @@ contract LockManagerTest is AragonTest {
         givenLockedButDidntVoteAnywhereStrict
     {
         // It Should unlock and refund the full amount right away
+        // It Should emit an event
 
         // vm.startPrank(alice);
         lockableToken.approve(address(lockManager), 0.1 ether);
         lockManager.lock();
 
         uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceUnlocked(alice, 0.1 ether);
         lockManager.unlock();
         assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
     }
@@ -866,6 +900,7 @@ contract LockManagerTest is AragonTest {
         givenLockedButVotedOnEndedOrExecutedProposalsStrict
     {
         // It Should unlock and refund the full amount right away
+        // It Should emit an event
 
         lockableToken.approve(address(lockManager), 0.1 ether);
         lockManager.lockAndVote(proposalId);
@@ -878,6 +913,8 @@ contract LockManagerTest is AragonTest {
 
         vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceUnlocked(alice, 0.1 ether);
         lockManager.unlock();
         assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
     }
@@ -951,14 +988,17 @@ contract LockManagerTest is AragonTest {
         givenLockedButDidntVoteAnywhereFlexible
     {
         // It Should unlock and refund the full amount right away
+        // It Should emit an event
 
         // vm.startPrank(alice);
-        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockableToken.approve(address(lockManager), 0.2 ether);
         lockManager.lock();
 
         uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceUnlocked(alice, 0.2 ether);
         lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.2 ether);
     }
 
     modifier givenLockedButVotedOnEndedOrExecutedProposalsFlexible() {
@@ -971,8 +1011,9 @@ contract LockManagerTest is AragonTest {
         givenLockedButVotedOnEndedOrExecutedProposalsFlexible
     {
         // It Should unlock and refund the full amount right away
+        // It Should emit an event
 
-        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockableToken.approve(address(lockManager), 0.3 ether);
         lockManager.lockAndVote(proposalId);
 
         vm.startPrank(address(plugin));
@@ -980,8 +1021,10 @@ contract LockManagerTest is AragonTest {
 
         vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceUnlocked(alice, 0.3 ether);
         lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.3 ether);
     }
 
     modifier givenLockedAndVotedOnCurrentlyActiveProposalsFlexible() {
@@ -995,6 +1038,7 @@ contract LockManagerTest is AragonTest {
     {
         // It Should deallocate the existing voting power from active proposals
         // It Should unlock and refund the full amount
+        // It Should emit an event
 
         // vm.startPrank(alice);
         lockableToken.approve(address(lockManager), 0.1 ether);
@@ -1002,6 +1046,8 @@ contract LockManagerTest is AragonTest {
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
         uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceUnlocked(alice, 0.1 ether);
         lockManager.unlock();
 
         assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
