@@ -86,6 +86,11 @@ contract LockToVotePlugin is
     }
 
     /// @inheritdoc IProposal
+    function customProposalParamsABI() external pure override returns (string memory) {
+        return "(uint256 allowFailureMap)";
+    }
+
+    /// @inheritdoc IProposal
     /// @dev Requires the `CREATE_PROPOSAL_PERMISSION_ID` permission.
     function createProposal(
         bytes calldata _metadata,
@@ -134,11 +139,8 @@ contract LockToVotePlugin is
         }
 
         emit ProposalCreated(proposalId, _msgSender(), _startDate, _endDate, _metadata, _actions, _allowFailureMap);
-    }
 
-    /// @inheritdoc IProposal
-    function customProposalParamsABI() external pure override returns (string memory) {
-        return "(uint256 allowFailureMap)";
+        lockManager.proposalCreated(proposalId);
     }
 
     /// @notice Returns all information for a proposal by its ID.
@@ -192,7 +194,7 @@ contract LockToVotePlugin is
     function canVote(uint256 _proposalId, address _voter) external view returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        return _canVote(proposal_, _voter);
+        return _canVote(proposal_, _voter, lockManager.lockedBalances(_voter));
     }
 
     /// @inheritdoc ILockToVote
@@ -202,7 +204,7 @@ contract LockToVotePlugin is
     {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        if (!_canVote(proposal_, _voter)) {
+        if (!_canVote(proposal_, _voter, _newVotingPower)) {
             revert VoteCastForbidden(_proposalId, _voter);
         }
 
@@ -221,7 +223,7 @@ contract LockToVotePlugin is
     function clearVote(uint256 _proposalId, address _voter) external auth(LOCK_MANAGER_PERMISSION_ID) {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        if (proposal_.approvals[_voter] == 0) return;
+        if (proposal_.approvals[_voter] == 0 || !_isProposalOpen(proposal_)) return;
 
         // Subtract the old votes from the global tally
         proposal_.approvalTally -= proposal_.approvals[_voter];
@@ -287,13 +289,17 @@ contract LockToVotePlugin is
             && !proposal_.executed;
     }
 
-    function _canVote(Proposal storage proposal_, address _voter) internal view returns (bool) {
+    function _canVote(Proposal storage proposal_, address _voter, uint256 _newVotingBalance)
+        internal
+        view
+        returns (bool)
+    {
         // The proposal vote hasn't started or has already ended.
         if (!_isProposalOpen(proposal_)) {
             return false;
         }
         // More balance could be added
-        else if (lockManager.lockedBalances(_voter) <= proposal_.approvals[_voter]) {
+        else if (_newVotingBalance <= proposal_.approvals[_voter]) {
             return false;
         }
 
@@ -324,7 +330,7 @@ contract LockToVotePlugin is
     }
 
     function _hasSucceeded(Proposal storage proposal_) internal view returns (bool) {
-        return proposal_.approvalTally >= _minApprovalTally(proposal_);
+        return proposal_.approvalTally >= _minApprovalTally(proposal_) && proposal_.approvalTally > 0;
     }
 
     /// @notice Validates and returns the proposal dates.

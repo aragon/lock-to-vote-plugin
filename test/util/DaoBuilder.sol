@@ -29,7 +29,7 @@ contract DaoBuilder is Test {
     MintEntry[] tokenHolders;
 
     bool onlyListed = true;
-    uint32 minApprovalRatio = 1;
+    uint32 minApprovalRatio = 100_000; // 10%
     uint32 minProposalDuration = 10 days;
     UnlockMode unlockMode = UnlockMode.STRICT;
 
@@ -86,11 +86,9 @@ contract DaoBuilder is Test {
         if (tokenHolders.length > 0) {
             for (uint256 i = 0; i < tokenHolders.length; i++) {
                 TestToken(address(lockableToken)).mint(tokenHolders[i].tokenHolder, tokenHolders[i].amount);
-                TestToken(address(underlyingToken)).mint(address(0x1234), tokenHolders[i].amount * 1000);
             }
         } else {
             TestToken(address(lockableToken)).mint(owner, 10 ether);
-            TestToken(address(underlyingToken)).mint(address(0x1234), 10000 ether);
         }
 
         {
@@ -121,6 +119,9 @@ contract DaoBuilder is Test {
 
         // The plugin can execute on the DAO
         dao.grant(address(dao), address(plugin), dao.EXECUTE_PERMISSION_ID());
+
+        // The LockManager can manage the plugin
+        dao.grant(address(plugin), address(helper), plugin.LOCK_MANAGER_PERMISSION_ID());
 
         if (proposers.length > 0) {
             for (uint256 i = 0; i < proposers.length; i++) {

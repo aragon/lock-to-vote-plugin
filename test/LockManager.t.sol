@@ -9,6 +9,7 @@ import {createProxyAndCall} from "../src/util/proxy.sol";
 import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {LockToVotePlugin} from "../src/LockToVotePlugin.sol";
+import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
 import {LockManagerSettings, UnlockMode} from "../src/interfaces/ILockManager.sol";
 import {LockManager} from "../src/LockManager.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -29,6 +30,10 @@ contract LockManagerTest is AragonTest {
         )
     );
 
+    event BalanceLocked(address voter, uint256 amount);
+    event BalanceUnlocked(address voter, uint256 amount);
+    event ProposalEnded(uint256 proposalId);
+
     error InvalidUnlockMode();
     error NoBalance();
 
@@ -39,7 +44,9 @@ contract LockManagerTest is AragonTest {
 
         builder = new DaoBuilder();
         (dao, plugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).build();
+            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).withUnlockMode(
+            UnlockMode.STRICT
+        ).build();
     }
 
     modifier givenDeployingTheContract() {
@@ -89,6 +96,15 @@ contract LockManagerTest is AragonTest {
 
     modifier whenCallingSetPluginAddress() {
         _;
+    }
+
+    function test_RevertGiven_InvalidPlugin() external whenCallingSetPluginAddress {
+        // It should revert
+
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
+        vm.expectRevert();
+        lockManager.setPluginAddress(LockToVotePlugin(address(0x5555)));
     }
 
     function test_RevertWhen_SetPluginAddressWithoutThePermission() external whenCallingSetPluginAddress {
@@ -242,10 +258,13 @@ contract LockManagerTest is AragonTest {
     function test_WhenCallingLock2() external givenNoLockedTokens givenWithTokenAllowanceNoLocked {
         // It Should allow any token holder to lock
         // It Should approve with the full token balance
+        // It Should emit an event
 
         // vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
         uint256 allowance = lockableToken.allowance(alice, address(lockManager));
+        vm.expectEmit();
+        emit BalanceLocked(alice, allowance);
         lockManager.lock();
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(alice), allowance);
@@ -254,6 +273,9 @@ contract LockManagerTest is AragonTest {
         vm.startPrank(bob);
         initialBalance = lockableToken.balanceOf(bob);
         allowance = lockableToken.allowance(bob, address(lockManager));
+
+        vm.expectEmit();
+        emit BalanceLocked(bob, allowance);
         lockManager.lock();
         assertEq(lockableToken.balanceOf(bob), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(bob), allowance);
@@ -264,10 +286,13 @@ contract LockManagerTest is AragonTest {
         // It Should allow any token holder to lock
         // It Should approve with the full token balance
         // It The allocated token balance should have the full new balance
+        // It Should emit an event
 
         // vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
         uint256 allowance = lockableToken.allowance(alice, address(lockManager));
+        vm.expectEmit();
+        emit BalanceLocked(alice, allowance);
         lockManager.lockAndVote(proposalId);
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(alice), allowance);
@@ -277,6 +302,8 @@ contract LockManagerTest is AragonTest {
         vm.startPrank(bob);
         initialBalance = lockableToken.balanceOf(bob);
         allowance = lockableToken.allowance(bob, address(lockManager));
+        vm.expectEmit();
+        emit BalanceLocked(bob, allowance);
         lockManager.lockAndVote(proposalId);
         assertEq(lockableToken.balanceOf(bob), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(bob), allowance);
@@ -301,6 +328,9 @@ contract LockManagerTest is AragonTest {
     modifier givenLockedTokens() {
         lockableToken.approve(address(lockManager), 0.1 ether);
         lockManager.lock();
+
+        Action[] memory _actions = new Action[](0);
+        proposalId = plugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
 
         _;
     }
@@ -357,6 +387,7 @@ contract LockManagerTest is AragonTest {
 
     function test_WhenCallingVoteMoreLockedBalance3() external givenLockedTokens givenNoTokenAllowanceSomeLocked {
         // It Should approve with the full token balance
+        // It Should emit an event
 
         // vm.startPrank(alice);
         lockManager.vote(proposalId);
@@ -366,6 +397,9 @@ contract LockManagerTest is AragonTest {
         assertEq(lockManager.lockedBalances(alice), 0.1 ether);
 
         lockableToken.approve(address(lockManager), 0.5 ether);
+
+        vm.expectEmit();
+        emit BalanceLocked(alice, 0.5 ether);
         lockManager.lock();
 
         assertEq(lockManager.lockedBalances(alice), 0.6 ether);
@@ -384,10 +418,13 @@ contract LockManagerTest is AragonTest {
         // It Should allow any token holder to lock
         // It Should approve with the full token balance
         // It Should increase the locked amount
+        // It Should emit an event
 
         // vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
         uint256 allowance = lockableToken.allowance(alice, address(lockManager));
+        vm.expectEmit();
+        emit BalanceLocked(alice, allowance);
         lockManager.lock();
 
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance);
@@ -400,10 +437,13 @@ contract LockManagerTest is AragonTest {
         // It Should approve with the full token balance
         // It Should increase the locked amount
         // It The allocated token balance should have the full new balance
+        // It Should emit an event
 
         // vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
         uint256 allowance = lockableToken.allowance(alice, address(lockManager));
+        vm.expectEmit();
+        emit BalanceLocked(alice, allowance);
         lockManager.lockAndVote(proposalId);
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(alice), 0.1 ether + allowance);
@@ -422,10 +462,13 @@ contract LockManagerTest is AragonTest {
         // It Should approve with the full token balance
         // It Should increase the locked amount
         // It The allocated token balance should have the full new balance
+        // It Should emit an event
 
         // vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
         uint256 allowance = lockableToken.allowance(alice, address(lockManager));
+        vm.expectEmit();
+        emit BalanceLocked(alice, allowance);
         lockManager.lockAndVote(proposalId);
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(alice), 0.1 ether + allowance);
@@ -447,9 +490,12 @@ contract LockManagerTest is AragonTest {
         lockManager.vote(proposalId);
 
         // It Should approve with the full token balance
+        // It Should emit an event
 
         // vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceLocked(alice, 0.5 ether);
         lockManager.lock();
 
         assertEq(lockableToken.balanceOf(alice), initialBalance - 0.5 ether);
@@ -459,18 +505,17 @@ contract LockManagerTest is AragonTest {
     }
 
     modifier givenCallingLockOrLockToVote() {
+        Action[] memory _actions = new Action[](0);
+        proposalId = plugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
         _;
     }
 
-    function test_GivenInvalidPlugin() external givenCallingLockOrLockToVote {
+    function test_GivenEmptyPlugin() external givenCallingLockOrLockToVote {
         // It Locking and voting should revert
 
         lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
-        lockManager.setPluginAddress(LockToVotePlugin(address(0x5555)));
 
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        
         vm.expectRevert();
         lockManager.lockAndVote(proposalId);
 
@@ -496,11 +541,107 @@ contract LockManagerTest is AragonTest {
         lockManager.vote(proposalId);
     }
 
+    modifier givenProposalCreatedIsCalled() {
+        _;
+    }
+
+    function test_RevertWhen_TheCallerIsNotThePluginProposalCreated() external givenProposalCreatedIsCalled {
+        // It Should revert
+
+        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPluginAddress.selector));
+        lockManager.proposalCreated(1234);
+
+        vm.startPrank(address(bob));
+        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPluginAddress.selector));
+        lockManager.proposalCreated(1234);
+    }
+
+    function test_WhenTheCallerIsThePluginProposalCreated() external givenProposalCreatedIsCalled {
+        // It Adds the proposal ID to the list of known proposals
+
+        vm.startPrank(address(plugin));
+        lockManager.proposalCreated(1234);
+        lockManager.proposalCreated(2345);
+        lockManager.proposalCreated(3456);
+
+        assertEq(lockManager.knownProposalIds(0), 1234);
+        assertEq(lockManager.knownProposalIds(1), 2345);
+        assertEq(lockManager.knownProposalIds(2), 3456);
+    }
+
+    function test_RevertWhen_TheCallerIsNotThePlugin_ProposalCreated() external givenProposalCreatedIsCalled {
+        // It Should revert
+
+        vm.expectRevert();
+        lockManager.proposalCreated(12345);
+
+        vm.startPrank(bob);
+        vm.expectRevert();
+        lockManager.proposalCreated(2345);
+    }
+
+    function test_WhenTheCallerIsThePlugin_ProposalCreated() external givenProposalCreatedIsCalled {
+        // It Removes the proposal ID from the list of known proposals
+
+        vm.startPrank(address(plugin));
+
+        vm.expectRevert();
+        assertEq(lockManager.knownProposalIds(0), 0);
+
+        lockManager.proposalCreated(1234);
+        assertEq(lockManager.knownProposalIds(0), 1234);
+
+        // 2
+        vm.expectRevert();
+        assertEq(lockManager.knownProposalIds(1), 0);
+
+        lockManager.proposalCreated(2345);
+        assertEq(lockManager.knownProposalIds(1), 2345);
+    }
+
     modifier givenProposalEndedIsCalled() {
         _;
     }
 
-    function test_RevertWhen_TheCallerIsNotThePlugin() external givenProposalEndedIsCalled {
+    function test_RevertWhen_TheCallerIsNotThePluginProposalEnded() external givenProposalEndedIsCalled {
+        // It Should revert
+
+        vm.startPrank(address(plugin));
+        lockManager.proposalCreated(1234);
+        assertEq(lockManager.knownProposalIds(0), 1234);
+
+        vm.startPrank(address(bob));
+        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPluginAddress.selector));
+        lockManager.proposalEnded(1234);
+
+        assertEq(lockManager.knownProposalIds(0), 1234);
+    }
+
+    function test_WhenTheCallerIsThePluginProposalEnded() external givenProposalEndedIsCalled {
+        // It Removes the proposal ID from the list of known proposals
+
+        vm.startPrank(address(plugin));
+        lockManager.proposalCreated(1234);
+        lockManager.proposalCreated(2345);
+        lockManager.proposalCreated(3456);
+        assertEq(lockManager.knownProposalIds(0), 1234);
+        assertEq(lockManager.knownProposalIds(1), 2345);
+        assertEq(lockManager.knownProposalIds(2), 3456);
+
+        lockManager.proposalEnded(3456);
+        vm.expectRevert();
+        lockManager.knownProposalIds(2);
+
+        lockManager.proposalEnded(2345);
+        vm.expectRevert();
+        lockManager.knownProposalIds(1);
+
+        lockManager.proposalEnded(1234);
+        vm.expectRevert();
+        lockManager.knownProposalIds(0);
+    }
+
+    function test_RevertWhen_TheCallerIsNotThePlugin_ProposalEnded() external givenProposalEndedIsCalled {
         // It Should revert
 
         vm.expectRevert();
@@ -511,16 +652,17 @@ contract LockManagerTest is AragonTest {
         lockManager.proposalEnded(proposalId);
     }
 
-    function test_WhenTheCallerIsThePlugin() external givenProposalEndedIsCalled {
+    function test_WhenTheCallerIsThePlugin_ProposalEnded() external givenProposalEndedIsCalled {
         // It Removes the proposal ID from the list of known proposals
 
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId);
-        assertEq(lockManager.knownProposalIds(0), proposalId);
-
         vm.startPrank(address(plugin));
-        lockManager.proposalEnded(proposalId);
-        assertEq(lockManager.knownProposalIds(0), 0);
+        lockManager.proposalCreated(1234);
+        assertEq(lockManager.knownProposalIds(0), 1234);
+
+        lockManager.proposalEnded(1234);
+
+        vm.expectRevert();
+        lockManager.knownProposalIds(1234);
     }
 
     modifier givenStrictModeIsSet() {
@@ -534,16 +676,15 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenTryingToUnlock1Strict() external givenStrictModeIsSet givenDidntLockAnythingStrict {
-        // It Should do nothing
+    function test_RevertWhen_TryingToUnlock1Strict() external givenStrictModeIsSet givenDidntLockAnythingStrict {
+        // It Should revert
 
-        (UnlockMode mode) = lockManager.settings();
+        UnlockMode mode = lockManager.settings();
         assertEq(uint8(mode), uint8(UnlockMode.STRICT));
 
         // vm.startPrank(alice);
-        uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectRevert(NoBalance.selector);
         lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance);
     }
 
     modifier givenLockedButDidntVoteAnywhereStrict() {
@@ -552,12 +693,15 @@ contract LockManagerTest is AragonTest {
 
     function test_WhenTryingToUnlock2Strict() external givenStrictModeIsSet givenLockedButDidntVoteAnywhereStrict {
         // It Should unlock and refund the full amount right away
+        // It Should emit an event
 
         // vm.startPrank(alice);
         lockableToken.approve(address(lockManager), 0.1 ether);
         lockManager.lock();
-        
+
         uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceUnlocked(alice, 0.1 ether);
         lockManager.unlock();
         assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
     }
@@ -572,6 +716,7 @@ contract LockManagerTest is AragonTest {
         givenLockedButVotedOnEndedOrExecutedProposalsStrict
     {
         // It Should unlock and refund the full amount right away
+        // It Should emit an event
 
         lockableToken.approve(address(lockManager), 0.1 ether);
         lockManager.lockAndVote(proposalId);
@@ -584,18 +729,20 @@ contract LockManagerTest is AragonTest {
 
         vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceUnlocked(alice, 0.1 ether);
         lockManager.unlock();
         assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
     }
 
-    modifier givenLockedAnvVotedOnCurrentlyActiveProposalsStrict() {
+    modifier givenLockedAndVotedOnCurrentlyActiveProposalsStrict() {
         _;
     }
 
     function test_RevertWhen_TryingToUnlock4Strict()
         external
         givenStrictModeIsSet
-        givenLockedAnvVotedOnCurrentlyActiveProposalsStrict
+        givenLockedAndVotedOnCurrentlyActiveProposalsStrict
     {
         // It Should revert
 
@@ -609,8 +756,9 @@ contract LockManagerTest is AragonTest {
 
     modifier givenFlexibleModeIsSet() {
         (dao, plugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
-            .withUnlockMode(UnlockMode.EARLY).build();
+            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).withUnlockMode(
+            UnlockMode.EARLY
+        ).build();
 
         Action[] memory _actions = new Action[](0);
         proposalId = plugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -622,13 +770,15 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenTryingToUnlock1Flexible() external givenFlexibleModeIsSet givenDidntLockAnythingFlexible {
-        // It Should do nothing
+    function test_RevertWhen_TryingToUnlock1Flexible() external givenFlexibleModeIsSet givenDidntLockAnythingFlexible {
+        // It Should revert
+
+        UnlockMode mode = lockManager.settings();
+        assertEq(uint8(mode), uint8(UnlockMode.EARLY));
 
         // vm.startPrank(alice);
-        uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectRevert(NoBalance.selector);
         lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance);
     }
 
     modifier givenLockedButDidntVoteAnywhereFlexible() {
@@ -641,14 +791,17 @@ contract LockManagerTest is AragonTest {
         givenLockedButDidntVoteAnywhereFlexible
     {
         // It Should unlock and refund the full amount right away
+        // It Should emit an event
 
         // vm.startPrank(alice);
-        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockableToken.approve(address(lockManager), 0.2 ether);
         lockManager.lock();
 
         uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceUnlocked(alice, 0.2 ether);
         lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.2 ether);
     }
 
     modifier givenLockedButVotedOnEndedOrExecutedProposalsFlexible() {
@@ -661,8 +814,9 @@ contract LockManagerTest is AragonTest {
         givenLockedButVotedOnEndedOrExecutedProposalsFlexible
     {
         // It Should unlock and refund the full amount right away
+        // It Should emit an event
 
-        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockableToken.approve(address(lockManager), 0.3 ether);
         lockManager.lockAndVote(proposalId);
 
         vm.startPrank(address(plugin));
@@ -670,21 +824,24 @@ contract LockManagerTest is AragonTest {
 
         vm.startPrank(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceUnlocked(alice, 0.3 ether);
         lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.3 ether);
     }
 
-    modifier givenLockedAnvVotedOnCurrentlyActiveProposalsFlexible() {
+    modifier givenLockedAndVotedOnCurrentlyActiveProposalsFlexible() {
         _;
     }
 
     function test_WhenTryingToUnlock4Flexible()
         external
         givenFlexibleModeIsSet
-        givenLockedAnvVotedOnCurrentlyActiveProposalsFlexible
+        givenLockedAndVotedOnCurrentlyActiveProposalsFlexible
     {
         // It Should deallocate the existing voting power from active proposals
         // It Should unlock and refund the full amount
+        // It Should emit an event
 
         // vm.startPrank(alice);
         lockableToken.approve(address(lockManager), 0.1 ether);
@@ -692,114 +849,12 @@ contract LockManagerTest is AragonTest {
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
         uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceUnlocked(alice, 0.1 ether);
         lockManager.unlock();
 
         assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0);
-    }
-
-    modifier givenAProposalHasEnded() {
-        _;
-    }
-
-    modifier givenBeforeProposalEndedIsCalled() {
-        _;
-    }
-
-    modifier givenProposalVoterCallsUnlockNoProposalEnded() {
-        _;
-    }
-
-    function test_WhenExecutedProposal()
-        external
-        givenAProposalHasEnded
-        givenBeforeProposalEndedIsCalled
-        givenProposalVoterCallsUnlockNoProposalEnded
-    {
-        // It Should allow voters from that proposal to unlock right away
-
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId);
-
-        vm.startPrank(address(plugin));
-        lockManager.proposalEnded(proposalId);
-        
-        vm.startPrank(alice);
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-        lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
-    }
-
-    function test_WhenDefeatedProposal()
-        external
-        givenAProposalHasEnded
-        givenBeforeProposalEndedIsCalled
-        givenProposalVoterCallsUnlockNoProposalEnded
-    {
-        // It Should allow voters from that proposal to unlock right away
-
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId);
-
-        vm.warp(10 days + 1);
-
-        vm.startPrank(alice);
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-        lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
-    }
-
-    function test_RevertWhen_ActiveProposal()
-        external
-        givenAProposalHasEnded
-        givenBeforeProposalEndedIsCalled
-        givenProposalVoterCallsUnlockNoProposalEnded
-    {
-        // It Should revert
-
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId);
-
-        vm.expectRevert(LockManager.LocksStillActive.selector);
-        lockManager.unlock();
-    }
-
-    modifier whenAfterProposalEndedIsCalled() {
-        _;
-    }
-
-    function test_WhenProposalVoterCallsUnlockReleased()
-        external
-        givenAProposalHasEnded
-        whenAfterProposalEndedIsCalled
-    {
-        // It Should allow voters from that proposal to unlock right away
-        // It Should revert on voters who have any other unreleased proposal votes
-
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId);
-
-        // proposal 2
-        Action[] memory _actions = new Action[](0);
-        uint256 proposalId2 = plugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
-
-        vm.startPrank(bob);
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId2);
-
-        vm.warp(2 days);
-
-        vm.startPrank(address(plugin));
-        lockManager.proposalEnded(proposalId);
-
-        vm.startPrank(alice);
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-        lockManager.unlock();
-        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
-
-        vm.startPrank(bob);
-        vm.expectRevert(LockManager.LocksStillActive.selector);
-        lockManager.unlock();
     }
 
     function test_WhenCallingPlugin() external view {
@@ -821,9 +876,14 @@ contract LockManagerTest is AragonTest {
     function test_WhenCallingUnderlyingTokenEmpty() external givenNoUnderlyingToken {
         // It Should return the token address
 
-        vm.skip(true);
+        lockManager = new LockManager(
+            dao,
+            LockManagerSettings(UnlockMode.STRICT),
+            lockableToken,
+            IERC20(address(0)) // underlying
+        );
 
-        // assertEq(address(lockManager.underlyingToken()), address(lockableToken));
+        assertEq(address(lockManager.underlyingToken()), address(lockableToken));
     }
 
     modifier givenUnderlyingTokenDefined() {
@@ -833,10 +893,5 @@ contract LockManagerTest is AragonTest {
     function test_WhenCallingUnderlyingTokenSet() external view givenUnderlyingTokenDefined {
         // It Should return the right address
         assertEq(address(lockManager.underlyingToken()), address(underlyingToken));
-    }
-
-    function test_GivenPermissions() external {
-        // It Should revert if proposalEnded is called by an incompatible plugin
-        vm.skip(true);
     }
 }

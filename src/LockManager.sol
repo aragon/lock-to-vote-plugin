@@ -40,6 +40,10 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Emitted when a token holder unlocks funds from the manager contract
     event BalanceUnlocked(address voter, uint256 amount);
 
+    /// @notice Emitted when the plugin reports a proposal as ended
+    /// @param proposalId The ID the proposal where votes can no longer be submitted or cleared
+    event ProposalEnded(uint256 proposalId);
+
     /// @notice Thrown when trying to assign an invalid lock mode
     error InvalidUnlockMode();
 
@@ -48,6 +52,9 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     /// @notice Raised when the caller holds no tokens or didn't lock any tokens
     error NoBalance();
+
+    /// @notice Raised when trying to vote on a proposal with the same balance as the last time
+    error NoNewBalance();
 
     /// @notice Raised when attempting to unlock while active votes are cast in strict mode
     error LocksStillActive();
@@ -115,15 +122,30 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
+    function proposalCreated(uint256 _proposalId) public {
+        if (msg.sender != address(plugin)) {
+            revert InvalidPluginAddress();
+        }
+
+        knownProposalIds.push(_proposalId);
+    }
+
+    /// @inheritdoc ILockManager
     function proposalEnded(uint256 _proposalId) public {
         if (msg.sender != address(plugin)) {
             revert InvalidPluginAddress();
         }
 
+        emit ProposalEnded(_proposalId);
+
         for (uint256 _i; _i < knownProposalIds.length;) {
             if (knownProposalIds[_i] == _proposalId) {
                 _removeKnownProposalId(_i);
                 return;
+            }
+
+            unchecked {
+                _i++;
             }
         }
     }
@@ -137,14 +159,14 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function setPluginAddress(ILockToVote _plugin) public auth(UPDATE_SETTINGS_PERMISSION_ID) {
-        if (!IERC165(address(_plugin)).supportsInterface(type(ILockToVote).interfaceId)) {
+    function setPluginAddress(ILockToVote _newPluginAddress) public auth(UPDATE_SETTINGS_PERMISSION_ID) {
+        if (!IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToVote).interfaceId)) {
             revert InvalidPlugin();
         } else if (address(plugin) != address(0)) {
             revert CannotUpdatePlugin();
         }
 
-        plugin = _plugin;
+        plugin = _newPluginAddress;
     }
 
     // Internal
@@ -161,14 +183,14 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     function _vote(uint256 _proposalId) internal {
-        uint256 _newVotingPower = lockedBalances[msg.sender];
-        if (_newVotingPower == 0) {
+        uint256 _currentVotingPower = lockedBalances[msg.sender];
+        if (_currentVotingPower == 0) {
             revert NoBalance();
-        } else if (_newVotingPower == plugin.usedVotingPower(_proposalId, msg.sender)) {
-            return;
+        } else if (_currentVotingPower == plugin.usedVotingPower(_proposalId, msg.sender)) {
+            revert NoNewBalance();
         }
 
-        plugin.vote(_proposalId, msg.sender, _newVotingPower);
+        plugin.vote(_proposalId, msg.sender, _currentVotingPower);
     }
 
     function _hasActiveLocks() internal returns (bool _activeLocks) {

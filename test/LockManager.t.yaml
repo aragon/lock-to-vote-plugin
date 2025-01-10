@@ -12,6 +12,9 @@ LockManagerTest:
 
   - when: calling setPluginAddress
     and:
+      - given: Invalid plugin
+        and:
+          - it: should revert
       - when: setPluginAddress without the permission
         then:
           - it: should revert
@@ -40,11 +43,13 @@ LockManagerTest:
             then:
               - it: Should allow any token holder to lock
               - it: Should approve with the full token balance
+              - it: Should emit an event
           - when: Calling lockAndVote() 2
             then:
               - it: Should allow any token holder to lock
               - it: Should approve with the full token balance
               - it: The allocated token balance should have the full new balance
+              - it: Should emit an event
           - when: Calling vote() 2
             then:
               - it: Should revert
@@ -65,6 +70,7 @@ LockManagerTest:
           - when: Calling vote() [more locked balance] 3
             then:
               - it: Should approve with the full token balance
+              - it: Should emit an event
       - given: With token allowance [some locked]
         and:
           - when: Calling lock() 4
@@ -72,30 +78,34 @@ LockManagerTest:
               - it: Should allow any token holder to lock
               - it: Should approve with the full token balance
               - it: Should increase the locked amount
+              - it: Should emit an event
           - when: Calling lockAndVote() [no prior votes] 4
             then:
               - it: Should allow any token holder to lock
               - it: Should approve with the full token balance
               - it: Should increase the locked amount
               - it: The allocated token balance should have the full new balance
+              - it: Should emit an event
           - when: Calling lockAndVote() [with prior votes] 4
             then:
               - it: Should allow any token holder to lock
               - it: Should approve with the full token balance
               - it: Should increase the locked amount
               - it: The allocated token balance should have the full new balance
+              - it: Should emit an event
           - when: Calling vote() [same balance] 4
             then:
               - it: Should revert
           - when: Calling vote() [more locked balance] 4
             then:
               - it: Should approve with the full token balance
+              - it: Should emit an event
 
   # Invalid config's
 
   - given: Calling lock() or lockToVote()
     then:
-      - given: Invalid plugin
+      - given: Empty plugin
         and:
           - it: Locking and voting should revert
       - given: Invalid token
@@ -104,12 +114,21 @@ LockManagerTest:
           - it: Locking and voting should revert
           - it: Voting should revert
 
-  - given: ProposalEnded is called
+  - given: ProposalCreated is called
     and:
-      - when: The caller is not the plugin
+      - when: The caller is not the plugin [proposalCreated]
         then:
           - it: Should revert
-      - when: The caller is the plugin
+      - when: The caller is the plugin [proposalCreated]
+        then:
+          - it: Adds the proposal ID to the list of known proposals
+
+  - given: ProposalEnded is called
+    and:
+      - when: The caller is not the plugin [ProposalEnded]
+        then:
+          - it: Should revert
+      - when: The caller is the plugin [ProposalEnded]
         then:
           - it: Removes the proposal ID from the list of known proposals
 
@@ -120,18 +139,20 @@ LockManagerTest:
         and:
           - when: Trying to unlock [1 strict]
             then:
-              - it: Should do nothing
+              - it: Should revert
       - given: Locked but didn't vote anywhere [strict]
         then:
           - when: Trying to unlock [2 strict]
             then:
               - it: Should unlock and refund the full amount right away
+              - it: Should emit an event
       - given: Locked but voted on ended or executed proposals [strict]
         then:
           - when: Trying to unlock [3 strict]
             then:
               - it: Should unlock and refund the full amount right away
-      - given: Locked anv voted on currently active proposals [strict]
+              - it: Should emit an event
+      - given: Locked and voted on currently active proposals [strict]
         then:
           - when: Trying to unlock [4 strict]
             then:
@@ -143,46 +164,26 @@ LockManagerTest:
         and:
           - when: Trying to unlock [1 flexible]
             then:
-              - it: Should do nothing
+              - it: Should revert
       - given: Locked but didn't vote anywhere [flexible]
         then:
           - when: Trying to unlock [2 flexible]
             then:
               - it: Should unlock and refund the full amount right away
+              - it: Should emit an event
       - given: Locked but voted on ended or executed proposals [flexible]
         then:
           - when: Trying to unlock [3 flexible]
             then:
               - it: Should unlock and refund the full amount right away
-      - given: Locked anv voted on currently active proposals [flexible]
+              - it: Should emit an event
+      - given: Locked and voted on currently active proposals [flexible]
         then:
           - when: Trying to unlock [4 flexible]
             then:
               - it: Should deallocate the existing voting power from active proposals
               - it: Should unlock and refund the full amount
-
-  - given: A proposal has ended
-    and:
-      - given: Before proposalEnded is called
-        then:
-          - given: Proposal voter calls unlock [no proposalEnded]
-            and:
-              - when: Executed proposal
-                then:
-                  # Slightly redundant, because execute() will trigger proposalEnded()
-                  - it: Should allow voters from that proposal to unlock right away
-              - when: Defeated proposal
-                then:
-                  - it: Should allow voters from that proposal to unlock right away
-              - when: Active proposal
-                then:
-                  - it: Should revert
-      - when: After proposalEnded is called
-        then:
-          - when: Proposal voter calls unlock [released]
-            then:
-              - it: Should allow voters from that proposal to unlock right away
-              - it: Should revert on voters who have any other unreleased proposal votes
+              - it: Should emit an event
 
   - when: Calling plugin()
     then:
@@ -203,7 +204,3 @@ LockManagerTest:
       - when: Calling underlyingToken() set
         then:
           - it: Should return the right address
-
-  - given: Permissions
-    then:
-      - it: Should revert if proposalEnded is called by an incompatible plugin
