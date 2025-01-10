@@ -326,7 +326,7 @@ contract LockToVotePlugin is
     }
 
     function _hasSucceeded(Proposal storage proposal_) internal view returns (bool) {
-        return proposal_.approvalTally >= _minApprovalTally(proposal_);
+        return proposal_.approvalTally >= _minApprovalTally(proposal_) && proposal_.approvalTally > 0;
     }
 
     /// @notice Validates and returns the proposal dates.
