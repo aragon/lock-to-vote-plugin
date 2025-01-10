@@ -204,7 +204,7 @@ contract LockToVotePlugin is
     {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        if (!_canVote(proposal_, _voter,  _newVotingPower)) {
+        if (!_canVote(proposal_, _voter, _newVotingPower)) {
             revert VoteCastForbidden(_proposalId, _voter);
         }
 
@@ -289,7 +289,11 @@ contract LockToVotePlugin is
             && !proposal_.executed;
     }
 
-    function _canVote(Proposal storage proposal_, address _voter, uint256 _newVotingBalance) internal view returns (bool) {
+    function _canVote(Proposal storage proposal_, address _voter, uint256 _newVotingBalance)
+        internal
+        view
+        returns (bool)
+    {
         // The proposal vote hasn't started or has already ended.
         if (!_isProposalOpen(proposal_)) {
             return false;
