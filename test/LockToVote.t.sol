@@ -4,13 +4,12 @@ pragma solidity 0.8.17;
 import {AragonTest} from "./util/AragonTest.sol";
 import {LockToVotePlugin} from "../src/LockToVotePlugin.sol";
 import {LockManager} from "../src/LockManager.sol";
-import {LockManagerSettings} from "../src/interfaces/ILockManager.sol";
+import {LockManagerSettings, UnlockMode} from "../src/interfaces/ILockManager.sol";
 import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
 import {DaoBuilder} from "./util/DaoBuilder.sol";
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
 import {LockToVoteSettings, Proposal, ProposalParameters} from "../src/interfaces/ILockToVote.sol";
-import {UnlockMode} from "../src/interfaces/ILockManager.sol";
 import {TestToken} from "./mocks/TestToken.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
@@ -430,6 +429,56 @@ contract LockToVoteTest is AragonTest {
             endDate - 1,
             abi.encode(uint256(0))
         );
+    }
+
+    function test_RevertWhen_CallingCreateProposalWithDuplicateData()
+        external
+        givenProposalNotCreated
+        givenProposalCreationPermissionGranted
+    {
+        // It Should revert
+        // It Different data should produce different proposalId's
+
+        proposalId = plugin.createProposal(
+            "hello",
+            new Action[](0),
+            0,
+            0,
+            abi.encode(uint256(0))
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ILockToVote.ProposalAlreadyExists.selector,
+                proposalId
+            )
+        );
+        plugin.createProposal(
+            "hello",
+            new Action[](0),
+            0,
+            0,
+            abi.encode(uint256(0))
+        );
+
+        // different
+        uint256 proposalId2 = plugin.createProposal(
+            "---",
+            new Action[](0),
+            0,
+            0,
+            abi.encode(uint256(0))
+        );
+        assertNotEq(proposalId, proposalId2);
+
+        uint256 proposalId3 = plugin.createProposal(
+            "hello",
+            new Action[](1),
+            0,
+            0,
+            abi.encode(uint256(0))
+        );
+        assertNotEq(proposalId3, proposalId2);
+        assertNotEq(proposalId3, proposalId);
     }
 
     function test_WhenCallingTheGettersNotCreated()

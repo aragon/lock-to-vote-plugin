@@ -204,7 +204,3 @@ LockManagerTest:
       - when: Calling underlyingToken() set
         then:
           - it: Should return the right address
-
-  - given: Permissions
-    then:
-      - it: Should revert if proposalEnded is called by an incompatible plugin

@@ -51,6 +51,10 @@ LockToVoteTest:
               - it: Should end on the given endDate
               - it: Should call proposalCreated on the manager
               - it: Should emit an event
+          - when: Calling createProposal with duplicate data
+            then:
+              - it: Should revert
+              - it: Different data should produce different proposalId's
       - when: Calling the getters [not created]
         then:
           - it: getProposal should return empty values
@@ -86,7 +90,6 @@ LockToVoteTest:
           - given: Proposal created unstarted
             then:
               - it: Calling vote should revert, with or without balance
-              - it: Calling clearVote should revert, with or without balance
           - given: Proposal created and started
             and:
               - when: Calling vote no new locked balance

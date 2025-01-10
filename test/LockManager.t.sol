@@ -36,7 +36,7 @@ contract LockManagerTest is AragonTest {
 
     event BalanceLocked(address voter, uint256 amount);
     event BalanceUnlocked(address voter, uint256 amount);
-    event ProposalEnded(uint proposalId);
+    event ProposalEnded(uint256 proposalId);
 
     error InvalidUnlockMode();
     error NoBalance();
@@ -810,7 +810,7 @@ contract LockManagerTest is AragonTest {
         givenProposalCreatedIsCalled
     {
         // It Removes the proposal ID from the list of known proposals
-        
+
         vm.startPrank(address(plugin));
 
         vm.expectRevert();
@@ -867,7 +867,7 @@ contract LockManagerTest is AragonTest {
         lockManager.proposalEnded(3456);
         vm.expectRevert();
         lockManager.knownProposalIds(2);
-        
+
         lockManager.proposalEnded(2345);
         vm.expectRevert();
         lockManager.knownProposalIds(1);
@@ -924,12 +924,12 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenTryingToUnlock1Strict()
+    function test_RevertWhen_TryingToUnlock1Strict()
         external
         givenStrictModeIsSet
         givenDidntLockAnythingStrict
     {
-        // It should revert
+        // It Should revert
 
         UnlockMode mode = lockManager.settings();
         assertEq(uint8(mode), uint8(UnlockMode.STRICT));
@@ -1035,12 +1035,12 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenTryingToUnlock1Flexible()
+    function test_RevertWhen_TryingToUnlock1Flexible()
         external
         givenFlexibleModeIsSet
         givenDidntLockAnythingFlexible
     {
-        // It should revert
+        // It Should revert
 
         UnlockMode mode = lockManager.settings();
         assertEq(uint8(mode), uint8(UnlockMode.EARLY));
@@ -1148,9 +1148,17 @@ contract LockManagerTest is AragonTest {
     {
         // It Should return the token address
 
-        vm.skip(true);
+        lockManager = new LockManager(
+            dao,
+            LockManagerSettings(UnlockMode.STRICT),
+            lockableToken,
+            IERC20(address(0)) // underlying
+        );
 
-        // assertEq(address(lockManager.underlyingToken()), address(lockableToken));
+        assertEq(
+            address(lockManager.underlyingToken()),
+            address(lockableToken)
+        );
     }
 
     modifier givenUnderlyingTokenDefined() {
@@ -1167,10 +1175,5 @@ contract LockManagerTest is AragonTest {
             address(lockManager.underlyingToken()),
             address(underlyingToken)
         );
-    }
-
-    function test_GivenPermissions() external {
-        // It Should revert if proposalEnded is called by an incompatible plugin
-        vm.skip(true);
     }
 }
