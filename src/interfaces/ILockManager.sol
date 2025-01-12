@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.17;
 
-import {ILockToVote} from "./ILockToVote.sol";
+import {ILockToVoteBase} from "./ILockToVote.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice Defines whether locked funds can be unlocked at any time or not
@@ -23,7 +23,7 @@ struct LockManagerSettings {
 interface ILockManager {
     /// @notice Returns the address of the voting plugin.
     /// @return The LockToVote plugin address.
-    function plugin() external view returns (ILockToVote);
+    function plugin() external view returns (ILockToVoteBase);
 
     /// @notice Returns the address of the token contract used to determine the voting power.
     /// @return The token used for voting.
@@ -70,5 +70,5 @@ interface ILockManager {
     function proposalEnded(uint256 proposalId) external;
 
     /// @notice Defines the given plugin address as the target for voting
-    function setPluginAddress(ILockToVote _plugin) external;
+    function setPluginAddress(ILockToVoteBase _plugin) external;
 }

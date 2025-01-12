@@ -46,7 +46,7 @@ struct ProposalParameters {
 /// @param minApprovalRatio The support threshold value.
 ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
 /// @param minProposalDuration The minimum duration of the proposal voting stage in seconds.
-struct LockToVoteSettings {
+struct LockToVoteSingleSettings {
     uint32 minApprovalRatio;
     uint64 minProposalDuration;
 }
@@ -54,7 +54,7 @@ struct LockToVoteSettings {
 /// @title ILockToVote
 /// @author Aragon X
 /// @notice Governance plugin allowing token holders to use tokens locked without a snapshot requirement and engage in proposals immediately
-interface ILockToVote {
+interface ILockToVoteBase {
     /// @notice Returns the address of the manager contract, which holds the locked balances and the allocated vote balances.
     function lockManager() external view returns (ILockManager);
 
@@ -72,14 +72,31 @@ interface ILockToVote {
     function isProposalOpen(uint256 _proposalId) external view returns (bool);
 
     /// @notice Returns wether the given address can vote or increase the amount of tokens assigned to a proposal
-    function canVote(uint256 proposalId, address voter) external view returns (bool);
+    function canVote(
+        uint256 proposalId,
+        address voter
+    ) external view returns (bool);
 
+    error NoVotingPower();
+    error ProposalAlreadyExists(uint256 proposalId);
+    error DateOutOfBounds(uint256 limit, uint256 actual);
+    error VoteCastForbidden(uint256 proposalId, address voter);
+    error ExecutionForbidden(uint256 proposalId);
+
+    event Executed(uint256 proposalId);
+}
+
+interface ILockToVoteSingle is ILockToVoteBase {
     /// @notice Registers an approval vote for the given proposal.
     /// @param proposalId The ID of the proposal to vote on.
     /// @param voter The address of the account whose vote will be registered
     /// @param newVotingPower The new balance that should be allocated to the voter. It can only be bigger.
     /// @dev newVotingPower updates any prior voting power, it does not add to the existing amount.
-    function vote(uint256 proposalId, address voter, uint256 newVotingPower) external;
+    function vote(
+        uint256 proposalId,
+        address voter,
+        uint256 newVotingPower
+    ) external;
 
     /// @notice Reverts the existing voter's vote, if any.
     /// @param proposalId The ID of the proposal.
@@ -90,19 +107,20 @@ interface ILockToVote {
     /// @param proposalId The ID of the proposal.
     /// @param voter The account address to be checked.
     /// @return The amount of balance that has been allocated to the proposal by the given account.
-    function usedVotingPower(uint256 proposalId, address voter) external view returns (uint256);
+    function usedVotingPower(
+        uint256 proposalId,
+        address voter
+    ) external view returns (uint256);
 
     /// @notice Updates the voting settings, which will be applied to the next proposal being created.
     /// @param newSettings The new settings, including the minimum approval ratio and the minimum proposal duration.
-    function updatePluginSettings(LockToVoteSettings calldata newSettings) external;
-
-    error NoVotingPower();
-    error ProposalAlreadyExists(uint256 proposalId);
-    error DateOutOfBounds(uint256 limit, uint256 actual);
-    error VoteCastForbidden(uint256 proposalId, address voter);
-    error ExecutionForbidden(uint256 proposalId);
+    function updatePluginSettings(
+        LockToVoteSingleSettings calldata newSettings
+    ) external;
 
     event VoteCast(uint256 proposalId, address voter, uint256 newVotingPower);
     event VoteCleared(uint256 proposalId, address voter);
-    event Executed(uint256 proposalId);
+}
+
+interface ILockToVoteMajority is ILockToVoteBase {
 }

@@ -2,14 +2,14 @@
 pragma solidity 0.8.17;
 
 import {AragonTest} from "./util/AragonTest.sol";
-import {LockToVotePlugin} from "../src/LockToVotePlugin.sol";
+import {LockToVoteSinglePlugin} from "../src/LockToVoteSinglePlugin.sol";
 import {LockManager} from "../src/LockManager.sol";
 import {LockManagerSettings, UnlockMode} from "../src/interfaces/ILockManager.sol";
 import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
 import {DaoBuilder} from "./util/DaoBuilder.sol";
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
-import {LockToVoteSettings, Proposal, ProposalParameters} from "../src/interfaces/ILockToVote.sol";
+import {LockToVoteSingleSettings, Proposal, ProposalParameters} from "../src/interfaces/ILockToVote.sol";
 import {TestToken} from "./mocks/TestToken.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
@@ -25,13 +25,13 @@ contract LockToVoteTest is AragonTest {
 
     DaoBuilder builder;
     DAO dao;
-    LockToVotePlugin plugin;
+    LockToVoteSinglePlugin plugin;
     LockManager lockManager;
     IERC20 lockableToken;
     IERC20 underlyingToken;
     uint256 proposalId;
 
-    address immutable LOCK_TO_VOTE_BASE = address(new LockToVotePlugin());
+    address immutable LOCK_TO_VOTE_BASE = address(new LockToVoteSinglePlugin());
     address immutable LOCK_MANAGER_BASE = address(
         new LockManager(
             IDAO(address(0)), LockManagerSettings(UnlockMode.STRICT), IERC20(address(0)), IERC20(address(0))
@@ -81,7 +81,7 @@ contract LockToVoteTest is AragonTest {
         plugin.initialize(
             dao,
             lockManager,
-            LockToVoteSettings({
+            LockToVoteSingleSettings({
                 minApprovalRatio: 100_000, // 10%
                 minProposalDuration: 10 days
             }),
@@ -98,7 +98,7 @@ contract LockToVoteTest is AragonTest {
         // It should set the DAO address
         // It should initialize normally
 
-        LockToVoteSettings memory pluginSettings = LockToVoteSettings({
+        LockToVoteSingleSettings memory pluginSettings = LockToVoteSingleSettings({
             minApprovalRatio: 100_000, // 10%
             minProposalDuration: 10 days
         });
@@ -106,11 +106,11 @@ contract LockToVoteTest is AragonTest {
             IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call});
         bytes memory pluginMetadata = "";
 
-        plugin = LockToVotePlugin(
+        plugin = LockToVoteSinglePlugin(
             createProxyAndCall(
                 address(LOCK_TO_VOTE_BASE),
                 abi.encodeCall(
-                    LockToVotePlugin.initialize, (dao, lockManager, pluginSettings, targetConfig, pluginMetadata)
+                    LockToVoteSinglePlugin.initialize, (dao, lockManager, pluginSettings, targetConfig, pluginMetadata)
                 )
             )
         );
@@ -127,7 +127,7 @@ contract LockToVoteTest is AragonTest {
         // It should revert
         vm.startPrank(address(bob));
         vm.expectRevert();
-        LockToVoteSettings memory newSettings = LockToVoteSettings({
+        LockToVoteSingleSettings memory newSettings = LockToVoteSingleSettings({
             minApprovalRatio: 600000, // 60%
             minProposalDuration: 5 days
         });
@@ -135,7 +135,7 @@ contract LockToVoteTest is AragonTest {
 
         vm.startPrank(address(0x1337));
         vm.expectRevert();
-        newSettings = LockToVoteSettings({
+        newSettings = LockToVoteSingleSettings({
             minApprovalRatio: 600000, // 60%
             minProposalDuration: 5 days
         });
@@ -151,7 +151,7 @@ contract LockToVoteTest is AragonTest {
 
         // vm.startPrank(alice);
         dao.grant(address(plugin), alice, plugin.UPDATE_VOTING_SETTINGS_PERMISSION_ID());
-        LockToVoteSettings memory newSettings = LockToVoteSettings({
+        LockToVoteSingleSettings memory newSettings = LockToVoteSingleSettings({
             minApprovalRatio: 700000, // 70%
             minProposalDuration: 3 days
         });
@@ -1051,7 +1051,7 @@ contract LockToVoteTest is AragonTest {
         // It Should set the new values
         // It Settings() should return the right values
 
-        LockToVoteSettings memory newSettings = LockToVoteSettings({
+        LockToVoteSingleSettings memory newSettings = LockToVoteSingleSettings({
             minApprovalRatio: 612345, // 61%
             minProposalDuration: 13.4 days
         });
@@ -1071,7 +1071,7 @@ contract LockToVoteTest is AragonTest {
     function test_RevertWhen_CallingUpdatePluginSettingsNotGranted() public givenNoUpdateVotingSettingsPermission {
         // It Should revert
 
-        LockToVoteSettings memory newSettings = LockToVoteSettings({
+        LockToVoteSingleSettings memory newSettings = LockToVoteSingleSettings({
             minApprovalRatio: 612345, // 61%
             minProposalDuration: 13.4 days
         });

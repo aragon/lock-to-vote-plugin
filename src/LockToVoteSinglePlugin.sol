@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {ILockManager} from "./interfaces/ILockManager.sol";
-import {ILockToVote, LockToVoteSettings, Proposal, ProposalParameters} from "./interfaces/ILockToVote.sol";
+import {ILockToVoteSingle, LockToVoteSingleSettings, Proposal, ProposalParameters} from "./interfaces/ILockToVote.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {ProposalUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/ProposalUpgradeable.sol";
 import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
@@ -18,7 +18,7 @@ import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/mat
 import {_applyRatioCeiled} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 
 contract LockToVotePlugin is
-    ILockToVote,
+    ILockToVoteSingle,
     PluginUUPSUpgradeable,
     ProposalUpgradeable,
     MetadataExtensionUpgradeable,
@@ -26,7 +26,7 @@ contract LockToVotePlugin is
 {
     using SafeCastUpgradeable for uint256;
 
-    LockToVoteSettings public settings;
+    LockToVoteSingleSettings public settings;
 
     /// @inheritdoc ILockToVote
     ILockManager public lockManager;
@@ -57,7 +57,7 @@ contract LockToVotePlugin is
     function initialize(
         IDAO _dao,
         ILockManager _lockManager,
-        LockToVoteSettings calldata _pluginSettings,
+        LockToVoteSingleSettings calldata _pluginSettings,
         IPlugin.TargetConfig calldata _targetConfig,
         bytes calldata _pluginMetadata
     ) external onlyCallAtInitialization reinitializer(1) {
@@ -273,7 +273,7 @@ contract LockToVotePlugin is
     }
 
     /// @inheritdoc ILockToVote
-    function updatePluginSettings(LockToVoteSettings calldata _newSettings)
+    function updatePluginSettings(LockToVoteSingleSettings calldata _newSettings)
         external
         auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID)
     {
@@ -395,7 +395,7 @@ contract LockToVotePlugin is
         lockManager.proposalEnded(_proposalId);
     }
 
-    function _updatePluginSettings(LockToVoteSettings memory _newSettings) internal {
+    function _updatePluginSettings(LockToVoteSingleSettings memory _newSettings) internal {
         settings.minApprovalRatio = _newSettings.minApprovalRatio;
         settings.minProposalDuration = _newSettings.minProposalDuration;
     }
