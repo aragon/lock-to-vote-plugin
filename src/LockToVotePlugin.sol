@@ -2,7 +2,8 @@
 pragma solidity ^0.8.13;
 
 import {ILockManager} from "./interfaces/ILockManager.sol";
-import {ILockToVoteSingle, LockToVoteSingleSettings, Proposal, ProposalParameters} from "./interfaces/ILockToVote.sol";
+import {ILockToVoteBase, VoteOption} from "./interfaces/ILockToVote.sol";
+import {ILockToVote, ProposalVoting, ProposalVotingParameters, LockToVoteSettings} from "./interfaces/ILockToVote.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {ProposalUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/ProposalUpgradeable.sol";
 import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
@@ -10,15 +11,14 @@ import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/pro
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
-import {MetadataExtensionUpgradeable} from
-    "@aragon/osx-commons-contracts/src/utils/metadata/MetadataExtensionUpgradeable.sol";
+import {MetadataExtensionUpgradeable} from "@aragon/osx-commons-contracts/src/utils/metadata/MetadataExtensionUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {_applyRatioCeiled} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 
 contract LockToVotePlugin is
-    ILockToVoteSingle,
+    ILockToVote,
     PluginUUPSUpgradeable,
     ProposalUpgradeable,
     MetadataExtensionUpgradeable,
@@ -26,24 +26,28 @@ contract LockToVotePlugin is
 {
     using SafeCastUpgradeable for uint256;
 
-    LockToVoteSingleSettings public settings;
+    LockToVoteSettings public settings;
 
-    /// @inheritdoc ILockToVote
+    /// @inheritdoc ILockToVoteBase
     ILockManager public lockManager;
 
-    mapping(uint256 => Proposal) proposals;
+    mapping(uint256 => ProposalVoting) proposals;
 
     /// @notice The ID of the permission required to call the `createProposal` functions.
-    bytes32 public constant CREATE_PROPOSAL_PERMISSION_ID = keccak256("CREATE_PROPOSAL_PERMISSION");
+    bytes32 public constant CREATE_PROPOSAL_PERMISSION_ID =
+        keccak256("CREATE_PROPOSAL_PERMISSION");
 
     /// @notice The ID of the permission required to call the `execute` function.
-    bytes32 public constant EXECUTE_PROPOSAL_PERMISSION_ID = keccak256("EXECUTE_PROPOSAL_PERMISSION");
+    bytes32 public constant EXECUTE_PROPOSAL_PERMISSION_ID =
+        keccak256("EXECUTE_PROPOSAL_PERMISSION");
 
     /// @notice The ID of the permission required to call the `execute` function.
-    bytes32 public constant LOCK_MANAGER_PERMISSION_ID = keccak256("LOCK_MANAGER_PERMISSION");
+    bytes32 public constant LOCK_MANAGER_PERMISSION_ID =
+        keccak256("LOCK_MANAGER_PERMISSION");
 
     /// @notice The ID of the permission required to call the `updateVotingSettings` function.
-    bytes32 public constant UPDATE_VOTING_SETTINGS_PERMISSION_ID = keccak256("UPDATE_VOTING_SETTINGS_PERMISSION");
+    bytes32 public constant UPDATE_VOTING_SETTINGS_PERMISSION_ID =
+        keccak256("UPDATE_VOTING_SETTINGS_PERMISSION");
 
     /// @notice Initializes the component.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
@@ -57,7 +61,7 @@ contract LockToVotePlugin is
     function initialize(
         IDAO _dao,
         ILockManager _lockManager,
-        LockToVoteSingleSettings calldata _pluginSettings,
+        LockToVoteSettings calldata _pluginSettings,
         IPlugin.TargetConfig calldata _targetConfig,
         bytes calldata _pluginMetadata
     ) external onlyCallAtInitialization reinitializer(1) {
@@ -68,25 +72,41 @@ contract LockToVotePlugin is
 
         lockManager = _lockManager;
 
-        emit MembershipContractAnnounced({definingContract: address(_lockManager.token())});
+        emit MembershipContractAnnounced({
+            definingContract: address(_lockManager.token())
+        });
     }
 
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
     /// @return Returns `true` if the interface is supported.
-    function supportsInterface(bytes4 _interfaceId)
+    function supportsInterface(
+        bytes4 _interfaceId
+    )
         public
         view
         virtual
-        override(MetadataExtensionUpgradeable, PluginUUPSUpgradeable, ProposalUpgradeable)
+        override(
+            MetadataExtensionUpgradeable,
+            PluginUUPSUpgradeable,
+            ProposalUpgradeable
+        )
         returns (bool)
     {
-        return _interfaceId == type(IMembership).interfaceId || _interfaceId == type(ILockToVote).interfaceId
-            || super.supportsInterface(_interfaceId);
+        return
+            _interfaceId == type(IMembership).interfaceId ||
+            _interfaceId == type(ILockToVoteBase).interfaceId ||
+            _interfaceId == type(ILockToVote).interfaceId ||
+            super.supportsInterface(_interfaceId);
     }
 
     /// @inheritdoc IProposal
-    function customProposalParamsABI() external pure override returns (string memory) {
+    function customProposalParamsABI()
+        external
+        pure
+        override
+        returns (string memory)
+    {
         return "(uint256 allowFailureMap)";
     }
 
@@ -98,7 +118,11 @@ contract LockToVotePlugin is
         uint64 _startDate,
         uint64 _endDate,
         bytes memory _data
-    ) external auth(CREATE_PROPOSAL_PERMISSION_ID) returns (uint256 proposalId) {
+    )
+        external
+        auth(CREATE_PROPOSAL_PERMISSION_ID)
+        returns (uint256 proposalId)
+    {
         uint256 _allowFailureMap;
 
         if (_data.length != 0) {
@@ -111,10 +135,12 @@ contract LockToVotePlugin is
 
         (_startDate, _endDate) = _validateProposalDates(_startDate, _endDate);
 
-        proposalId = _createProposalId(keccak256(abi.encode(_actions, _metadata)));
+        proposalId = _createProposalId(
+            keccak256(abi.encode(_actions, _metadata))
+        );
 
         // Store proposal related information
-        Proposal storage proposal_ = proposals[proposalId];
+        ProposalVoting storage proposal_ = proposals[proposalId];
 
         if (proposal_.parameters.startDate != 0) {
             revert ProposalAlreadyExists(proposalId);
@@ -131,14 +157,22 @@ contract LockToVotePlugin is
             proposal_.allowFailureMap = _allowFailureMap;
         }
 
-        for (uint256 i; i < _actions.length;) {
+        for (uint256 i; i < _actions.length; ) {
             proposal_.actions.push(_actions[i]);
             unchecked {
                 ++i;
             }
         }
 
-        emit ProposalCreated(proposalId, _msgSender(), _startDate, _endDate, _metadata, _actions, _allowFailureMap);
+        emit ProposalCreated(
+            proposalId,
+            _msgSender(),
+            _startDate,
+            _endDate,
+            _metadata,
+            _actions,
+            _allowFailureMap
+        );
 
         lockManager.proposalCreated(proposalId);
     }
@@ -152,21 +186,23 @@ contract LockToVotePlugin is
     /// @return actions The actions to be executed to the `target` contract address.
     /// @return allowFailureMap The bit map representations of which actions are allowed to revert so tx still succeeds.
     /// @return targetConfig Execution configuration, applied to the proposal when it was created. Added in build 3.
-    function getProposal(uint256 _proposalId)
+    function getProposal(
+        uint256 _proposalId
+    )
         public
         view
         virtual
         returns (
             bool open,
             bool executed,
-            ProposalParameters memory parameters,
+            ProposalVotingParameters memory parameters,
             uint256 approvalTally,
             Action[] memory actions,
             uint256 allowFailureMap,
             TargetConfig memory targetConfig
         )
     {
-        Proposal storage proposal_ = proposals[_proposalId];
+        ProposalVoting storage proposal_ = proposals[_proposalId];
 
         open = _isProposalOpen(proposal_);
         executed = proposal_.executed;
@@ -177,9 +213,11 @@ contract LockToVotePlugin is
         targetConfig = proposal_.targetConfig;
     }
 
-    /// @inheritdoc ILockToVote
-    function isProposalOpen(uint256 _proposalId) external view virtual returns (bool) {
-        Proposal storage proposal_ = proposals[_proposalId];
+    /// @inheritdoc ILockToVoteBase
+    function isProposalOpen(
+        uint256 _proposalId
+    ) external view virtual returns (bool) {
+        ProposalVoting storage proposal_ = proposals[_proposalId];
         return _isProposalOpen(proposal_);
     }
 
@@ -190,19 +228,24 @@ contract LockToVotePlugin is
         return false;
     }
 
-    /// @inheritdoc ILockToVote
-    function canVote(uint256 _proposalId, address _voter) external view returns (bool) {
-        Proposal storage proposal_ = proposals[_proposalId];
+    /// @inheritdoc ILockToVoteBase
+    function canVote(
+        uint256 _proposalId,
+        address _voter
+    ) external view returns (bool) {
+        ProposalVoting storage proposal_ = proposals[_proposalId];
 
         return _canVote(proposal_, _voter, lockManager.lockedBalances(_voter));
     }
 
     /// @inheritdoc ILockToVote
-    function vote(uint256 _proposalId, address _voter, uint256 _newVotingPower)
-        external
-        auth(LOCK_MANAGER_PERMISSION_ID)
-    {
-        Proposal storage proposal_ = proposals[_proposalId];
+    function vote(
+        uint256 _proposalId,
+        address _voter,
+        VoteOption _voteOption,
+        uint256 _newVotingPower
+    ) external auth(LOCK_MANAGER_PERMISSION_ID) {
+        ProposalVoting storage proposal_ = proposals[_proposalId];
 
         if (!_canVote(proposal_, _voter, _newVotingPower)) {
             revert VoteCastForbidden(_proposalId, _voter);
@@ -214,16 +257,20 @@ contract LockToVotePlugin is
         proposal_.approvalTally += diff;
         proposal_.approvals[_voter] += diff;
 
-        emit VoteCast(_proposalId, _voter, _newVotingPower);
+        emit VoteCast(_proposalId, _voter, _voteOption, _newVotingPower);
 
         _checkEarlyExecution(_proposalId, proposal_, _voter);
     }
 
     /// @inheritdoc ILockToVote
-    function clearVote(uint256 _proposalId, address _voter) external auth(LOCK_MANAGER_PERMISSION_ID) {
-        Proposal storage proposal_ = proposals[_proposalId];
+    function clearVote(
+        uint256 _proposalId,
+        address _voter
+    ) external auth(LOCK_MANAGER_PERMISSION_ID) {
+        ProposalVoting storage proposal_ = proposals[_proposalId];
 
-        if (proposal_.approvals[_voter] == 0 || !_isProposalOpen(proposal_)) return;
+        if (proposal_.approvals[_voter] == 0 || !_isProposalOpen(proposal_))
+            return;
 
         // Subtract the old votes from the global tally
         proposal_.approvalTally -= proposal_.approvals[_voter];
@@ -235,25 +282,30 @@ contract LockToVotePlugin is
     }
 
     /// @inheritdoc ILockToVote
-    function usedVotingPower(uint256 proposalId, address voter) public view returns (uint256) {
+    function usedVotingPower(
+        uint256 proposalId,
+        address voter
+    ) public view returns (uint256) {
         return proposals[proposalId].approvals[voter];
     }
 
     /// @inheritdoc IProposal
     function hasSucceeded(uint256 _proposalId) external view returns (bool) {
-        Proposal storage proposal_ = proposals[_proposalId];
+        ProposalVoting storage proposal_ = proposals[_proposalId];
         return _hasSucceeded(proposal_);
     }
 
     /// @inheritdoc IProposal
     function canExecute(uint256 _proposalId) external view returns (bool) {
-        Proposal storage proposal_ = proposals[_proposalId];
+        ProposalVoting storage proposal_ = proposals[_proposalId];
         return _canExecute(proposal_);
     }
 
     /// @inheritdoc IProposal
-    function execute(uint256 _proposalId) external auth(EXECUTE_PROPOSAL_PERMISSION_ID) {
-        Proposal storage proposal_ = proposals[_proposalId];
+    function execute(
+        uint256 _proposalId
+    ) external auth(EXECUTE_PROPOSAL_PERMISSION_ID) {
+        ProposalVoting storage proposal_ = proposals[_proposalId];
 
         if (!_canExecute(proposal_)) {
             revert ExecutionForbidden(_proposalId);
@@ -262,38 +314,41 @@ contract LockToVotePlugin is
         _execute(_proposalId, proposal_);
     }
 
-    /// @inheritdoc ILockToVote
+    /// @inheritdoc ILockToVoteBase
     function underlyingToken() external view returns (IERC20) {
         return lockManager.underlyingToken();
     }
 
-    /// @inheritdoc ILockToVote
+    /// @inheritdoc ILockToVoteBase
     function token() external view returns (IERC20) {
         return lockManager.token();
     }
 
     /// @inheritdoc ILockToVote
-    function updatePluginSettings(LockToVoteSingleSettings calldata _newSettings)
-        external
-        auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID)
-    {
+    function updatePluginSettings(
+        LockToVoteSettings calldata _newSettings
+    ) external auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID) {
         _updatePluginSettings(_newSettings);
     }
 
     // Internal helpers
 
-    function _isProposalOpen(Proposal storage proposal_) internal view returns (bool) {
+    function _isProposalOpen(
+        ProposalVoting storage proposal_
+    ) internal view returns (bool) {
         uint64 currentTime = block.timestamp.toUint64();
 
-        return proposal_.parameters.startDate <= currentTime && currentTime < proposal_.parameters.endDate
-            && !proposal_.executed;
+        return
+            proposal_.parameters.startDate <= currentTime &&
+            currentTime < proposal_.parameters.endDate &&
+            !proposal_.executed;
     }
 
-    function _canVote(Proposal storage proposal_, address _voter, uint256 _newVotingBalance)
-        internal
-        view
-        returns (bool)
-    {
+    function _canVote(
+        ProposalVoting storage proposal_,
+        address _voter,
+        uint256 _newVotingBalance
+    ) internal view returns (bool) {
         // The proposal vote hasn't started or has already ended.
         if (!_isProposalOpen(proposal_)) {
             return false;
@@ -306,7 +361,9 @@ contract LockToVotePlugin is
         return true;
     }
 
-    function _canExecute(Proposal storage proposal_) internal view returns (bool) {
+    function _canExecute(
+        ProposalVoting storage proposal_
+    ) internal view returns (bool) {
         if (proposal_.executed) {
             return false;
         } else if (proposal_.parameters.endDate < block.timestamp) {
@@ -318,19 +375,27 @@ contract LockToVotePlugin is
         return true;
     }
 
-    function _minApprovalTally(Proposal storage proposal_) internal view returns (uint256 _minTally) {
+    function _minApprovalTally(
+        ProposalVoting storage proposal_
+    ) internal view returns (uint256 _minTally) {
         /// @dev Checking against the totalSupply() of the **underlying token**.
         /// @dev LP tokens could have important supply variations and this would impact the value of existing votes, after created.
         /// @dev However, the total supply of the underlying token (USDC, USDT, DAI, etc) will experiment little to no variations in comparison.
 
         // NOTE: Assuming a 1:1 correlation between token() and underlyingToken()
 
-        _minTally =
-            _applyRatioCeiled(lockManager.underlyingToken().totalSupply(), proposal_.parameters.minApprovalRatio);
+        _minTally = _applyRatioCeiled(
+            lockManager.underlyingToken().totalSupply(),
+            proposal_.parameters.minApprovalRatio
+        );
     }
 
-    function _hasSucceeded(Proposal storage proposal_) internal view returns (bool) {
-        return proposal_.approvalTally >= _minApprovalTally(proposal_) && proposal_.approvalTally > 0;
+    function _hasSucceeded(
+        ProposalVoting storage proposal_
+    ) internal view returns (bool) {
+        return
+            proposal_.approvalTally >= _minApprovalTally(proposal_) &&
+            proposal_.approvalTally > 0;
     }
 
     /// @notice Validates and returns the proposal dates.
@@ -339,12 +404,10 @@ contract LockToVotePlugin is
     /// @param _end The end date of the proposal. If 0, `_start + minDuration` is used.
     /// @return startDate The validated start date of the proposal.
     /// @return endDate The validated end date of the proposal.
-    function _validateProposalDates(uint64 _start, uint64 _end)
-        internal
-        view
-        virtual
-        returns (uint64 startDate, uint64 endDate)
-    {
+    function _validateProposalDates(
+        uint64 _start,
+        uint64 _end
+    ) internal view virtual returns (uint64 startDate, uint64 endDate) {
         uint64 currentTimestamp = block.timestamp.toUint64();
 
         if (_start == 0) {
@@ -353,7 +416,10 @@ contract LockToVotePlugin is
             startDate = _start;
 
             if (startDate < currentTimestamp) {
-                revert DateOutOfBounds({limit: currentTimestamp, actual: startDate});
+                revert DateOutOfBounds({
+                    limit: currentTimestamp,
+                    actual: startDate
+                });
             }
         }
 
@@ -368,26 +434,47 @@ contract LockToVotePlugin is
             endDate = _end;
 
             if (endDate < earliestEndDate) {
-                revert DateOutOfBounds({limit: earliestEndDate, actual: endDate});
+                revert DateOutOfBounds({
+                    limit: earliestEndDate,
+                    actual: endDate
+                });
             }
         }
     }
 
-    function _checkEarlyExecution(uint256 _proposalId, Proposal storage proposal_, address _voter) internal {
+    function _checkEarlyExecution(
+        uint256 _proposalId,
+        ProposalVoting storage proposal_,
+        address _voter
+    ) internal {
         if (!_canExecute(proposal_)) {
             return;
-        } else if (!dao().hasPermission(address(this), _voter, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
+        } else if (
+            !dao().hasPermission(
+                address(this),
+                _voter,
+                EXECUTE_PROPOSAL_PERMISSION_ID,
+                _msgData()
+            )
+        ) {
             return;
         }
 
         _execute(_proposalId, proposal_);
     }
 
-    function _execute(uint256 _proposalId, Proposal storage proposal_) internal {
+    function _execute(
+        uint256 _proposalId,
+        ProposalVoting storage proposal_
+    ) internal {
         proposal_.executed = true;
 
         // IProposal's target execution
-        _execute(bytes32(_proposalId), proposal_.actions, proposal_.allowFailureMap);
+        _execute(
+            bytes32(_proposalId),
+            proposal_.actions,
+            proposal_.allowFailureMap
+        );
 
         emit Executed(_proposalId);
 
@@ -395,7 +482,9 @@ contract LockToVotePlugin is
         lockManager.proposalEnded(_proposalId);
     }
 
-    function _updatePluginSettings(LockToVoteSingleSettings memory _newSettings) internal {
+    function _updatePluginSettings(
+        LockToVoteSettings memory _newSettings
+    ) internal {
         settings.minApprovalRatio = _newSettings.minApprovalRatio;
         settings.minProposalDuration = _newSettings.minProposalDuration;
     }

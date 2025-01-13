@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.17;
 
-import {ILockToVoteBase} from "./ILockToVote.sol";
+import {ILockToVoteBase, VoteOption} from "./ILockToVote.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice Defines whether locked funds can be unlocked at any time or not
@@ -11,10 +11,18 @@ enum UnlockMode {
     EARLY
 }
 
-/// @notice The struct containing the LockManager helper settings
+/// @notice Defines wether the voting plugin expects approvals or votes
+enum PluginMode {
+    APPROVAL,
+    VOTING
+}
+
+/// @notice The struct containing the LockManager helper settings. They are immutable after deployed.
 struct LockManagerSettings {
-    /// @param lockMode The mode defining whether funds can be unlocked at any time or not
+    /// @notice The mode defining whether funds can be unlocked at any time or not
     UnlockMode unlockMode;
+    /// @notice Wether the plugins expects approvals or votes
+    PluginMode pluginMode;
 }
 
 /// @title ILockManager
@@ -39,13 +47,21 @@ interface ILockManager {
     /// @notice Locks the balance currently allowed by msg.sender on this contract
     function lock() external;
 
-    /// @notice Locks the balance currently allowed by msg.sender on this contract and registers a vote on the target plugin
-    /// @param proposalId The ID of the proposal where the vote will be registered
-    function lockAndVote(uint256 proposalId) external;
+    /// @notice Locks the balance currently allowed by msg.sender on this contract and registers an approval on the target plugin
+    /// @param proposalId The ID of the proposal where the approval will be registered
+    function lockAndApprove(uint256 proposalId) external;
 
-    /// @notice Uses the locked balance to place a vote on the given proposal for the given plugin
+    /// @notice Locks the balance currently allowed by msg.sender on this contract and registers the given vote on the target plugin
     /// @param proposalId The ID of the proposal where the vote will be registered
-    function vote(uint256 proposalId) external;
+    function lockAndVote(uint256 proposalId, VoteOption vote) external;
+
+    /// @notice Uses the locked balance to place an approval on the given proposal for the registered plugin
+    /// @param proposalId The ID of the proposal where the approval will be registered
+    function approve(uint256 proposalId) external;
+
+    /// @notice Uses the locked balance to place the given vote on the given proposal for the registered plugin
+    /// @param proposalId The ID of the proposal where the vote will be registered
+    function vote(uint256 proposalId, VoteOption vote) external;
 
     /// @notice Checks if an account can participate on a proposal. This can be because the proposal
     /// - has not started,
@@ -56,7 +72,10 @@ interface ILockManager {
     /// @param voter The account address to be checked.
     /// @return Returns true if the account is allowed to vote.
     /// @dev The function assumes that the queried proposal exists.
-    function canVote(uint256 proposalId, address voter) external view returns (bool);
+    function canVote(
+        uint256 proposalId,
+        address voter
+    ) external view returns (bool);
 
     /// @notice If the mode allows it, releases all active locks placed on active proposals and transfers msg.sender's locked balance back. Depending on the current mode, it withdraws only if no locks are being used in active proposals.
     function unlock() external;

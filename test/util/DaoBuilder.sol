@@ -5,8 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {createProxyAndCall, createSaltedProxyAndCall, predictProxyAddress} from "../../src/util/proxy.sol";
 import {ALICE_ADDRESS} from "../constants.sol";
-import {LockToVotePlugin} from "../../src/LockToVotePlugin.sol";
-import {LockToVoteSingleSettings} from "../../src/interfaces/ILockToVote.sol";
+import {LockToApprovePlugin} from "../../src/LockToApprovePlugin.sol";
+import {LockToApproveSettings} from "../../src/interfaces/ILockToApprove.sol";
 import {LockManager} from "../../src/LockManager.sol";
 import {LockManagerSettings, UnlockMode} from "../../src/interfaces/ILockManager.sol";
 import {RATIO_BASE} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
@@ -16,7 +16,7 @@ import {TestToken} from "../mocks/TestToken.sol";
 
 contract DaoBuilder is Test {
     address immutable DAO_BASE = address(new DAO());
-    address immutable LOCK_TO_VOTE_BASE = address(new LockToVotePlugin());
+    address immutable LOCK_TO_VOTE_BASE = address(new LockToApprovePlugin());
 
     struct MintEntry {
         address tokenHolder;
@@ -68,7 +68,7 @@ contract DaoBuilder is Test {
     /// @dev The setup is done on block/timestamp 0 and tests should be made on block/timestamp 1 or later.
     function build()
         public
-        returns (DAO dao, LockToVotePlugin plugin, LockManager helper, IERC20 lockableToken, IERC20 underlyingToken)
+        returns (DAO dao, LockToApprovePlugin plugin, LockManager helper, IERC20 lockableToken, IERC20 underlyingToken)
     {
         // Deploy the DAO with `this` as root
         dao = DAO(
@@ -96,18 +96,19 @@ contract DaoBuilder is Test {
 
             helper = new LockManager(dao, LockManagerSettings(unlockMode), lockableToken, underlyingToken);
 
-            LockToVoteSingleSettings memory targetContractSettings =
-                LockToVoteSingleSettings({minApprovalRatio: minApprovalRatio, minProposalDuration: minProposalDuration});
+            LockToApproveSettings memory targetContractSettings =
+                LockToApproveSettings({minApprovalRatio: minApprovalRatio, minProposalDuration: minProposalDuration});
 
             IPlugin.TargetConfig memory targetConfig =
                 IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call});
             bytes memory pluginMetadata = "";
 
-            plugin = LockToVotePlugin(
+            plugin = LockToApprovePlugin(
                 createProxyAndCall(
                     address(LOCK_TO_VOTE_BASE),
                     abi.encodeCall(
-                        LockToVotePlugin.initialize, (dao, helper, targetContractSettings, targetConfig, pluginMetadata)
+                        LockToApprovePlugin.initialize,
+                        (dao, helper, targetContractSettings, targetConfig, pluginMetadata)
                     )
                 )
             );

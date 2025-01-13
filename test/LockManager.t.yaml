@@ -21,6 +21,7 @@ LockManagerTest:
       - when: setPluginAddress with the permission
         then:
           - it: should update the address
+          - it: should revert if trying to update it later
 
   # Locking and voting calls
 

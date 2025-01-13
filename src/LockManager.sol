@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {ILockManager, LockManagerSettings, UnlockMode} from "./interfaces/ILockManager.sol";
+import {ILockManager, LockManagerSettings, UnlockMode, PluginMode} from "./interfaces/ILockManager.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {DaoAuthorizable} from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizable.sol";
+import {ILockToVoteBase, VoteOption} from "./interfaces/ILockToVote.sol";
+import {ILockToApprove} from "./interfaces/ILockToApprove.sol";
 import {ILockToVote} from "./interfaces/ILockToVote.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -13,13 +15,14 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice The ID of the permission required to call the `updateVotingSettings` function.
-    bytes32 public constant UPDATE_SETTINGS_PERMISSION_ID = keccak256("UPDATE_SETTINGS_PERMISSION");
+    bytes32 public constant UPDATE_SETTINGS_PERMISSION_ID =
+        keccak256("UPDATE_SETTINGS_PERMISSION");
 
     /// @notice The current LockManager settings
     LockManagerSettings public settings;
 
     /// @notice The address of the lock to vote plugin to use
-    ILockToVote public plugin;
+    ILockToVoteBase public plugin;
 
     /// @notice The address of the token contract
     IERC20 public immutable token;
@@ -62,17 +65,32 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Thrown when trying to set an invalid contract as the plugin
     error InvalidPlugin();
 
-    /// @notice Thrown when trying to define the address of the plugin after it already was
-    error CannotUpdatePlugin();
+    /// @notice Thrown when trying to set an invalid PluginMode value, or when trying to use an operation not supported by the current pluginMode
+    error InvalidPluginMode();
 
-    constructor(IDAO _dao, LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken)
-        DaoAuthorizable(_dao)
-    {
-        if (_settings.unlockMode != UnlockMode.STRICT && _settings.unlockMode != UnlockMode.EARLY) {
+    /// @notice Thrown when trying to define the address of the plugin after it already was
+    error SetPluginAddressForbidden();
+
+    constructor(
+        IDAO _dao,
+        LockManagerSettings memory _settings,
+        IERC20 _token,
+        IERC20 _underlyingToken
+    ) DaoAuthorizable(_dao) {
+        if (
+            _settings.unlockMode != UnlockMode.STRICT &&
+            _settings.unlockMode != UnlockMode.EARLY
+        ) {
             revert InvalidUnlockMode();
+        } else if (
+            _settings.pluginMode != PluginMode.APPROVAL &&
+            _settings.pluginMode != PluginMode.VOTING
+        ) {
+            revert InvalidPluginMode();
         }
 
         settings.unlockMode = _settings.unlockMode;
+        settings.pluginMode = _settings.pluginMode;
         token = _token;
         underlyingTokenAddress = _underlyingToken;
     }
@@ -83,19 +101,50 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function lockAndVote(uint256 _proposalId) public {
+    function lockAndApprove(uint256 _proposalId) public {
+        if (settings.pluginMode != PluginMode.APPROVAL) {
+            revert InvalidPluginMode();
+        }
+
         _lock();
 
-        _vote(_proposalId);
+        _approve(_proposalId);
     }
 
     /// @inheritdoc ILockManager
-    function vote(uint256 _proposalId) public {
-        _vote(_proposalId);
+    function lockAndVote(uint256 _proposalId, VoteOption _voteOption) public {
+        if (settings.pluginMode != PluginMode.VOTING) {
+            revert InvalidPluginMode();
+        }
+
+        _lock();
+
+        _vote(_proposalId, _voteOption);
     }
 
     /// @inheritdoc ILockManager
-    function canVote(uint256 _proposalId, address _voter) external view returns (bool) {
+    function approve(uint256 _proposalId) public {
+        if (settings.pluginMode != PluginMode.APPROVAL) {
+            revert InvalidPluginMode();
+        }
+
+        _approve(_proposalId);
+    }
+
+    /// @inheritdoc ILockManager
+    function vote(uint256 _proposalId, VoteOption _voteOption) public {
+        if (settings.pluginMode != PluginMode.VOTING) {
+            revert InvalidPluginMode();
+        }
+
+        _vote(_proposalId, _voteOption);
+    }
+
+    /// @inheritdoc ILockManager
+    function canVote(
+        uint256 _proposalId,
+        address _voter
+    ) external view returns (bool) {
         return plugin.canVote(_proposalId, _voter);
     }
 
@@ -138,7 +187,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
         emit ProposalEnded(_proposalId);
 
-        for (uint256 _i; _i < knownProposalIds.length;) {
+        for (uint256 _i; _i < knownProposalIds.length; ) {
             if (knownProposalIds[_i] == _proposalId) {
                 _removeKnownProposalId(_i);
                 return;
@@ -159,11 +208,31 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function setPluginAddress(ILockToVote _newPluginAddress) public auth(UPDATE_SETTINGS_PERMISSION_ID) {
-        if (!IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToVote).interfaceId)) {
+    function setPluginAddress(
+        ILockToVoteBase _newPluginAddress
+    ) public auth(UPDATE_SETTINGS_PERMISSION_ID) {
+        if (
+            !IERC165(address(_newPluginAddress)).supportsInterface(
+                type(ILockToVoteBase).interfaceId
+            )
+        ) {
             revert InvalidPlugin();
         } else if (address(plugin) != address(0)) {
-            revert CannotUpdatePlugin();
+            revert SetPluginAddressForbidden();
+        } else if (
+            settings.pluginMode == PluginMode.APPROVAL &&
+            !IERC165(address(_newPluginAddress)).supportsInterface(
+                type(ILockToApprove).interfaceId
+            )
+        ) {
+            revert InvalidPluginMode();
+        } else if (
+            settings.pluginMode == PluginMode.VOTING &&
+            !IERC165(address(_newPluginAddress)).supportsInterface(
+                type(ILockToVote).interfaceId
+            )
+        ) {
+            revert InvalidPluginMode();
         }
 
         plugin = _newPluginAddress;
@@ -182,20 +251,46 @@ contract LockManager is ILockManager, DaoAuthorizable {
         emit BalanceLocked(msg.sender, _allowance);
     }
 
-    function _vote(uint256 _proposalId) internal {
+    function _approve(uint256 _proposalId) internal {
         uint256 _currentVotingPower = lockedBalances[msg.sender];
         if (_currentVotingPower == 0) {
             revert NoBalance();
-        } else if (_currentVotingPower == plugin.usedVotingPower(_proposalId, msg.sender)) {
+        } else if (
+            _currentVotingPower ==
+            plugin.usedVotingPower(_proposalId, msg.sender)
+        ) {
             revert NoNewBalance();
         }
 
-        plugin.vote(_proposalId, msg.sender, _currentVotingPower);
+        ILockToApprove(address(plugin)).approve(
+            _proposalId,
+            msg.sender,
+            _currentVotingPower
+        );
+    }
+
+    function _vote(uint256 _proposalId, VoteOption _voteOption) internal {
+        uint256 _currentVotingPower = lockedBalances[msg.sender];
+        if (_currentVotingPower == 0) {
+            revert NoBalance();
+        } else if (
+            _currentVotingPower ==
+            plugin.usedVotingPower(_proposalId, msg.sender)
+        ) {
+            revert NoNewBalance();
+        }
+
+        ILockToVote(address(plugin)).vote(
+            _proposalId,
+            msg.sender,
+            _voteOption,
+            _currentVotingPower
+        );
     }
 
     function _hasActiveLocks() internal returns (bool _activeLocks) {
         uint256 _proposalCount = knownProposalIds.length;
-        for (uint256 _i; _i < _proposalCount;) {
+        for (uint256 _i; _i < _proposalCount; ) {
             if (!plugin.isProposalOpen(knownProposalIds[_i])) {
                 _removeKnownProposalId(_i);
                 _proposalCount = knownProposalIds.length;
@@ -221,7 +316,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     function _withdrawActiveVotingPower() internal {
         uint256 _proposalCount = knownProposalIds.length;
-        for (uint256 _i; _i < _proposalCount;) {
+        for (uint256 _i; _i < _proposalCount; ) {
             if (!plugin.isProposalOpen(knownProposalIds[_i])) {
                 _removeKnownProposalId(_i);
                 _proposalCount = knownProposalIds.length;

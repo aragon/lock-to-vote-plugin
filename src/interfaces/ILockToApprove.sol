@@ -2,14 +2,20 @@
 
 pragma solidity ^0.8.17;
 
-import {ILockToVoteBase} from "./ILockToVoteBase.sol";
+import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
+import {ILockManager} from "./ILockManager.sol";
+import {ILockToVoteBase} from "./ILockToVoteBase.sol";
 
 /// @notice A container for the voting settings that will be applied as parameters on proposal creation.
+/// @param minApprovalRatio The minimum approval ratio required to approve over the total supply.
+///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
 /// @param minProposalDuration The minimum duration of the proposal voting stage in seconds.
-struct LockToVoteSettings {
-    // uint32 minApprovalRatio;
+struct LockToApproveSettings {
+    uint32 minApprovalRatio;
     uint64 minProposalDuration;
 }
 
@@ -25,20 +31,14 @@ struct LockToVoteSettings {
 /// @param targetConfig Configuration for the execution target, specifying the target address and operation type
 ///     (either `Call` or `DelegateCall`). Defined by `TargetConfig` in the `IPlugin` interface,
 ///     part of the `osx-commons-contracts` package, added in build 3.
-struct ProposalVoting {
+struct ProposalApproval {
     bool executed;
-    ProposalVotingParameters parameters;
-    VoteTally tally;
+    ProposalApprovalParameters parameters;
+    uint256 approvalTally;
     mapping(address => uint256) approvals;
     Action[] actions;
     uint256 allowFailureMap;
     IPlugin.TargetConfig targetConfig;
-}
-
-struct VoteTally {
-    uint256 yes;
-    uint256 no;
-    uint256 abstain;
 }
 
 /// @notice A container for the proposal parameters at the time of proposal creation.
@@ -46,62 +46,36 @@ struct VoteTally {
 ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
 /// @param startDate The start date of the proposal vote.
 /// @param endDate The end date of the proposal vote.
-struct ProposalVotingParameters {
+struct ProposalApprovalParameters {
     uint32 minApprovalRatio;
     uint64 startDate;
     uint64 endDate;
 }
 
-/// @notice Vote options that a voter can chose from.
-/// @param None The default option state of a voter indicating the absence from the vote.
-///     This option neither influences support nor participation.
-/// @param Abstain This option does not influence the support but counts towards participation.
-/// @param Yes This option increases the support and counts towards participation.
-/// @param No This option decreases the support and counts towards participation.
-enum VoteOption {
-    None,
-    Abstain,
-    Yes,
-    No
-}
-
-/// @title ILockToVote
+/// @title ILockToApprove
 /// @author Aragon X
 /// @notice Governance plugin allowing token holders to use tokens locked without a snapshot requirement and engage in proposals immediately
-interface ILockToVote is ILockToVoteBase {
-    /// @notice Returns wether the given address can vote or increase the amount of tokens assigned to a proposal
-    function canVote(uint256 proposalId, address voter) external view returns (bool);
+interface ILockToApprove is ILockToVoteBase {
+    /// @notice Returns wether the given address can approve or increase the amount of tokens assigned to aprove a proposal
+    function canApprove(uint256 proposalId, address voter) external view returns (bool);
 
-    /// @notice Registers a vote for the given proposal.
+    /// @notice Registers an approval for the given proposal.
     /// @param proposalId The ID of the proposal to vote on.
     /// @param voter The address of the account whose vote will be registered
-    /// @param voteOption The value of the new vote to register. If an existing vote existed, it will be replaced.
     /// @param newVotingPower The new balance that should be allocated to the voter. It can only be bigger.
     /// @dev newVotingPower updates any prior voting power, it does not add to the existing amount.
-    function vote(
-        uint256 proposalId,
-        address voter,
-        VoteOption voteOption,
-        uint256 newVotingPower
-    ) external;
+    function approve(uint256 proposalId, address voter, uint256 newVotingPower) external;
 
-    /// @notice Reverts the existing voter's vote, if any.
+    /// @notice Reverts the existing voter's approval, if any.
     /// @param proposalId The ID of the proposal.
     /// @param voter The voter's address.
-    function clearVote(uint256 proposalId, address voter) external;
+    function clearApproval(uint256 proposalId, address voter) external;
 
     /// @notice Updates the voting settings, which will be applied to the next proposal being created.
     /// @param newSettings The new settings, including the minimum approval ratio and the minimum proposal duration.
-    function updatePluginSettings(
-        LockToVoteSettings calldata newSettings
-    ) external;
+    function updatePluginSettings(LockToApproveSettings calldata newSettings) external;
 
-    event VoteCast(
-        uint256 proposalId,
-        address voter,
-        VoteOption voteOption,
-        uint256 newVotingPower
-    );
+    event Approved(uint256 proposalId, address voter, uint256 newVotingPower);
     event VoteCleared(uint256 proposalId, address voter);
-    error VoteCastForbidden(uint256 proposalId, address voter);
+    error ApprovalForbidden(uint256 proposalId, address voter);
 }

@@ -8,7 +8,7 @@ import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol"
 import {createProxyAndCall} from "../src/util/proxy.sol";
 import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
-import {LockToVotePlugin} from "../src/LockToVotePlugin.sol";
+import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
 import {LockManagerSettings, UnlockMode} from "../src/interfaces/ILockManager.sol";
 import {LockManager} from "../src/LockManager.sol";
@@ -17,13 +17,13 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract LockManagerTest is AragonTest {
     DaoBuilder builder;
     DAO dao;
-    LockToVotePlugin plugin;
+    LockToApprovePlugin plugin;
     LockManager lockManager;
     IERC20 lockableToken;
     IERC20 underlyingToken;
     uint256 proposalId;
 
-    address immutable LOCK_TO_VOTE_BASE = address(new LockToVotePlugin());
+    address immutable LOCK_TO_VOTE_BASE = address(new LockToApprovePlugin());
     address immutable LOCK_MANAGER_BASE = address(
         new LockManager(
             IDAO(address(0)), LockManagerSettings(UnlockMode.STRICT), IERC20(address(0)), IERC20(address(0))
@@ -104,14 +104,14 @@ contract LockManagerTest is AragonTest {
         lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
         dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         vm.expectRevert();
-        lockManager.setPluginAddress(LockToVotePlugin(address(0x5555)));
+        lockManager.setPluginAddress(LockToApprovePlugin(address(0x5555)));
     }
 
     function test_RevertWhen_SetPluginAddressWithoutThePermission() external whenCallingSetPluginAddress {
         // It should revert
 
-        (, LockToVotePlugin plugin2,,,) = builder.build();
-        (, LockToVotePlugin plugin3,,,) = builder.build();
+        (, LockToApprovePlugin plugin2,,,) = builder.build();
+        (, LockToApprovePlugin plugin3,,,) = builder.build();
 
         lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
 
@@ -137,9 +137,10 @@ contract LockManagerTest is AragonTest {
 
     function test_WhenSetPluginAddressWithThePermission() external whenCallingSetPluginAddress {
         // It should update the address
+        // It should revert if trying to update it later
 
-        (, LockToVotePlugin plugin2,,,) = builder.build();
-        (, LockToVotePlugin plugin3,,,) = builder.build();
+        (, LockToApprovePlugin plugin2,,,) = builder.build();
+        (, LockToApprovePlugin plugin3,,,) = builder.build();
 
         lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
         dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
@@ -152,6 +153,10 @@ contract LockManagerTest is AragonTest {
         dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(plugin3);
         assertEq(address(lockManager.plugin()), address(plugin3));
+
+        // Attempt to set when already defined
+        vm.expectRevert(abi.encodeWithSelector(SetPluginAddressForbidden.selector));
+        lockManager.setPluginAddress(plugin2);
     }
 
     modifier givenNoLockedTokens() {
