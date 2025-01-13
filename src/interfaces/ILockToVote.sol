@@ -7,9 +7,15 @@ import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol"
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 
 /// @notice A container for the voting settings that will be applied as parameters on proposal creation.
+/// @param minVotingPower Minimum amount of allocated tokens required.
+/// @param minApprovalPower Minimum amount of allocated YES votes.
+/// @param supportThreshold Threshold of YES votes over the total participation required.
+///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
 /// @param minProposalDuration The minimum duration of the proposal voting stage in seconds.
 struct LockToVoteSettings {
-    // uint32 minApprovalRatio;
+    uint256 minVotingPower;
+    uint256 minApprovalPower;
+    uint32 supportThreshold;
     uint64 minProposalDuration;
 }
 
@@ -17,7 +23,7 @@ struct LockToVoteSettings {
 /// @param executed Whether the proposal is executed or not.
 /// @param parameters The proposal parameters at the time of the proposal creation.
 /// @param approvalTally The vote tally of the proposal.
-/// @param approvals The voting power cast by each voter.
+/// @param votes The voting power cast by each voter.
 /// @param actions The actions to be executed when the proposal passes.
 /// @param allowFailureMap A bitmap allowing the proposal to succeed, even if individual actions might revert.
 ///     If the bit at index `i` is 1, the proposal succeeds even if the `i`th action reverts.
@@ -29,7 +35,7 @@ struct ProposalVoting {
     bool executed;
     ProposalVotingParameters parameters;
     VoteTally tally;
-    mapping(address => uint256) approvals;
+    mapping(address => VoteItem) votes;
     Action[] actions;
     uint256 allowFailureMap;
     IPlugin.TargetConfig targetConfig;
@@ -40,14 +46,22 @@ struct VoteTally {
     uint256 no;
     uint256 abstain;
 }
+struct VoteItem {
+    VoteOption voteOption;
+    uint256 votingPower;
+}
 
 /// @notice A container for the proposal parameters at the time of proposal creation.
-/// @param minApprovalRatio The approval threshold above which the proposal becomes executable.
+/// @param minVotingPower Minimum amount of allocated tokens required.
+/// @param minApprovalPower Minimum amount of allocated YES votes.
+/// @param supportThreshold Threshold of YES votes over the total participation required.
 ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
 /// @param startDate The start date of the proposal vote.
 /// @param endDate The end date of the proposal vote.
 struct ProposalVotingParameters {
-    uint32 minApprovalRatio;
+    uint256 minVotingPower;
+    uint256 minApprovalPower;
+    uint32 supportThreshold;
     uint64 startDate;
     uint64 endDate;
 }
@@ -104,4 +118,5 @@ interface ILockToVote is ILockToVoteBase {
     );
     event VoteCleared(uint256 proposalId, address voter);
     error VoteCastForbidden(uint256 proposalId, address voter);
+    error VotingNoneForbidden(uint256 proposalId, address voter);
 }

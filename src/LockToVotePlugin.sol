@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {ILockManager} from "./interfaces/ILockManager.sol";
 import {ILockToVoteBase, VoteOption} from "./interfaces/ILockToVote.sol";
-import {ILockToVote, ProposalVoting, ProposalVotingParameters, LockToVoteSettings} from "./interfaces/ILockToVote.sol";
+import {ILockToVote, ProposalVoting, ProposalVotingParameters, LockToVoteSettings, VoteTally} from "./interfaces/ILockToVote.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {ProposalUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/ProposalUpgradeable.sol";
 import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
@@ -148,7 +148,9 @@ contract LockToVotePlugin is
 
         proposal_.parameters.startDate = _startDate;
         proposal_.parameters.endDate = _endDate;
-        proposal_.parameters.minApprovalRatio = settings.minApprovalRatio;
+        proposal_.parameters.minVotingPower = settings.minVotingPower;
+        proposal_.parameters.minApprovalPower = settings.minApprovalPower;
+        proposal_.parameters.supportThreshold = settings.supportThreshold;
 
         proposal_.targetConfig = getTargetConfig();
 
@@ -182,7 +184,7 @@ contract LockToVotePlugin is
     /// @return open Whether the proposal is open or not.
     /// @return executed Whether the proposal is executed or not.
     /// @return parameters The parameters of the proposal.
-    /// @return approvalTally The current tally of the proposal.
+    /// @return tally The current tally of the proposal.
     /// @return actions The actions to be executed to the `target` contract address.
     /// @return allowFailureMap The bit map representations of which actions are allowed to revert so tx still succeeds.
     /// @return targetConfig Execution configuration, applied to the proposal when it was created. Added in build 3.
@@ -196,7 +198,7 @@ contract LockToVotePlugin is
             bool open,
             bool executed,
             ProposalVotingParameters memory parameters,
-            uint256 approvalTally,
+            VoteTally memory tally,
             Action[] memory actions,
             uint256 allowFailureMap,
             TargetConfig memory targetConfig
@@ -207,7 +209,7 @@ contract LockToVotePlugin is
         open = _isProposalOpen(proposal_);
         executed = proposal_.executed;
         parameters = proposal_.parameters;
-        approvalTally = proposal_.approvalTally;
+        tally = proposal_.tally;
         actions = proposal_.actions;
         allowFailureMap = proposal_.allowFailureMap;
         targetConfig = proposal_.targetConfig;
@@ -253,9 +255,9 @@ contract LockToVotePlugin is
 
         // Add the difference between the new voting power and the current one
 
-        uint256 diff = _newVotingPower - proposal_.approvals[_voter];
+        uint256 diff = _newVotingPower - proposal_.votes[_voter].votingPower;
         proposal_.approvalTally += diff;
-        proposal_.approvals[_voter] += diff;
+        proposal_.votes[_voter] += diff;
 
         emit VoteCast(_proposalId, _voter, _voteOption, _newVotingPower);
 
@@ -269,14 +271,14 @@ contract LockToVotePlugin is
     ) external auth(LOCK_MANAGER_PERMISSION_ID) {
         ProposalVoting storage proposal_ = proposals[_proposalId];
 
-        if (proposal_.approvals[_voter] == 0 || !_isProposalOpen(proposal_))
+        if (proposal_.votes[_voter] == 0 || !_isProposalOpen(proposal_))
             return;
 
         // Subtract the old votes from the global tally
-        proposal_.approvalTally -= proposal_.approvals[_voter];
+        proposal_.approvalTally -= proposal_.votes[_voter];
 
         // Clear the voting power
-        proposal_.approvals[_voter] = 0;
+        proposal_.votes[_voter] = 0;
 
         emit VoteCleared(_proposalId, _voter);
     }
@@ -354,7 +356,7 @@ contract LockToVotePlugin is
             return false;
         }
         // More balance could be added
-        else if (_newVotingBalance <= proposal_.approvals[_voter]) {
+        else if (_newVotingBalance <= proposal_.votes[_voter]) {
             return false;
         }
 

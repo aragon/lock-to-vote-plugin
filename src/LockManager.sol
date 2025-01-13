@@ -145,7 +145,10 @@ contract LockManager is ILockManager, DaoAuthorizable {
         uint256 _proposalId,
         address _voter
     ) external view returns (bool) {
-        return plugin.canVote(_proposalId, _voter);
+        if (settings.pluginMode == PluginMode.VOTING) {
+            return ILockToVote(address(plugin)).canVote(_proposalId, _voter);
+        }
+        return ILockToApprove(address(plugin)).canApprove(_proposalId, _voter);
     }
 
     /// @inheritdoc ILockManager
@@ -331,7 +334,17 @@ contract LockManager is ILockManager, DaoAuthorizable {
             }
 
             if (plugin.usedVotingPower(knownProposalIds[_i], msg.sender) > 0) {
-                plugin.clearVote(knownProposalIds[_i], msg.sender);
+                if (settings.pluginMode == PluginMode.VOTING) {
+                    ILockToVote(address(plugin)).clearVote(
+                        knownProposalIds[_i],
+                        msg.sender
+                    );
+                } else {
+                    ILockToApprove(address(plugin)).clearApproval(
+                        knownProposalIds[_i],
+                        msg.sender
+                    );
+                }
             }
 
             unchecked {
