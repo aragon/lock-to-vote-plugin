@@ -32,6 +32,14 @@ interface IMajorityVoting {
         uint256 votingPower
     );
 
+    /// @notice Holds the state of an account's vote
+    /// @param voteOption 1 -> abstain, 2 -> yes, 3 -> no
+    /// @param votingPower How many tokens the account has allocated to `voteOption`
+    struct VoteEntry {
+        VoteOption voteOption;
+        uint256 votingPower;
+    }
+
     /// @notice Returns the support threshold parameter stored in the voting settings.
     /// @return The support threshold parameter.
     function supportThreshold() external view returns (uint32);
@@ -49,14 +57,18 @@ interface IMajorityVoting {
     ///     for a proposal is greater than the support threshold.
     /// @param _proposalId The ID of the proposal.
     /// @return Returns `true` if the  support is greater than the support threshold and `false` otherwise.
-    function isSupportThresholdReached(uint256 _proposalId) external view returns (bool);
+    function isSupportThresholdReached(
+        uint256 _proposalId
+    ) external view returns (bool);
 
     /// @notice Checks if the worst-case support value defined as:
     ///     $$\texttt{worstCaseSupport} = \frac{N_\text{yes}}{ N_\text{total}-N_\text{abstain}}$$
     ///     for a proposal is greater than the support threshold.
     /// @param _proposalId The ID of the proposal.
     /// @return Returns `true` if the worst-case support is greater than the support threshold and `false` otherwise.
-    function isSupportThresholdReachedEarly(uint256 _proposalId) external view returns (bool);
+    function isSupportThresholdReachedEarly(
+        uint256 _proposalId
+    ) external view returns (bool);
 
     /// @notice Checks if the participation value defined as:
     ///     $$\texttt{participation} = \frac{N_\text{yes}+N_\text{no}+N_\text{abstain}}{N_\text{total}}$$
@@ -64,28 +76,31 @@ interface IMajorityVoting {
     /// @param _proposalId The ID of the proposal.
     /// @return Returns `true` if the participation is greater or equal than the minimum participation,
     ///     and `false` otherwise.
-    function isMinParticipationReached(uint256 _proposalId) external view returns (bool);
+    function isMinParticipationReached(
+        uint256 _proposalId
+    ) external view returns (bool);
 
     /// @notice Checks if the min approval value defined as:
     ///     $$\texttt{minApproval} = \frac{N_\text{yes}}{N_\text{total}}$$
     ///     for a proposal is greater or equal than the minimum approval value.
     /// @param _proposalId The ID of the proposal.
     /// @return Returns `true` if the approvals is greater or equal than the minimum approval and `false` otherwise.
-    function isMinApprovalReached(uint256 _proposalId) external view returns (bool);
+    function isMinApprovalReached(
+        uint256 _proposalId
+    ) external view returns (bool);
 
     /// @notice Checks if an account can participate on a proposal. This can be because the vote
     /// - has not started,
     /// - has ended,
     /// - was executed, or
     /// - the voter doesn't have voting powers.
-    /// @param _proposalId The proposal Id.
-    /// @param _account The account address to be checked.
-    /// @param _voteOption Whether the voter abstains, supports or opposes the proposal.
+    /// - the voter can increase the amount of tokens assigned
+    /// @param proposalId The proposal Id.
+    /// @param voter The account address to be checked.
     /// @return Returns true if the account is allowed to vote.
     function canVote(
-        uint256 _proposalId,
-        address _account,
-        VoteOption _voteOption
+        uint256 proposalId,
+        address voter
     ) external view returns (bool);
 
     /// @notice Checks if a proposal can be executed.
@@ -93,13 +108,24 @@ interface IMajorityVoting {
     /// @return True if the proposal can be executed, false otherwise.
     function canExecute(uint256 _proposalId) external view returns (bool);
 
-    /// @notice Votes on a proposal and, optionally, executes the proposal.
-    /// @dev `_voteOption`, 1 -> abstain, 2 -> yes, 3 -> no
-    /// @param _proposalId The ID of the proposal.
-    /// @param _voteOption The chosen vote option.
-    /// @param _tryEarlyExecution If `true`,  early execution is tried after the vote cast.
-    ///     The call does not revert if early execution is not possible.
-    function vote(uint256 _proposalId, VoteOption _voteOption, bool _tryEarlyExecution) external;
+    /// @notice Votes on a proposal and, depending on the mode, executes it.
+    /// @dev `voteOption`, 1 -> abstain, 2 -> yes, 3 -> no
+    /// @param proposalId The ID of the proposal to vote on.
+    /// @param voter The address of the account whose vote will be registered
+    /// @param voteOption The value of the new vote to register. If an existing vote existed, it will be replaced.
+    /// @param votingPower The new balance that should be allocated to the voter. It can only be bigger.
+    /// @dev votingPower updates any prior voting power, it does not add to the existing amount.
+    function vote(
+        uint256 proposalId,
+        address voter,
+        VoteOption voteOption,
+        uint256 votingPower
+    ) external;
+
+    /// @notice Reverts the existing voter's vote, if existing.
+    /// @param proposalId The ID of the proposal.
+    /// @param voter The voter's address.
+    function clearVote(uint256 proposalId, address voter) external;
 
     /// @notice Executes a proposal.
     /// @param _proposalId The ID of the proposal to be executed.
@@ -111,8 +137,8 @@ interface IMajorityVoting {
     /// @param _proposalId The ID of the proposal.
     /// @param _account The account address to be checked.
     /// @return The vote option cast by a voter for a certain proposal.
-    function getVoteOption(
+    function getVote(
         uint256 _proposalId,
         address _account
-    ) external view returns (VoteOption);
+    ) external view returns (VoteEntry memory);
 }
