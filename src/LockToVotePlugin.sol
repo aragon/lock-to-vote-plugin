@@ -340,7 +340,7 @@ contract LockToVotePlugin is
         uint256 _proposalId,
         address _voter
     ) public view returns (uint256) {
-        return proposals[proposalId].approvals[voter];
+        return proposals[_proposalId].votes[_voter].votingPower;
     }
 
     /// @inheritdoc IProposal
@@ -525,9 +525,11 @@ contract LockToVotePlugin is
 
         // IProposal's target execution
         _execute(
+            proposal_.targetConfig.target,
             bytes32(_proposalId),
             proposal_.actions,
-            proposal_.allowFailureMap
+            proposal_.allowFailureMap,
+            proposal_.targetConfig.operation
         );
 
         emit Executed(_proposalId);
