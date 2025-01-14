@@ -90,13 +90,13 @@ interface ILockToVote is ILockToVoteBase {
     /// @param proposalId The ID of the proposal to vote on.
     /// @param voter The address of the account whose vote will be registered
     /// @param voteOption The value of the new vote to register. If an existing vote existed, it will be replaced.
-    /// @param newVotingPower The new balance that should be allocated to the voter. It can only be bigger.
-    /// @dev newVotingPower updates any prior voting power, it does not add to the existing amount.
+    /// @param votingPower The new balance that should be allocated to the voter. It can only be bigger.
+    /// @dev votingPower updates any prior voting power, it does not add to the existing amount.
     function vote(
         uint256 proposalId,
         address voter,
         VoteOption voteOption,
-        uint256 newVotingPower
+        uint256 votingPower
     ) external;
 
     /// @notice Reverts the existing voter's vote, if any.
@@ -114,9 +114,10 @@ interface ILockToVote is ILockToVoteBase {
         uint256 proposalId,
         address voter,
         VoteOption voteOption,
-        uint256 newVotingPower
+        uint256 votingPower
     );
     event VoteCleared(uint256 proposalId, address voter);
     error VoteCastForbidden(uint256 proposalId, address voter);
     error VotingNoneForbidden(uint256 proposalId, address voter);
+    error LowerBalanceForbidden();
 }

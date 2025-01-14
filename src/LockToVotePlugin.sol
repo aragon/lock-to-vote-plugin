@@ -245,21 +245,64 @@ contract LockToVotePlugin is
         uint256 _proposalId,
         address _voter,
         VoteOption _voteOption,
-        uint256 _newVotingPower
+        uint256 _votingPower
     ) external auth(LOCK_MANAGER_PERMISSION_ID) {
         ProposalVoting storage proposal_ = proposals[_proposalId];
 
-        if (!_canVote(proposal_, _voter, _newVotingPower)) {
+        if (!_canVote(proposal_, _voter, _votingPower)) {
             revert VoteCastForbidden(_proposalId, _voter);
+        } else if (_voteOption == VoteOption.None) {
+            revert VotingNoneForbidden(_proposalId, _voter);
+        } else if (_votingPower < proposal_.votes[_voter].votingPower) {
+            revert LowerBalanceForbidden();
         }
 
-        // Add the difference between the new voting power and the current one
+        // Same vote
+        if (_voteOption == proposal_.votes[_voter].voteOption) {
+            // Same balance, nothing to do
+            if (_votingPower == proposal_.votes[_voter].votingPower) return;
 
-        uint256 diff = _newVotingPower - proposal_.votes[_voter].votingPower;
-        proposal_.approvalTally += diff;
-        proposal_.votes[_voter] += diff;
+            // More balance
+            uint256 diff = _votingPower - proposal_.votes[_voter].votingPower;
+            proposal_.votes[_voter].votingPower = _votingPower;
 
-        emit VoteCast(_proposalId, _voter, _voteOption, _newVotingPower);
+            if (proposal_.votes[_voter].voteOption == VoteOption.Yes) {
+                proposal_.tally.yes += diff;
+            } else if (proposal_.votes[_voter].voteOption == VoteOption.No) {
+                proposal_.tally.no += diff;
+            } else {
+                proposal_.tally.abstain += diff;
+            }
+        } else {
+            // Was there a vote?
+            if (proposal_.votes[_voter].votingPower > 0) {
+                // Undo that vote
+                if (proposal_.votes[_voter].voteOption == VoteOption.Yes) {
+                    proposal_.tally.yes -= proposal_.votes[_voter].votingPower;
+                } else if (
+                    proposal_.votes[_voter].voteOption == VoteOption.No
+                ) {
+                    proposal_.tally.no -= proposal_.votes[_voter].votingPower;
+                } else {
+                    proposal_.tally.abstain -= proposal_
+                        .votes[_voter]
+                        .votingPower;
+                }
+            }
+
+            // Register the new vote
+            if (_voteOption == VoteOption.Yes) {
+                proposal_.tally.yes += _votingPower;
+            } else if (_voteOption == VoteOption.No) {
+                proposal_.tally.no += _votingPower;
+            } else {
+                proposal_.tally.abstain += _votingPower;
+            }
+            proposal_.votes[_voter].voteOption = _voteOption;
+            proposal_.votes[_voter].votingPower = _votingPower;
+        }
+
+        emit VoteCast(_proposalId, _voter, _voteOption, _votingPower);
 
         _checkEarlyExecution(_proposalId, proposal_, _voter);
     }
@@ -271,22 +314,31 @@ contract LockToVotePlugin is
     ) external auth(LOCK_MANAGER_PERMISSION_ID) {
         ProposalVoting storage proposal_ = proposals[_proposalId];
 
-        if (proposal_.votes[_voter] == 0 || !_isProposalOpen(proposal_))
+        if (
+            proposal_.votes[_voter].votingPower == 0 ||
+            !_isProposalOpen(proposal_)
+        ) {
+            // Nothing to do
             return;
+        }
 
-        // Subtract the old votes from the global tally
-        proposal_.approvalTally -= proposal_.votes[_voter];
-
-        // Clear the voting power
-        proposal_.votes[_voter] = 0;
+        // Undo that vote
+        if (proposal_.votes[_voter].voteOption == VoteOption.Yes) {
+            proposal_.tally.yes -= proposal_.votes[_voter].votingPower;
+        } else if (proposal_.votes[_voter].voteOption == VoteOption.No) {
+            proposal_.tally.no -= proposal_.votes[_voter].votingPower;
+        } else {
+            proposal_.tally.abstain -= proposal_.votes[_voter].votingPower;
+        }
+        proposal_.votes[_voter].votingPower = 0;
 
         emit VoteCleared(_proposalId, _voter);
     }
 
     /// @inheritdoc ILockToVote
     function usedVotingPower(
-        uint256 proposalId,
-        address voter
+        uint256 _proposalId,
+        address _voter
     ) public view returns (uint256) {
         return proposals[proposalId].approvals[voter];
     }
