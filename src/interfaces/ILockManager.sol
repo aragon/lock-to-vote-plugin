@@ -2,7 +2,8 @@
 
 pragma solidity ^0.8.17;
 
-import {ILockToVoteBase, VoteOption} from "./ILockToVote.sol";
+import {ILockToVoteBase} from "./ILockToVoteBase.sol";
+import {IMajorityVoting} from "./IMajorityVoting.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice Defines whether locked funds can be unlocked at any time or not
@@ -53,7 +54,7 @@ interface ILockManager {
 
     /// @notice Locks the balance currently allowed by msg.sender on this contract and registers the given vote on the target plugin
     /// @param proposalId The ID of the proposal where the vote will be registered
-    function lockAndVote(uint256 proposalId, VoteOption vote) external;
+    function lockAndVote(uint256 proposalId, IMajorityVoting.VoteOption vote) external;
 
     /// @notice Uses the locked balance to place an approval on the given proposal for the registered plugin
     /// @param proposalId The ID of the proposal where the approval will be registered
@@ -61,7 +62,7 @@ interface ILockManager {
 
     /// @notice Uses the locked balance to place the given vote on the given proposal for the registered plugin
     /// @param proposalId The ID of the proposal where the vote will be registered
-    function vote(uint256 proposalId, VoteOption vote) external;
+    function vote(uint256 proposalId, IMajorityVoting.VoteOption vote) external;
 
     /// @notice Checks if an account can participate on a proposal. This can be because the proposal
     /// - has not started,

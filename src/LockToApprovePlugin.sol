@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {ILockManager} from "./interfaces/ILockManager.sol";
-import {ILockToVoteBase, VoteOption} from "./interfaces/ILockToVote.sol";
+import {ILockToVoteBase} from "./interfaces/ILockToVote.sol";
 import {ILockToApprove, LockToApproveSettings, ProposalApproval, ProposalApprovalParameters} from "./interfaces/ILockToApprove.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {ProposalUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/ProposalUpgradeable.sol";

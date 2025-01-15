@@ -4,9 +4,10 @@ pragma solidity ^0.8.13;
 import {ILockManager, LockManagerSettings, UnlockMode, PluginMode} from "./interfaces/ILockManager.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {DaoAuthorizable} from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizable.sol";
-import {ILockToVoteBase, VoteOption} from "./interfaces/ILockToVote.sol";
+import {ILockToVoteBase} from "./interfaces/ILockToVote.sol";
 import {ILockToApprove} from "./interfaces/ILockToApprove.sol";
 import {ILockToVote} from "./interfaces/ILockToVote.sol";
+import {IMajorityVoting} from "./interfaces/IMajorityVoting.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
@@ -112,7 +113,10 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function lockAndVote(uint256 _proposalId, VoteOption _voteOption) public {
+    function lockAndVote(
+        uint256 _proposalId,
+        IMajorityVoting.VoteOption _voteOption
+    ) public {
         if (settings.pluginMode != PluginMode.VOTING) {
             revert InvalidPluginMode();
         }
@@ -132,7 +136,10 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function vote(uint256 _proposalId, VoteOption _voteOption) public {
+    function vote(
+        uint256 _proposalId,
+        IMajorityVoting.VoteOption _voteOption
+    ) public {
         if (settings.pluginMode != PluginMode.VOTING) {
             revert InvalidPluginMode();
         }
@@ -272,7 +279,10 @@ contract LockManager is ILockManager, DaoAuthorizable {
         );
     }
 
-    function _vote(uint256 _proposalId, VoteOption _voteOption) internal {
+    function _vote(
+        uint256 _proposalId,
+        IMajorityVoting.VoteOption _voteOption
+    ) internal {
         uint256 _currentVotingPower = lockedBalances[msg.sender];
         if (_currentVotingPower == 0) {
             revert NoBalance();

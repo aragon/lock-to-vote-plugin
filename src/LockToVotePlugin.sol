@@ -14,27 +14,13 @@ import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/mat
 import {_applyRatioCeiled} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {MajorityVotingBase} from "./base/MajorityVotingBase.sol";
 
-contract LockToVotePlugin is
-    ILockToVote,
-    IMembership,
-    MajorityVotingBase
-{
+contract LockToVotePlugin is ILockToVote, IMembership, MajorityVotingBase {
     using SafeCastUpgradeable for uint256;
-
-    LockToVoteSettings public settings;
 
     /// @inheritdoc ILockToVoteBase
     ILockManager public lockManager;
 
     mapping(uint256 => ProposalVoting) proposals;
-
-    /// @notice The ID of the permission required to call the `createProposal` functions.
-    bytes32 public constant CREATE_PROPOSAL_PERMISSION_ID =
-        keccak256("CREATE_PROPOSAL_PERMISSION");
-
-    /// @notice The ID of the permission required to call the `execute` function.
-    bytes32 public constant EXECUTE_PROPOSAL_PERMISSION_ID =
-        keccak256("EXECUTE_PROPOSAL_PERMISSION");
 
     /// @notice The ID of the permission required to call the `execute` function.
     bytes32 public constant LOCK_MANAGER_PERMISSION_ID =

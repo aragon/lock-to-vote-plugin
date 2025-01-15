@@ -312,7 +312,6 @@ abstract contract MajorityVotingBase is
     /// @param _targetConfig Configuration for the execution target, specifying the target address and operation type
     ///     (either `Call` or `DelegateCall`). Defined by `TargetConfig` in the `IPlugin` interface,
     ///     part of the `osx-commons-contracts` package, added in build 3.
-    /// @param _minApprovals The minimal amount of approvals the proposal needs to succeed.
     /// @param _pluginMetadata The plugin specific information encoded in bytes.
     ///     This can also be an ipfs cid encoded in bytes.
     // solhint-disable-next-line func-name-mixedcase
@@ -320,7 +319,6 @@ abstract contract MajorityVotingBase is
         IDAO _dao,
         VotingSettings calldata _votingSettings,
         TargetConfig calldata _targetConfig,
-        uint256 _minApprovals,
         bytes calldata _pluginMetadata
     ) internal onlyInitializing {
         __PluginUUPSUpgradeable_init(_dao);
