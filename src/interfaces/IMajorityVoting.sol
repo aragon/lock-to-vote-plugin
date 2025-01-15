@@ -46,7 +46,7 @@ interface IMajorityVoting {
 
     /// @notice Returns the configured minimum approval value.
     /// @return The minimal approval value.
-    function minApproval() external view returns (uint256);
+    function minApprovals() external view returns (uint256);
 
     /// @notice Returns the minimum participation parameter stored in the voting settings.
     /// @return The minimum participation parameter.
@@ -81,7 +81,7 @@ interface IMajorityVoting {
     ) external view returns (bool);
 
     /// @notice Checks if the min approval value defined as:
-    ///     $$\texttt{minApproval} = \frac{N_\text{yes}}{N_\text{total}}$$
+    ///     $$\texttt{minApprovals} = \frac{N_\text{yes}}{N_\text{total}}$$
     ///     for a proposal is greater or equal than the minimum approval value.
     /// @param _proposalId The ID of the proposal.
     /// @return Returns `true` if the approvals is greater or equal than the minimum approval and `false` otherwise.

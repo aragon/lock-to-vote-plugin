@@ -154,12 +154,14 @@ abstract contract MajorityVotingBase is
     ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     /// @param minDuration The minimum duration of the proposal vote in seconds.
     /// @param minProposerVotingPower The minimum voting power required to create a proposal.
+    /// @param _minApprovals The minimal amount of approvals the proposal needs to succeed.
     struct VotingSettings {
         VotingMode votingMode;
         uint32 supportThreshold;
         uint32 minParticipation;
         uint64 minDuration;
         uint256 minProposerVotingPower;
+        uint256 minApprovals;
     }
 
     /// @notice A container for proposal-related information.
@@ -171,7 +173,7 @@ abstract contract MajorityVotingBase is
     /// @param allowFailureMap A bitmap allowing the proposal to succeed, even if individual actions might revert.
     ///     If the bit at index `i` is 1, the proposal succeeds even if the `i`th action reverts.
     ///     A failure map value of 0 requires every action to not revert.
-    /// @param minApprovalPower The minimum amount of yes votes power needed for the proposal advance.
+    /// @param minApprovals The minimum amount of yes votes power needed for the proposal advance.
     /// @param targetConfig Configuration for the execution target, specifying the target address and operation type
     ///     (either `Call` or `DelegateCall`). Defined by `TargetConfig` in the `IPlugin` interface,
     ///     part of the `osx-commons-contracts` package, added in build 3.
@@ -192,14 +194,14 @@ abstract contract MajorityVotingBase is
     /// @param startDate The start date of the proposal vote.
     /// @param endDate The end date of the proposal vote.
     /// @param minVotingPower The minimum voting power needed for a proposal to reach minimum participation.
-    /// @param minApprovalPower Minimum amount of allocated YES votes.
+    /// @param minApprovals Minimum amount of allocated YES votes.
     struct ProposalParameters {
         VotingMode votingMode;
         uint32 supportThreshold;
         uint64 startDate;
         uint64 endDate;
         uint256 minVotingPower;
-        uint256 minApprovalPower;
+        uint256 minApprovals;
     }
 
     /// @notice A container for the proposal vote tally.
@@ -220,7 +222,6 @@ abstract contract MajorityVotingBase is
             this.totalVotingPower.selector ^
             this.getProposal.selector ^
             this.updateVotingSettings.selector ^
-            this.updateMinApprovals.selector ^
             bytes4(
                 keccak256(
                     "createProposal(bytes,(address,uint256,bytes)[],uint256,uint64,uint64,uint8,bool)"
@@ -245,10 +246,6 @@ abstract contract MajorityVotingBase is
 
     /// @notice The struct storing the voting settings.
     VotingSettings private votingSettings;
-
-    /// @notice The minimum ratio of yes votes needed for a proposal to succeed.
-    /// @dev Not included in VotingSettings for compatibility reasons.
-    uint256 private minApprovals;
 
     /// @notice Thrown if a date is out of bounds.
     /// @param limit The limit value.
@@ -328,7 +325,6 @@ abstract contract MajorityVotingBase is
     ) internal onlyInitializing {
         __PluginUUPSUpgradeable_init(_dao);
         _updateVotingSettings(_votingSettings);
-        _updateMinApprovals(_minApprovals);
         _setTargetConfig(_targetConfig);
         _setMetadata(_pluginMetadata);
     }
@@ -355,14 +351,7 @@ abstract contract MajorityVotingBase is
         // happens with MAJORITY_VOTING_BASE_INTERFACE which did not include `updateMinApprovals`.
         return
             _interfaceId == MAJORITY_VOTING_BASE_INTERFACE_ID ||
-            _interfaceId ==
-            MAJORITY_VOTING_BASE_INTERFACE_ID ^
-                this.updateMinApprovals.selector ||
             _interfaceId == type(IMajorityVoting).interfaceId ||
-            _interfaceId ==
-            type(IMajorityVoting).interfaceId ^
-                this.isMinApprovalReached.selector ^
-                this.minApproval.selector ||
             super.supportsInterface(_interfaceId);
     }
 
@@ -461,23 +450,7 @@ abstract contract MajorityVotingBase is
     /// @inheritdoc IMajorityVoting
     function isSupportThresholdReachedEarly(
         uint256 _proposalId
-    ) public view virtual returns (bool) {
-        Proposal storage proposal_ = proposals[_proposalId];
-
-        uint256 noVotesWorstCase = totalVotingPower(
-            proposal_.parameters.snapshotBlock
-        ) -
-            proposal_.tally.yes -
-            proposal_.tally.abstain;
-
-        // The code below implements the formula of the
-        // early execution support criterion explained in the top of this file.
-        // `(1 - supportThreshold) * N_yes > supportThreshold *  N_no,worst-case`
-        return
-            (RATIO_BASE - proposal_.parameters.supportThreshold) *
-                proposal_.tally.yes >
-            proposal_.parameters.supportThreshold * noVotesWorstCase;
-    }
+    ) public view virtual returns (bool);
 
     /// @inheritdoc IMajorityVoting
     function isMinParticipationReached(
@@ -501,12 +474,7 @@ abstract contract MajorityVotingBase is
     ) public view virtual returns (bool) {
         return
             proposals[_proposalId].tally.yes >=
-            proposals[_proposalId].minApprovalPower;
-    }
-
-    /// @inheritdoc IMajorityVoting
-    function minApproval() public view virtual returns (uint256) {
-        return minApprovals;
+            proposals[_proposalId].parameters.minApprovals;
     }
 
     /// @inheritdoc IMajorityVoting
@@ -529,6 +497,11 @@ abstract contract MajorityVotingBase is
     /// @return The minimum voting power required to create a proposal.
     function minProposerVotingPower() public view virtual returns (uint256) {
         return votingSettings.minProposerVotingPower;
+    }
+
+    /// @inheritdoc IMajorityVoting
+    function minApprovals() public view virtual returns (uint256) {
+        return votingSettings.minApprovals;
     }
 
     /// @notice Returns the vote mode stored in the voting settings.
@@ -589,15 +562,6 @@ abstract contract MajorityVotingBase is
         _updateVotingSettings(_votingSettings);
     }
 
-    /// @notice Updates the minimal approval value.
-    /// @dev Requires the `UPDATE_VOTING_SETTINGS_PERMISSION_ID` permission.
-    /// @param _minApprovals The new minimal approval value.
-    function updateMinApprovals(
-        uint256 _minApprovals
-    ) external virtual auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID) {
-        _updateMinApprovals(_minApprovals);
-    }
-
     /// @notice Creates a new majority voting proposal.
     /// @param _metadata The metadata of the proposal.
     /// @param _actions The actions that will be executed after the proposal passes.
@@ -625,15 +589,15 @@ abstract contract MajorityVotingBase is
 
     /// @notice Internal function to cast a vote. It assumes the queried proposal exists.
     /// @param _proposalId The ID of the proposal.
-    /// @param _voteOption The chosen vote option to be casted on the proposal vote.
     /// @param _voter The address of the account that is voting on the `_proposalId`.
-    /// @param _tryEarlyExecution If `true`,  early execution is tried after the vote cast.
+    /// @param _voteOption The chosen vote option to be casted on the proposal vote.
+    /// @param _votingPower The current amount of tokens to allocate to the given vote option.
     ///     The call does not revert if early execution is not possible.
     function _vote(
         uint256 _proposalId,
-        VoteOption _voteOption,
         address _voter,
-        bool _tryEarlyExecution
+        VoteOption _voteOption,
+        uint256 _votingPower
     ) internal virtual;
 
     /// @notice Internal function to execute a proposal. It assumes the queried proposal exists.
@@ -739,27 +703,30 @@ abstract contract MajorityVotingBase is
                 actual: _votingSettings.supportThreshold
             });
         }
-
         // Require the minimum participation value to be in the interval [0, 10^6],
         // because `>=` comparison is used in the participation criterion.
-        if (_votingSettings.minParticipation > RATIO_BASE) {
+        else if (_votingSettings.minParticipation > RATIO_BASE) {
             revert RatioOutOfBounds({
                 limit: RATIO_BASE,
                 actual: _votingSettings.minParticipation
             });
-        }
-
-        if (_votingSettings.minDuration < 60 minutes) {
+        } else if (_votingSettings.minDuration < 60 minutes) {
             revert MinDurationOutOfBounds({
                 limit: 60 minutes,
                 actual: _votingSettings.minDuration
             });
-        }
-
-        if (_votingSettings.minDuration > 365 days) {
+        } else if (_votingSettings.minDuration > 365 days) {
             revert MinDurationOutOfBounds({
                 limit: 365 days,
                 actual: _votingSettings.minDuration
+            });
+        }
+        // Require the minimum approval value to be in the interval [0, 10^6],
+        // because `>=` comparison is used in the participation criterion.
+        else if (_votingSettings.minApprovals > RATIO_BASE) {
+            revert RatioOutOfBounds({
+                limit: RATIO_BASE,
+                actual: _votingSettings.minApprovals
             });
         }
 
@@ -778,20 +745,7 @@ abstract contract MajorityVotingBase is
     /// @param _proposalId The ID of the proposal.
     /// @return Returns `true` if proposal exists, otherwise false.
     function _proposalExists(uint256 _proposalId) private view returns (bool) {
-        return proposals[_proposalId].parameters.snapshotBlock != 0;
-    }
-
-    /// @notice Internal function to update minimal approval value.
-    /// @param _minApprovals The new minimal approval value.
-    function _updateMinApprovals(uint256 _minApprovals) internal virtual {
-        // Require the minimum approval value to be in the interval [0, 10^6],
-        // because `>=` comparison is used in the participation criterion.
-        if (_minApprovals > RATIO_BASE) {
-            revert RatioOutOfBounds({limit: RATIO_BASE, actual: _minApprovals});
-        }
-
-        minApprovals = _minApprovals;
-        emit VotingMinApprovalUpdated(_minApprovals);
+        return proposals[_proposalId].parameters.startDate != 0;
     }
 
     /// @notice Validates and returns the proposal dates.

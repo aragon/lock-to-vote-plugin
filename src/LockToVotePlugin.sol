@@ -5,24 +5,19 @@ import {ILockManager} from "./interfaces/ILockManager.sol";
 import {ILockToVoteBase, VoteOption} from "./interfaces/ILockToVote.sol";
 import {ILockToVote, ProposalVoting, ProposalVotingParameters, LockToVoteSettings, VoteTally} from "./interfaces/ILockToVote.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
-import {ProposalUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/ProposalUpgradeable.sol";
 import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
-import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
-import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
-import {MetadataExtensionUpgradeable} from "@aragon/osx-commons-contracts/src/utils/metadata/MetadataExtensionUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {_applyRatioCeiled} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
+import {MajorityVotingBase} from "./base/MajorityVotingBase.sol";
 
 contract LockToVotePlugin is
     ILockToVote,
-    PluginUUPSUpgradeable,
-    ProposalUpgradeable,
-    MetadataExtensionUpgradeable,
-    IMembership
+    IMembership,
+    MajorityVotingBase
 {
     using SafeCastUpgradeable for uint256;
 
