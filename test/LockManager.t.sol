@@ -107,55 +107,51 @@ contract LockManagerTest is AragonTest {
         lockManager.setPluginAddress(LockToApprovePlugin(address(0x5555)));
     }
 
-    function test_RevertWhen_SetPluginAddressWithoutThePermission() external whenCallingSetPluginAddress {
-        // It should revert
-
-        (, LockToApprovePlugin plugin2,,,) = builder.build();
-        (, LockToApprovePlugin plugin3,,,) = builder.build();
-
-        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
-
-        // 1
-        vm.expectRevert();
-        lockManager.setPluginAddress(plugin2);
-
-        // 2
-        vm.expectRevert();
-        lockManager.setPluginAddress(plugin3);
-
-        // OK
-
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
-        lockManager.setPluginAddress(plugin2);
-
-        // OK 2
-
-        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
-        lockManager.setPluginAddress(plugin3);
-    }
-
-    function test_WhenSetPluginAddressWithThePermission() external whenCallingSetPluginAddress {
+    function test_WhenSetPluginAddressOnce() external whenCallingSetPluginAddress {
         // It should update the address
-        // It should revert if trying to update it later
 
         (, LockToApprovePlugin plugin2,,,) = builder.build();
         (, LockToApprovePlugin plugin3,,,) = builder.build();
 
         lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(plugin2);
         assertEq(address(lockManager.plugin()), address(plugin2));
 
         // OK 2
 
         lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(plugin3);
         assertEq(address(lockManager.plugin()), address(plugin3));
 
         // Attempt to set when already defined
-        vm.expectRevert(abi.encodeWithSelector(SetPluginAddressForbidden.selector));
+        vm.expectRevert(abi.encodeWithSelector(LockManager.SetPluginAddressForbidden.selector));
+        lockManager.setPluginAddress(plugin2);
+    }
+
+    function test_RevertWhen_SetPluginAddressTwice() external whenCallingSetPluginAddress {
+        // It should revert if trying to update it later
+
+        (, LockToApprovePlugin plugin2,,,) = builder.build();
+        (, LockToApprovePlugin plugin3,,,) = builder.build();
+
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+
+        // OK
+        lockManager.setPluginAddress(plugin2);
+
+        // KO
+        vm.expectRevert();
+        lockManager.setPluginAddress(plugin2);
+
+        vm.expectRevert();
+        lockManager.setPluginAddress(plugin3);
+
+        // OK 2
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+        lockManager.setPluginAddress(plugin3);
+
+        // KO
+        vm.expectRevert();
         lockManager.setPluginAddress(plugin2);
     }
 

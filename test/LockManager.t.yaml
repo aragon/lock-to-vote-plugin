@@ -15,12 +15,11 @@ LockManagerTest:
       - given: Invalid plugin
         and:
           - it: should revert
-      - when: setPluginAddress without the permission
-        then:
-          - it: should revert
-      - when: setPluginAddress with the permission
+      - when: setPluginAddress once
         then:
           - it: should update the address
+      - when: setPluginAddress twice
+        then:
           - it: should revert if trying to update it later
 
   # Locking and voting calls
