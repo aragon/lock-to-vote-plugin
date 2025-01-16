@@ -353,23 +353,6 @@ abstract contract MajorityVotingBase is
             super.supportsInterface(_interfaceId);
     }
 
-    /// @inheritdoc IMajorityVoting
-    function vote(
-        uint256 _proposalId,
-        address _voter,
-        VoteOption _voteOption,
-        uint256 _votingPower
-    ) public virtual {
-        if (!_canVote(_proposalId, _voter)) {
-            revert VoteCastForbidden({
-                proposalId: _proposalId,
-                account: _voter,
-                voteOption: _voteOption
-            });
-        }
-        _vote(_proposalId, _voter, _voteOption, _votingPower);
-    }
-
     /// @inheritdoc IProposal
     /// @dev Requires the `EXECUTE_PROPOSAL_PERMISSION_ID` permission.
     function execute(
@@ -392,19 +375,6 @@ abstract contract MajorityVotingBase is
         address _voter
     ) public view virtual returns (VoteEntry memory) {
         return (proposals[_proposalId].votes[_voter]);
-    }
-
-    /// @inheritdoc IMajorityVoting
-    /// @dev Reverts if the proposal with the given `_proposalId` does not exist.
-    function canVote(
-        uint256 _proposalId,
-        address _account
-    ) public view virtual returns (bool) {
-        if (!_proposalExists(_proposalId)) {
-            revert NonexistentProposal(_proposalId);
-        }
-
-        return _canVote(_proposalId, _account);
     }
 
     /// @inheritdoc IMajorityVoting
