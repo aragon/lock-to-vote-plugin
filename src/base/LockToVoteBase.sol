@@ -32,4 +32,5 @@ abstract contract LockToVoteBase is ILockToVoteBase, IMembership {
         return false;
     }
 
+    error NoVotingPower();
 }

@@ -36,7 +36,4 @@ interface ILockToVoteBase {
     /// @param _proposalId The ID of the proposal.
     /// @return True if the proposal is open, false otherwise.
     function isProposalOpen(uint256 _proposalId) external view returns (bool);
-
-
-    event Executed(uint256 proposalId);
 }

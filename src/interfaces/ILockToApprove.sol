@@ -22,12 +22,4 @@ interface ILockToApprove is ILockToVoteBase {
     /// @param proposalId The ID of the proposal.
     /// @param voter The voter's address.
     function clearApproval(uint256 proposalId, address voter) external;
-
-    /// @notice Updates the voting settings, which will be applied to the next proposal being created.
-    /// @param newSettings The new settings, including the minimum approval ratio and the minimum proposal duration.
-    function updatePluginSettings(LockToApproveSettings calldata newSettings) external;
-
-    event Approved(uint256 proposalId, address voter, uint256 newVotingPower);
-    event VoteCleared(uint256 proposalId, address voter);
-    error ApprovalForbidden(uint256 proposalId, address voter);
 }
