@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import {ILockManager, LockManagerSettings, UnlockMode, PluginMode} from "./interfaces/ILockManager.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {DaoAuthorizable} from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizable.sol";
-import {ILockToVoteBase} from "./interfaces/ILockToVote.sol";
+import {ILockToVoteBase} from "./interfaces/ILockToVoteBase.sol";
 import {ILockToApprove} from "./interfaces/ILockToApprove.sol";
 import {ILockToVote} from "./interfaces/ILockToVote.sol";
 import {IMajorityVoting} from "./interfaces/IMajorityVoting.sol";
