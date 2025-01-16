@@ -6,7 +6,6 @@ import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {createProxyAndCall, createSaltedProxyAndCall, predictProxyAddress} from "../../src/util/proxy.sol";
 import {ALICE_ADDRESS} from "../constants.sol";
 import {LockToApprovePlugin} from "../../src/LockToApprovePlugin.sol";
-import {LockToApproveSettings} from "../../src/interfaces/ILockToApprove.sol";
 import {LockManager} from "../../src/LockManager.sol";
 import {LockManagerSettings, UnlockMode} from "../../src/interfaces/ILockManager.sol";
 import {RATIO_BASE} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
@@ -96,8 +95,8 @@ contract DaoBuilder is Test {
 
             helper = new LockManager(dao, LockManagerSettings(unlockMode), lockableToken, underlyingToken);
 
-            LockToApproveSettings memory targetContractSettings =
-                LockToApproveSettings({minApprovalRatio: minApprovalRatio, minProposalDuration: minProposalDuration});
+            LockToApprovePlugin.ApprovalSettings memory targetContractSettings =
+                LockToApprovePlugin.ApprovalSettings({minApprovalRatio: minApprovalRatio, minProposalDuration: minProposalDuration});
 
             IPlugin.TargetConfig memory targetConfig =
                 IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call});

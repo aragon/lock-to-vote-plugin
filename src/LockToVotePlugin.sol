@@ -2,25 +2,30 @@
 pragma solidity ^0.8.13;
 
 import {ILockManager} from "./interfaces/ILockManager.sol";
-import {ILockToVoteBase, VoteOption} from "./interfaces/ILockToVote.sol";
-import {ILockToVote, ProposalVoting, ProposalVotingParameters, LockToVoteSettings, VoteTally} from "./interfaces/ILockToVote.sol";
+import {LockToVoteBase} from "./base/LockToVoteBase.sol";
+import {ILockToVote} from "./interfaces/ILockToVote.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
-import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {_applyRatioCeiled} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {MajorityVotingBase} from "./base/MajorityVotingBase.sol";
 
-contract LockToVotePlugin is ILockToVote, IMembership, MajorityVotingBase {
+contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     using SafeCastUpgradeable for uint256;
 
-    /// @inheritdoc ILockToVoteBase
-    ILockManager public lockManager;
-
-    mapping(uint256 => ProposalVoting) proposals;
+    /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
+    bytes4 internal constant LOCK_TO_VOTE_INTERFACE_ID =
+        this.minDuration.selector ^
+            this.minProposerVotingPower.selector ^
+            this.votingMode.selector ^
+            this.totalVotingPower.selector ^
+            this.getProposal.selector ^
+            this.updateVotingSettings.selector ^
+            this.createProposal.selector;
 
     /// @notice The ID of the permission required to call the `execute` function.
     bytes32 public constant LOCK_MANAGER_PERMISSION_ID =
@@ -67,16 +72,11 @@ contract LockToVotePlugin is ILockToVote, IMembership, MajorityVotingBase {
         public
         view
         virtual
-        override(
-            MetadataExtensionUpgradeable,
-            PluginUUPSUpgradeable,
-            ProposalUpgradeable
-        )
+        override(MajorityVotingBase, LockToVoteBase)
         returns (bool)
     {
         return
-            _interfaceId == type(IMembership).interfaceId ||
-            _interfaceId == type(ILockToVoteBase).interfaceId ||
+            _interfaceId == LOCK_TO_VOTE_INTERFACE_ID ||
             _interfaceId == type(ILockToVote).interfaceId ||
             super.supportsInterface(_interfaceId);
     }
@@ -519,10 +519,10 @@ contract LockToVotePlugin is ILockToVote, IMembership, MajorityVotingBase {
         lockManager.proposalEnded(_proposalId);
     }
 
-    function _updatePluginSettings(
-        LockToVoteSettings memory _newSettings
-    ) internal {
-        settings.minApprovalRatio = _newSettings.minApprovalRatio;
-        settings.minProposalDuration = _newSettings.minProposalDuration;
-    }
+
+    /// @notice This empty reserved space is put in place to allow future versions to add
+    /// new variables without shifting down storage in the inheritance chain
+    /// (see [OpenZeppelin's guide about storage gaps]
+    /// (https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
+    uint256[50] private __gap;
 }

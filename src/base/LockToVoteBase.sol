@@ -8,12 +8,31 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ILockManager} from "../interfaces/ILockManager.sol";
 import {ILockToVoteBase} from "../interfaces/ILockToVoteBase.sol";
 import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
+import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 
 /// @title LockToVoteBase
 /// @author Aragon X 2024-2025
-abstract contract LockToVoteBase is ILockToVoteBase, IMembership {
+abstract contract LockToVoteBase is
+    ILockToVoteBase,
+    IMembership,
+    ERC165Upgradeable
+{
+    error NoVotingPower();
+
     /// @inheritdoc ILockToVoteBase
     ILockManager public lockManager;
+
+    /// @notice Checks if this or the parent contract supports an interface by its ID.
+    /// @param _interfaceId The ID of the interface.
+    /// @return Returns `true` if the interface is supported.
+    function supportsInterface(
+        bytes4 _interfaceId
+    ) public view virtual override(ERC165Upgradeable) returns (bool) {
+        return
+            _interfaceId == type(ILockToVoteBase).interfaceId ||
+            _interfaceId == type(IMembership).interfaceId ||
+            super.supportsInterface(_interfaceId);
+    }
 
     /// @inheritdoc ILockToVoteBase
     function token() external view returns (IERC20) {
@@ -32,5 +51,9 @@ abstract contract LockToVoteBase is ILockToVoteBase, IMembership {
         return false;
     }
 
-    error NoVotingPower();
+    /// @notice This empty reserved space is put in place to allow future versions to add
+    /// new variables without shifting down storage in the inheritance chain
+    /// (see [OpenZeppelin's guide about storage gaps]
+    /// (https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
+    uint256[49] private __gap;
 }

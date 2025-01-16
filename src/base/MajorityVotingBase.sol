@@ -344,9 +344,6 @@ abstract contract MajorityVotingBase is
         )
         returns (bool)
     {
-        // In addition to the current IMajorityVoting interface, also support previous version
-        // that did not include the `isMinApprovalReached` and `minApproval` functions, same
-        // happens with MAJORITY_VOTING_BASE_INTERFACE which did not include `updateMinApprovals`.
         return
             _interfaceId == MAJORITY_VOTING_BASE_INTERFACE_ID ||
             _interfaceId == type(IMajorityVoting).interfaceId ||

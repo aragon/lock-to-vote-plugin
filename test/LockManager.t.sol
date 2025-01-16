@@ -155,7 +155,7 @@ contract LockManagerTest is AragonTest {
         assertEq(address(lockManager.plugin()), address(plugin3));
 
         // Attempt to set when already defined
-        vm.expectRevert(abi.encodeWithSelector(SetPluginAddressForbidden.selector));
+        vm.expectRevert(abi.encodeWithSelector(LockManager.SetPluginAddressForbidden.selector));
         lockManager.setPluginAddress(plugin2);
     }
 
