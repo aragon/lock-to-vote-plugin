@@ -272,12 +272,7 @@ abstract contract MajorityVotingBase is
     /// - the account doesn't have voting powers.
     /// @param proposalId The ID of the proposal.
     /// @param account The address of the _account.
-    /// @param voteOption The chosen vote option.
-    error VoteCastForbidden(
-        uint256 proposalId,
-        address account,
-        VoteOption voteOption
-    );
+    error VoteCastForbidden(uint256 proposalId, address account);
 
     /// @notice Thrown if the proposal execution is forbidden.
     /// @param proposalId The ID of the proposal.
@@ -361,6 +356,7 @@ abstract contract MajorityVotingBase is
         if (!_canExecute(_proposalId)) {
             revert ProposalExecutionForbidden(_proposalId);
         }
+
         _execute(_proposalId);
     }
 
@@ -550,19 +546,6 @@ abstract contract MajorityVotingBase is
         bool _tryEarlyExecution
     ) external virtual returns (uint256 proposalId);
 
-    /// @notice Internal function to cast a vote. It assumes the queried proposal exists.
-    /// @param _proposalId The ID of the proposal.
-    /// @param _voter The address of the account that is voting on the `_proposalId`.
-    /// @param _voteOption The chosen vote option to be casted on the proposal vote.
-    /// @param _votingPower The current amount of tokens to allocate to the given vote option.
-    ///     The call does not revert if early execution is not possible.
-    function _vote(
-        uint256 _proposalId,
-        address _voter,
-        VoteOption _voteOption,
-        uint256 _votingPower
-    ) internal virtual;
-
     /// @notice Internal function to execute a proposal. It assumes the queried proposal exists.
     /// @param _proposalId The ID of the proposal.
     function _execute(uint256 _proposalId) internal virtual {
@@ -580,15 +563,6 @@ abstract contract MajorityVotingBase is
 
         emit ProposalExecuted(_proposalId);
     }
-
-    /// @notice Internal function to check if a voter can vote. It assumes the queried proposal exists.
-    /// @param _proposalId The ID of the proposal.
-    /// @param _account The address of the voter to check.
-    /// @return Returns `true` if the given voter can vote on a certain proposal and `false` otherwise.
-    function _canVote(
-        uint256 _proposalId,
-        address _account
-    ) internal view virtual returns (bool);
 
     /// @notice An internal function that checks if the proposal succeeded or not.
     /// @param _proposalId The ID of the proposal.
@@ -708,7 +682,7 @@ abstract contract MajorityVotingBase is
     /// @notice Checks if proposal exists or not.
     /// @param _proposalId The ID of the proposal.
     /// @return Returns `true` if proposal exists, otherwise false.
-    function _proposalExists(uint256 _proposalId) private view returns (bool) {
+    function _proposalExists(uint256 _proposalId) internal view returns (bool) {
         return proposals[_proposalId].parameters.startDate != 0;
     }
 

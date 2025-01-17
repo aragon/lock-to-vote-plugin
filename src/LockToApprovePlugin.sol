@@ -200,14 +200,14 @@ contract LockToApprovePlugin is
         returns (
             bool open,
             bool executed,
-            ProposalApprovalParameters memory parameters,
+                ProposalParameters memory parameters,
             uint256 approvalTally,
             Action[] memory actions,
             uint256 allowFailureMap,
             TargetConfig memory targetConfig
         )
     {
-        ProposalApproval storage proposal_ = proposals[_proposalId];
+            Proposal storage proposal_ = proposals[_proposalId];
 
         open = _isProposalOpen(proposal_);
         executed = proposal_.executed;
@@ -323,7 +323,7 @@ contract LockToApprovePlugin is
 
     // Internal helpers
 
-    function _isProposalOpen(ProposalApproval storage proposal_) internal view returns (bool) {
+        function _isProposalOpen(Proposal storage proposal_) internal view returns (bool) {
         uint64 currentTime = block.timestamp.toUint64();
 
         return proposal_.parameters.startDate <= currentTime && currentTime < proposal_.parameters.endDate

@@ -19,13 +19,9 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
     bytes4 internal constant LOCK_TO_VOTE_INTERFACE_ID =
-        this.minDuration.selector ^
-            this.minProposerVotingPower.selector ^
-            this.votingMode.selector ^
+        // this.minProposerVotingPower.selector ^
             this.totalVotingPower.selector ^
-            this.getProposal.selector ^
-            this.updateVotingSettings.selector ^
-            bytes4(
+                        bytes4(
                 keccak256(
                     "createProposal(bytes,(address,uint256,bytes)[],uint64,uint64,uint8,bytes)"
                 )
@@ -131,8 +127,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         }
 
         proposal_.parameters.votingMode = votingMode();
-        proposal_.parameters.supportThresholdRatio = votingSettings
-            .supportThresholdRatio;
+        proposal_.parameters.supportThresholdRatio = supportThresholdRatio();
         proposal_.parameters.startDate = _startDate;
         proposal_.parameters.endDate = _endDate;
         proposal_.parameters.minVotingPower = _applyRatioCeiled(
@@ -255,7 +250,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         emit VoteCast(_proposalId, _voter, _voteOption, _votingPower);
 
         if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
-            _checkEarlyExecution(_proposalId, proposal_, _voter);
+            _checkEarlyExecution(_proposalId, _msgSender());
         }
     }
 
@@ -296,60 +291,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         return proposals[_proposalId].votes[_voter].votingPower;
     }
 
-    /// @inheritdoc IProposal
-    function hasSucceeded(uint256 _proposalId) external view returns (bool) {
-        ProposalVoting storage proposal_ = proposals[_proposalId];
-        return _hasSucceeded(proposal_);
-    }
-
-    /// @inheritdoc IProposal
-    function canExecute(uint256 _proposalId) external view returns (bool) {
-        ProposalVoting storage proposal_ = proposals[_proposalId];
-        return _canExecute(proposal_);
-    }
-
-    /// @inheritdoc IProposal
-    function execute(
-        uint256 _proposalId
-    ) external auth(EXECUTE_PROPOSAL_PERMISSION_ID) {
-        ProposalVoting storage proposal_ = proposals[_proposalId];
-
-        if (!_canExecute(proposal_)) {
-            revert ExecutionForbidden(_proposalId);
-        }
-
-        _execute(_proposalId, proposal_);
-    }
-
-    /// @inheritdoc ILockToVoteBase
-    function underlyingToken() external view returns (IERC20) {
-        return lockManager.underlyingToken();
-    }
-
-    /// @inheritdoc ILockToVoteBase
-    function token() external view returns (IERC20) {
-        return lockManager.token();
-    }
-
-    /// @inheritdoc ILockToVote
-    function updatePluginSettings(
-        LockToVoteSettings calldata _newSettings
-    ) external auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID) {
-        _updatePluginSettings(_newSettings);
-    }
-
     // Internal helpers
-
-    function _isProposalOpen(
-        ProposalVoting storage proposal_
-    ) internal view returns (bool) {
-        uint64 currentTime = block.timestamp.toUint64();
-
-        return
-            proposal_.parameters.startDate <= currentTime &&
-            currentTime < proposal_.parameters.endDate &&
-            !proposal_.executed;
-    }
 
     function _canVote(
         Proposal storage proposal_,
@@ -372,7 +314,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         }
         // The voter has already voted but vote replacment is not allowed.
         else if (
-            proposal_.voters[_voter].voteOption != VoteOption.None &&
+            proposal_.votes[_voter].voteOption != VoteOption.None &&
             proposal_.parameters.votingMode != VotingMode.VoteReplacement
         ) {
             return false;
@@ -381,98 +323,28 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         return true;
     }
 
-    function _minApprovalTally(
-        ProposalVoting storage proposal_
-    ) internal view returns (uint256 _minTally) {
-        /// @dev Checking against the totalSupply() of the **underlying token**.
-        /// @dev LP tokens could have important supply variations and this would impact the value of existing votes, after created.
-        /// @dev However, the total supply of the underlying token (USDC, USDT, DAI, etc) will experiment little to no variations in comparison.
-
-        // NOTE: Assuming a 1:1 correlation between token() and underlyingToken()
-
-        _minTally = _applyRatioCeiled(
-            lockManager.underlyingToken().totalSupply(),
-            proposal_.parameters.minApprovalRatio
-        );
-    }
-
-    function _hasSucceeded(
-        ProposalVoting storage proposal_
-    ) internal view returns (bool) {
-        return
-            proposal_.approvalTally >= _minApprovalTally(proposal_) &&
-            proposal_.approvalTally > 0;
-    }
-
-    /// @notice Validates and returns the proposal dates.
-    /// @param _start The start date of the proposal.
-    ///     If 0, the current timestamp is used and the vote starts immediately.
-    /// @param _end The end date of the proposal. If 0, `_start + minDuration` is used.
-    /// @return startDate The validated start date of the proposal.
-    /// @return endDate The validated end date of the proposal.
-    function _validateProposalDates(
-        uint64 _start,
-        uint64 _end
-    ) internal view virtual returns (uint64 startDate, uint64 endDate) {
-        uint64 currentTimestamp = block.timestamp.toUint64();
-
-        if (_start == 0) {
-            startDate = currentTimestamp;
-        } else {
-            startDate = _start;
-
-            if (startDate < currentTimestamp) {
-                revert DateOutOfBounds({
-                    limit: currentTimestamp,
-                    actual: startDate
-                });
-            }
-        }
-
-        // Since `minDuration` is limited to 1 year,
-        // `startDate + minDuration` can only overflow if the `startDate` is after `type(uint64).max - minDuration`.
-        // In this case, the proposal creation will revert and another date can be picked.
-        uint64 earliestEndDate = startDate + settings.minProposalDuration;
-
-        if (_end == 0) {
-            endDate = earliestEndDate;
-        } else {
-            endDate = _end;
-
-            if (endDate < earliestEndDate) {
-                revert DateOutOfBounds({
-                    limit: earliestEndDate,
-                    actual: endDate
-                });
-            }
-        }
-    }
-
     function _checkEarlyExecution(
         uint256 _proposalId,
-        ProposalVoting storage proposal_,
-        address _voter
+        address _voteCaller
     ) internal {
-        if (!_canExecute(proposal_)) {
-            return;
-        } else if (
+        if (
             !dao().hasPermission(
                 address(this),
-                _voter,
+                _voteCaller,
                 EXECUTE_PROPOSAL_PERMISSION_ID,
                 _msgData()
             )
         ) {
             return;
+        } else if (!_canExecute(_proposalId)) {
+            return;
         }
 
-        _execute(_proposalId, proposal_);
+        _execute(_proposalId);
     }
 
-    function _execute(
-        uint256 _proposalId,
-        ProposalVoting storage proposal_
-    ) internal {
+    function _execute(uint256 _proposalId) internal override {
+        Proposal storage proposal_ = proposals[_proposalId];
         proposal_.executed = true;
 
         // IProposal's target execution
@@ -484,12 +356,11 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
             proposal_.targetConfig.operation
         );
 
-        emit Executed(_proposalId);
+        emit ProposalExecuted(_proposalId);
 
         // Notify the LockManager to stop tracking this proposal ID
         lockManager.proposalEnded(_proposalId);
     }
-
 
     /// @notice This empty reserved space is put in place to allow future versions to add
     /// new variables without shifting down storage in the inheritance chain
