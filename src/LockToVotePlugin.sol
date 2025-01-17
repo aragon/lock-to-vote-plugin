@@ -20,12 +20,11 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
     bytes4 internal constant LOCK_TO_VOTE_INTERFACE_ID =
         // this.minProposerVotingPower.selector ^
-            this.totalVotingPower.selector ^
-                        bytes4(
-                keccak256(
-                    "createProposal(bytes,(address,uint256,bytes)[],uint64,uint64,uint8,bytes)"
-                )
-            );
+        bytes4(
+            keccak256(
+                "createProposal(bytes,(address,uint256,bytes)[],uint64,uint64,uint8,bytes)"
+            )
+        );
 
     /// @notice The ID of the permission required to call `vote` and `clearVote`.
     bytes32 public constant LOCK_MANAGER_PERMISSION_ID =
@@ -33,33 +32,34 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
 
     event VoteCleared(uint256 proposalId, address voter);
 
-        /// @notice Initializes the component.
-        /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
-        /// @param _dao The IDAO interface of the associated DAO.
-        /// @param _pluginSettings The voting settings.
-        /// @param _targetConfig Configuration for the execution target, specifying the target address and operation type
-        ///     (either `Call` or `DelegateCall`). Defined by `TargetConfig` in the `IPlugin` interface,
-        ///     part of the `osx-commons-contracts` package, added in build 3.
-        /// @param _pluginMetadata The plugin specific information encoded in bytes.
-        ///     This can also be an ipfs cid encoded in bytes.
-        function initialize(
-            IDAO _dao,
-            ILockManager _lockManager,
-            LockToVoteSettings calldata _pluginSettings,
-            IPlugin.TargetConfig calldata _targetConfig,
-            bytes calldata _pluginMetadata
-        ) external onlyCallAtInitialization reinitializer(1) {
-            __PluginUUPSUpgradeable_init(_dao);
-            _updatePluginSettings(_pluginSettings);
-            _setTargetConfig(_targetConfig);
-            _setMetadata(_pluginMetadata);
+    /// @notice Initializes the component.
+    /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
+    /// @param _dao The IDAO interface of the associated DAO.
+    /// @param _votingSettings The voting settings.
+    /// @param _targetConfig Configuration for the execution target, specifying the target address and operation type
+    ///     (either `Call` or `DelegateCall`). Defined by `TargetConfig` in the `IPlugin` interface,
+    ///     part of the `osx-commons-contracts` package, added in build 3.
+    /// @param _pluginMetadata The plugin specific information encoded in bytes.
+    ///     This can also be an ipfs cid encoded in bytes.
+    function initialize(
+        IDAO _dao,
+        ILockManager _lockManager,
+        VotingSettings calldata _votingSettings,
+        IPlugin.TargetConfig calldata _targetConfig,
+        bytes calldata _pluginMetadata
+    ) external onlyCallAtInitialization reinitializer(1) {
+        __MajorityVotingBase_init(
+            _dao,
+            _votingSettings,
+            _targetConfig,
+            _pluginMetadata
+        );
+        __LockToVoteBase_init(_lockManager);
 
-            lockManager = _lockManager;
-
-            emit MembershipContractAnnounced({
-                definingContract: address(_lockManager.token())
-            });
-        }
+        emit MembershipContractAnnounced({
+            definingContract: address(_lockManager.token())
+        });
+    }
 
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
@@ -281,6 +281,19 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         proposal_.votes[_voter].votingPower = 0;
 
         emit VoteCleared(_proposalId, _voter);
+    }
+
+    /// @inheritdoc ILockToVote
+    function isProposalOpen(uint256 _proposalId) external view returns (bool) {
+        Proposal storage proposal_ = proposals[_proposalId];
+        return _isProposalOpen(proposal_);
+    }
+
+    /// @inheritdoc MajorityVotingBase
+    function totalVotingPower(
+        uint256 _blockNumber
+    ) public view override returns (uint256) {
+        return lockManager.token().totalSupply();
     }
 
     /// @inheritdoc ILockToVote

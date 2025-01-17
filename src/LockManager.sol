@@ -150,10 +150,16 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @inheritdoc ILockManager
     function canVote(
         uint256 _proposalId,
-        address _voter
+        address _voter,
+        IMajorityVoting.VoteOption _voteOption
     ) external view returns (bool) {
         if (settings.pluginMode == PluginMode.VOTING) {
-            return ILockToVote(address(plugin)).canVote(_proposalId, _voter);
+            return
+                ILockToVote(address(plugin)).canVote(
+                    _proposalId,
+                    _voter,
+                    _voteOption
+                );
         }
         return ILockToApprove(address(plugin)).canApprove(_proposalId, _voter);
     }

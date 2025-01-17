@@ -74,11 +74,13 @@ interface ILockManager {
     /// - the voter doesn't have any tokens locked.
     /// @param proposalId The proposal Id.
     /// @param voter The account address to be checked.
+    /// @param voteOption The value of the new vote to register.
     /// @return Returns true if the account is allowed to vote.
     /// @dev The function assumes that the queried proposal exists.
     function canVote(
         uint256 proposalId,
-        address voter
+        address voter,
+        IMajorityVoting.VoteOption voteOption
     ) external view returns (bool);
 
     /// @notice If the mode allows it, releases all active locks placed on active proposals and transfers msg.sender's locked balance back. Depending on the current mode, it withdraws only if no locks are being used in active proposals.
