@@ -25,43 +25,45 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
             this.totalVotingPower.selector ^
             this.getProposal.selector ^
             this.updateVotingSettings.selector ^
-            this.createProposal.selector;
+            bytes4(
+                keccak256(
+                    "createProposal(bytes,(address,uint256,bytes)[],uint64,uint64,uint8,bytes)"
+                )
+            );
 
-    /// @notice The ID of the permission required to call the `execute` function.
+    /// @notice The ID of the permission required to call `vote` and `clearVote`.
     bytes32 public constant LOCK_MANAGER_PERMISSION_ID =
         keccak256("LOCK_MANAGER_PERMISSION");
 
-    /// @notice The ID of the permission required to call the `updateVotingSettings` function.
-    bytes32 public constant UPDATE_VOTING_SETTINGS_PERMISSION_ID =
-        keccak256("UPDATE_VOTING_SETTINGS_PERMISSION");
+    event VoteCleared(uint256 proposalId, address voter);
 
-    /// @notice Initializes the component.
-    /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
-    /// @param _dao The IDAO interface of the associated DAO.
-    /// @param _pluginSettings The voting settings.
-    /// @param _targetConfig Configuration for the execution target, specifying the target address and operation type
-    ///     (either `Call` or `DelegateCall`). Defined by `TargetConfig` in the `IPlugin` interface,
-    ///     part of the `osx-commons-contracts` package, added in build 3.
-    /// @param _pluginMetadata The plugin specific information encoded in bytes.
-    ///     This can also be an ipfs cid encoded in bytes.
-    function initialize(
-        IDAO _dao,
-        ILockManager _lockManager,
-        LockToVoteSettings calldata _pluginSettings,
-        IPlugin.TargetConfig calldata _targetConfig,
-        bytes calldata _pluginMetadata
-    ) external onlyCallAtInitialization reinitializer(1) {
-        __PluginUUPSUpgradeable_init(_dao);
-        _updatePluginSettings(_pluginSettings);
-        _setTargetConfig(_targetConfig);
-        _setMetadata(_pluginMetadata);
+        /// @notice Initializes the component.
+        /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
+        /// @param _dao The IDAO interface of the associated DAO.
+        /// @param _pluginSettings The voting settings.
+        /// @param _targetConfig Configuration for the execution target, specifying the target address and operation type
+        ///     (either `Call` or `DelegateCall`). Defined by `TargetConfig` in the `IPlugin` interface,
+        ///     part of the `osx-commons-contracts` package, added in build 3.
+        /// @param _pluginMetadata The plugin specific information encoded in bytes.
+        ///     This can also be an ipfs cid encoded in bytes.
+        function initialize(
+            IDAO _dao,
+            ILockManager _lockManager,
+            LockToVoteSettings calldata _pluginSettings,
+            IPlugin.TargetConfig calldata _targetConfig,
+            bytes calldata _pluginMetadata
+        ) external onlyCallAtInitialization reinitializer(1) {
+            __PluginUUPSUpgradeable_init(_dao);
+            _updatePluginSettings(_pluginSettings);
+            _setTargetConfig(_targetConfig);
+            _setMetadata(_pluginMetadata);
 
-        lockManager = _lockManager;
+            lockManager = _lockManager;
 
-        emit MembershipContractAnnounced({
-            definingContract: address(_lockManager.token())
-        });
-    }
+            emit MembershipContractAnnounced({
+                definingContract: address(_lockManager.token())
+            });
+        }
 
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
@@ -110,7 +112,8 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
             (_allowFailureMap) = abi.decode(_data, (uint256));
         }
 
-        if (lockManager.token().totalSupply() == 0) {
+        uint256 totalVotingPower_ = lockManager.token().totalSupply();
+        if (totalVotingPower_ == 0) {
             revert NoVotingPower();
         }
 
@@ -121,17 +124,25 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         );
 
         // Store proposal related information
-        ProposalVoting storage proposal_ = proposals[proposalId];
+        Proposal storage proposal_ = proposals[proposalId];
 
         if (proposal_.parameters.startDate != 0) {
             revert ProposalAlreadyExists(proposalId);
         }
 
+        proposal_.parameters.votingMode = votingMode();
+        proposal_.parameters.supportThresholdRatio = votingSettings
+            .supportThresholdRatio;
         proposal_.parameters.startDate = _startDate;
         proposal_.parameters.endDate = _endDate;
-        proposal_.parameters.minVotingPower = settings.minVotingPower;
-        proposal_.parameters.minApprovalPower = settings.minApprovalPower;
-        proposal_.parameters.supportThreshold = settings.supportThreshold;
+        proposal_.parameters.minVotingPower = _applyRatioCeiled(
+            totalVotingPower_,
+            minParticipationRatio()
+        );
+        proposal_.parameters.minApprovalPower = _applyRatioCeiled(
+            totalVotingPower_,
+            minApprovalRatio()
+        );
 
         proposal_.targetConfig = getTargetConfig();
 
@@ -160,65 +171,25 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         lockManager.proposalCreated(proposalId);
     }
 
-    /// @notice Returns all information for a proposal by its ID.
-    /// @param _proposalId The ID of the proposal.
-    /// @return open Whether the proposal is open or not.
-    /// @return executed Whether the proposal is executed or not.
-    /// @return parameters The parameters of the proposal.
-    /// @return tally The current tally of the proposal.
-    /// @return actions The actions to be executed to the `target` contract address.
-    /// @return allowFailureMap The bit map representations of which actions are allowed to revert so tx still succeeds.
-    /// @return targetConfig Execution configuration, applied to the proposal when it was created. Added in build 3.
-    function getProposal(
-        uint256 _proposalId
-    )
-        public
-        view
-        virtual
-        returns (
-            bool open,
-            bool executed,
-            ProposalVotingParameters memory parameters,
-            VoteTally memory tally,
-            Action[] memory actions,
-            uint256 allowFailureMap,
-            TargetConfig memory targetConfig
-        )
-    {
-        ProposalVoting storage proposal_ = proposals[_proposalId];
-
-        open = _isProposalOpen(proposal_);
-        executed = proposal_.executed;
-        parameters = proposal_.parameters;
-        tally = proposal_.tally;
-        actions = proposal_.actions;
-        allowFailureMap = proposal_.allowFailureMap;
-        targetConfig = proposal_.targetConfig;
-    }
-
-    /// @inheritdoc ILockToVoteBase
-    function isProposalOpen(
-        uint256 _proposalId
-    ) external view virtual returns (bool) {
-        ProposalVoting storage proposal_ = proposals[_proposalId];
-        return _isProposalOpen(proposal_);
-    }
-
-    /// @inheritdoc IMembership
-    function isMember(address _account) external view returns (bool) {
-        if (lockManager.lockedBalances(_account) > 0) return true;
-        else if (lockManager.token().balanceOf(_account) > 0) return true;
-        return false;
-    }
-
-    /// @inheritdoc ILockToVoteBase
+    /// @inheritdoc ILockToVote
+    /// @dev Reverts if the proposal with the given `_proposalId` does not exist.
     function canVote(
         uint256 _proposalId,
-        address _voter
-    ) external view returns (bool) {
-        ProposalVoting storage proposal_ = proposals[_proposalId];
+        address _voter,
+        VoteOption _voteOption
+    ) public view returns (bool) {
+        if (!_proposalExists(_proposalId)) {
+            revert NonexistentProposal(_proposalId);
+        }
 
-        return _canVote(proposal_, _voter, lockManager.lockedBalances(_voter));
+        Proposal storage proposal_ = proposals[_proposalId];
+        return
+            _canVote(
+                proposal_,
+                _voter,
+                _voteOption,
+                lockManager.lockedBalances(_voter)
+            );
     }
 
     /// @inheritdoc ILockToVote
@@ -227,15 +198,11 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         address _voter,
         VoteOption _voteOption,
         uint256 _votingPower
-    ) external auth(LOCK_MANAGER_PERMISSION_ID) {
-        ProposalVoting storage proposal_ = proposals[_proposalId];
+    ) public override auth(LOCK_MANAGER_PERMISSION_ID) {
+        Proposal storage proposal_ = proposals[_proposalId];
 
-        if (!_canVote(proposal_, _voter, _votingPower)) {
+        if (!_canVote(proposal_, _voter, _voteOption, _votingPower)) {
             revert VoteCastForbidden(_proposalId, _voter);
-        } else if (_voteOption == VoteOption.None) {
-            revert VotingNoneForbidden(_proposalId, _voter);
-        } else if (_votingPower < proposal_.votes[_voter].votingPower) {
-            revert LowerBalanceForbidden();
         }
 
         // Same vote
@@ -255,6 +222,8 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
                 proposal_.tally.abstain += diff;
             }
         } else {
+            /// @dev VoteReplacement has already been enforced by _canVote()
+
             // Was there a vote?
             if (proposal_.votes[_voter].votingPower > 0) {
                 // Undo that vote
@@ -285,7 +254,9 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
 
         emit VoteCast(_proposalId, _voter, _voteOption, _votingPower);
 
-        _checkEarlyExecution(_proposalId, proposal_, _voter);
+        if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
+            _checkEarlyExecution(_proposalId, proposal_, _voter);
+        }
     }
 
     /// @inheritdoc ILockToVote
@@ -293,8 +264,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         uint256 _proposalId,
         address _voter
     ) external auth(LOCK_MANAGER_PERMISSION_ID) {
-        ProposalVoting storage proposal_ = proposals[_proposalId];
-
+        Proposal storage proposal_ = proposals[_proposalId];
         if (
             proposal_.votes[_voter].votingPower == 0 ||
             !_isProposalOpen(proposal_)
@@ -308,7 +278,9 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
             proposal_.tally.yes -= proposal_.votes[_voter].votingPower;
         } else if (proposal_.votes[_voter].voteOption == VoteOption.No) {
             proposal_.tally.no -= proposal_.votes[_voter].votingPower;
-        } else {
+        }
+        /// @dev Double checking for abstain, even though canVote prevents any other voteOption value
+        else if (proposal_.votes[_voter].voteOption == VoteOption.Abstain) {
             proposal_.tally.abstain -= proposal_.votes[_voter].votingPower;
         }
         proposal_.votes[_voter].votingPower = 0;
@@ -380,30 +352,29 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     }
 
     function _canVote(
-        ProposalVoting storage proposal_,
+        Proposal storage proposal_,
         address _voter,
-        uint256 _newVotingBalance
+        VoteOption _voteOption,
+        uint256 _newVotingPower
     ) internal view returns (bool) {
         // The proposal vote hasn't started or has already ended.
         if (!_isProposalOpen(proposal_)) {
             return false;
-        }
-        // More balance could be added
-        else if (_newVotingBalance <= proposal_.votes[_voter]) {
+        } else if (_voteOption == VoteOption.None) {
             return false;
         }
-
-        return true;
-    }
-
-    function _canExecute(
-        ProposalVoting storage proposal_
-    ) internal view returns (bool) {
-        if (proposal_.executed) {
+        // No voting power or lowering the existing one is not allowed
+        else if (
+            _newVotingPower == 0 ||
+            _newVotingPower < proposal_.votes[_voter].votingPower
+        ) {
             return false;
-        } else if (proposal_.parameters.endDate < block.timestamp) {
-            return false;
-        } else if (!_hasSucceeded(proposal_)) {
+        }
+        // The voter has already voted but vote replacment is not allowed.
+        else if (
+            proposal_.voters[_voter].voteOption != VoteOption.None &&
+            proposal_.parameters.votingMode != VotingMode.VoteReplacement
+        ) {
             return false;
         }
 

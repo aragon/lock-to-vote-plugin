@@ -42,15 +42,15 @@ interface IMajorityVoting {
 
     /// @notice Returns the support threshold parameter stored in the voting settings.
     /// @return The support threshold parameter.
-    function supportThreshold() external view returns (uint32);
-
-    /// @notice Returns the configured minimum approval value.
-    /// @return The minimal approval value.
-    function minApprovals() external view returns (uint256);
+    function supportThresholdRatio() external view returns (uint32);
 
     /// @notice Returns the minimum participation parameter stored in the voting settings.
     /// @return The minimum participation parameter.
-    function minParticipation() external view returns (uint32);
+    function minParticipationRatio() external view returns (uint32);
+
+    /// @notice Returns the configured minimum approval ratio.
+    /// @return The minimal approval ratio.
+    function minApprovalRatio() external view returns (uint256);
 
     /// @notice Checks if the support value defined as:
     ///     $$\texttt{support} = \frac{N_\text{yes}}{N_\text{yes}+N_\text{no}}$$
@@ -76,12 +76,12 @@ interface IMajorityVoting {
     /// @param _proposalId The ID of the proposal.
     /// @return Returns `true` if the participation is greater or equal than the minimum participation,
     ///     and `false` otherwise.
-    function isMinParticipationReached(
+    function isMinVotingPowerReached(
         uint256 _proposalId
     ) external view returns (bool);
 
     /// @notice Checks if the min approval value defined as:
-    ///     $$\texttt{minApprovals} = \frac{N_\text{yes}}{N_\text{total}}$$
+    ///     $$\texttt{minApprovalRatio} = \frac{N_\text{yes}}{N_\text{total}}$$
     ///     for a proposal is greater or equal than the minimum approval value.
     /// @param _proposalId The ID of the proposal.
     /// @return Returns `true` if the approvals is greater or equal than the minimum approval and `false` otherwise.

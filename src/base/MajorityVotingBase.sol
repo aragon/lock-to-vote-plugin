@@ -36,17 +36,17 @@ import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 /// #### Limit Values: Support Threshold & Minimum Participation
 ///
 /// Two limit values are associated with these parameters and decide if a proposal execution should be possible:
-/// $\texttt{supportThreshold} \in [0,1)$ and $\texttt{minParticipation} \in [0,1]$.
+/// $\texttt{supportThresholdRatio} \in [0,1)$ and $\texttt{minParticipationRatio} \in [0,1]$.
 ///
 /// For threshold values, $>$ comparison is used. This **does not** include the threshold value.
-/// E.g., for $\texttt{supportThreshold} = 50\%$,
+/// E.g., for $\texttt{supportThresholdRatio} = 50\%$,
 /// the criterion is fulfilled if there is at least one more yes than no votes ($N_\text{yes} = N_\text{no} + 1$).
 /// For minimum values, $\ge{}$ comparison is used. This **does** include the minimum participation value.
-/// E.g., for $\texttt{minParticipation} = 40\%$ and $N_\text{total} = 10$,
+/// E.g., for $\texttt{minParticipationRatio} = 40\%$ and $N_\text{total} = 10$,
 /// the criterion is fulfilled if 4 out of 10 votes were casted.
 ///
 /// Majority voting implies that the support threshold is set with
-/// $$\texttt{supportThreshold} \ge 50\% .$$
+/// $$\texttt{supportThresholdRatio} \ge 50\% .$$
 /// However, this is not enforced by the contract code and developers can make unsafe parameters and
 /// only the frontend will warn about bad parameter settings.
 ///
@@ -57,14 +57,14 @@ import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 /// #### The Support Criterion
 ///
 /// For a proposal to pass, the required ratio of yes and no votes must be met:
-/// $$(1- \texttt{supportThreshold}) \cdot N_\text{yes} > \texttt{supportThreshold} \cdot N_\text{no}.$$
-/// Note, that the inequality yields the simple majority voting condition for $\texttt{supportThreshold}=\frac{1}{2}$.
+/// $$(1- \texttt{supportThresholdRatio}) \cdot N_\text{yes} > \texttt{supportThresholdRatio} \cdot N_\text{no}.$$
+/// Note, that the inequality yields the simple majority voting condition for $\texttt{supportThresholdRatio}=\frac{1}{2}$.
 ///
 /// #### The Participation Criterion
 ///
 /// For a proposal to pass, the minimum voting power must have been cast:
 /// $$N_\text{yes} + N_\text{no} + N_\text{abstain} \ge \texttt{minVotingPower},$$
-/// where $\texttt{minVotingPower} = \texttt{minParticipation} \cdot N_\text{total}$.
+/// where $\texttt{minVotingPower} = \texttt{minParticipationRatio} \cdot N_\text{total}$.
 ///
 /// ### Vote Replacement
 ///
@@ -106,12 +106,12 @@ import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 ///
 /// $$
 /// \begin{align*}
-///   (1 - \texttt{supportThreshold}) \cdot N_\text{yes}
-///   &> \texttt{supportThreshold} \cdot  N_\text{no, worst-case} \\[3mm]
-///   &> \texttt{supportThreshold} \cdot (N_\text{no} + \texttt{remainingVotes}) \\[3mm]
-///   &> \texttt{supportThreshold} \cdot (N_\text{no}
+///   (1 - \texttt{supportThresholdRatio}) \cdot N_\text{yes}
+///   &> \texttt{supportThresholdRatio} \cdot  N_\text{no, worst-case} \\[3mm]
+///   &> \texttt{supportThresholdRatio} \cdot (N_\text{no} + \texttt{remainingVotes}) \\[3mm]
+///   &> \texttt{supportThresholdRatio} \cdot (N_\text{no}
 ///     + N_\text{total}-(N_\text{yes}+N_\text{no}+N_\text{abstain})) \\[3mm]
-///   &> \texttt{supportThreshold} \cdot (N_\text{total} - N_\text{yes} - N_\text{abstain})
+///   &> \texttt{supportThresholdRatio} \cdot (N_\text{total} - N_\text{yes} - N_\text{abstain})
 /// \end{align*}
 /// $$
 ///
@@ -148,20 +148,21 @@ abstract contract MajorityVotingBase is
     ///     if the vote outcome cannot mathematically change by more voters voting.
     ///     In vote replacement mode (2), voters can change their vote multiple times
     ///     and only the latest vote option is tallied.
-    /// @param supportThreshold The support threshold value.
+    /// @param supportThresholdRatio The support threshold ratio.
     ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
-    /// @param minParticipation The minimum participation value.
+    /// @param minParticipationRatio The minimum participation ratio.
+    ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    /// @param minApprovalRatio The minimum ratio of approvals the proposal needs to succeed.
     ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     /// @param minDuration The minimum duration of the proposal vote in seconds.
     /// @param minProposerVotingPower The minimum voting power required to create a proposal.
-    /// @param _minApprovals The minimal amount of approvals the proposal needs to succeed.
     struct VotingSettings {
         VotingMode votingMode;
-        uint32 supportThreshold;
-        uint32 minParticipation;
+        uint32 supportThresholdRatio;
+        uint32 minParticipationRatio;
+        uint32 minApprovalRatio;
         uint64 minDuration;
         uint256 minProposerVotingPower;
-        uint256 minApprovals;
     }
 
     /// @notice A container for proposal-related information.
@@ -173,7 +174,6 @@ abstract contract MajorityVotingBase is
     /// @param allowFailureMap A bitmap allowing the proposal to succeed, even if individual actions might revert.
     ///     If the bit at index `i` is 1, the proposal succeeds even if the `i`th action reverts.
     ///     A failure map value of 0 requires every action to not revert.
-    /// @param minApprovals The minimum amount of yes votes power needed for the proposal advance.
     /// @param targetConfig Configuration for the execution target, specifying the target address and operation type
     ///     (either `Call` or `DelegateCall`). Defined by `TargetConfig` in the `IPlugin` interface,
     ///     part of the `osx-commons-contracts` package, added in build 3.
@@ -189,19 +189,19 @@ abstract contract MajorityVotingBase is
 
     /// @notice A container for the proposal parameters at the time of proposal creation.
     /// @param votingMode A parameter to select the vote mode.
-    /// @param supportThreshold The support threshold value.
+    /// @param supportThresholdRatio The support threshold ratio.
     ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     /// @param startDate The start date of the proposal vote.
     /// @param endDate The end date of the proposal vote.
     /// @param minVotingPower The minimum voting power needed for a proposal to reach minimum participation.
-    /// @param minApprovals Minimum amount of allocated YES votes.
+    /// @param minApprovalPower Minimum amount of allocated YES votes.
     struct ProposalParameters {
         VotingMode votingMode;
-        uint32 supportThreshold;
+        uint32 supportThresholdRatio;
         uint64 startDate;
         uint64 endDate;
         uint256 minVotingPower;
-        uint256 minApprovals;
+        uint256 minApprovalPower;
     }
 
     /// @notice A container for the proposal vote tally.
@@ -289,21 +289,19 @@ abstract contract MajorityVotingBase is
 
     /// @notice Emitted when the voting settings are updated.
     /// @param votingMode A parameter to select the vote mode.
-    /// @param supportThreshold The support threshold value.
-    /// @param minParticipation The minimum participation value.
+    /// @param supportThresholdRatio The support threshold ratio.
+    /// @param minParticipationRatio The minimum participation ratio.
+    /// @param minApprovalRatio The minimum ratio of yes votes over the token supply needed for the proposal advance.
     /// @param minDuration The minimum duration of the proposal vote in seconds.
     /// @param minProposerVotingPower The minimum voting power required to create a proposal.
     event VotingSettingsUpdated(
         VotingMode votingMode,
-        uint32 supportThreshold,
-        uint32 minParticipation,
+        uint32 supportThresholdRatio,
+        uint32 minParticipationRatio,
+        uint32 minApprovalRatio,
         uint64 minDuration,
         uint256 minProposerVotingPower
     );
-
-    /// @notice Emitted when the min approval value is updated.
-    /// @param minApprovals The minimum amount of yes votes needed for a proposal succeed.
-    event VotingMinApprovalUpdated(uint256 minApprovals);
 
     /// @notice Initializes the component to be used by inheriting contracts.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
@@ -405,11 +403,11 @@ abstract contract MajorityVotingBase is
         Proposal storage proposal_ = proposals[_proposalId];
 
         // The code below implements the formula of the support criterion explained in the top of this file.
-        // `(1 - supportThreshold) * N_yes > supportThreshold *  N_no`
+        // `(1 - supportThresholdRatio) * N_yes > supportThresholdRatio *  N_no`
         return
-            (RATIO_BASE - proposal_.parameters.supportThreshold) *
+            (RATIO_BASE - proposal_.parameters.supportThresholdRatio) *
                 proposal_.tally.yes >
-            proposal_.parameters.supportThreshold * proposal_.tally.no;
+            proposal_.parameters.supportThresholdRatio * proposal_.tally.no;
     }
 
     /// @inheritdoc IMajorityVoting
@@ -418,14 +416,14 @@ abstract contract MajorityVotingBase is
     ) public view virtual returns (bool);
 
     /// @inheritdoc IMajorityVoting
-    function isMinParticipationReached(
+    function isMinVotingPowerReached(
         uint256 _proposalId
     ) public view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
         // The code below implements the formula of the
         // participation criterion explained in the top of this file.
-        // `N_yes + N_no + N_abstain >= minVotingPower = minParticipation * N_total`
+        // `N_yes + N_no + N_abstain >= minVotingPower = minParticipationRatio * N_total`
         return
             proposal_.tally.yes +
                 proposal_.tally.no +
@@ -439,17 +437,17 @@ abstract contract MajorityVotingBase is
     ) public view virtual returns (bool) {
         return
             proposals[_proposalId].tally.yes >=
-            proposals[_proposalId].parameters.minApprovals;
+            proposals[_proposalId].parameters.minApprovalPower;
     }
 
     /// @inheritdoc IMajorityVoting
-    function supportThreshold() public view virtual returns (uint32) {
-        return votingSettings.supportThreshold;
+    function supportThresholdRatio() public view virtual returns (uint32) {
+        return votingSettings.supportThresholdRatio;
     }
 
     /// @inheritdoc IMajorityVoting
-    function minParticipation() public view virtual returns (uint32) {
-        return votingSettings.minParticipation;
+    function minParticipationRatio() public view virtual returns (uint32) {
+        return votingSettings.minParticipationRatio;
     }
 
     /// @notice Returns the minimum duration parameter stored in the voting settings.
@@ -465,8 +463,8 @@ abstract contract MajorityVotingBase is
     }
 
     /// @inheritdoc IMajorityVoting
-    function minApprovals() public view virtual returns (uint256) {
-        return votingSettings.minApprovals;
+    function minApprovalRatio() public view virtual returns (uint256) {
+        return votingSettings.minApprovalRatio;
     }
 
     /// @notice Returns the vote mode stored in the voting settings.
@@ -614,7 +612,7 @@ abstract contract MajorityVotingBase is
                 return false;
             }
         }
-        if (!isMinParticipationReached(_proposalId)) {
+        if (!isMinVotingPowerReached(_proposalId)) {
             return false;
         }
         if (!isMinApprovalReached(_proposalId)) {
@@ -662,18 +660,18 @@ abstract contract MajorityVotingBase is
     ) internal virtual {
         // Require the support threshold value to be in the interval [0, 10^6-1],
         // because `>` comparison is used in the support criterion and >100% could never be reached.
-        if (_votingSettings.supportThreshold > RATIO_BASE - 1) {
+        if (_votingSettings.supportThresholdRatio > RATIO_BASE - 1) {
             revert RatioOutOfBounds({
                 limit: RATIO_BASE - 1,
-                actual: _votingSettings.supportThreshold
+                actual: _votingSettings.supportThresholdRatio
             });
         }
         // Require the minimum participation value to be in the interval [0, 10^6],
         // because `>=` comparison is used in the participation criterion.
-        else if (_votingSettings.minParticipation > RATIO_BASE) {
+        else if (_votingSettings.minParticipationRatio > RATIO_BASE) {
             revert RatioOutOfBounds({
                 limit: RATIO_BASE,
-                actual: _votingSettings.minParticipation
+                actual: _votingSettings.minParticipationRatio
             });
         } else if (_votingSettings.minDuration < 60 minutes) {
             revert MinDurationOutOfBounds({
@@ -688,10 +686,10 @@ abstract contract MajorityVotingBase is
         }
         // Require the minimum approval value to be in the interval [0, 10^6],
         // because `>=` comparison is used in the participation criterion.
-        else if (_votingSettings.minApprovals > RATIO_BASE) {
+        else if (_votingSettings.minApprovalRatio > RATIO_BASE) {
             revert RatioOutOfBounds({
                 limit: RATIO_BASE,
-                actual: _votingSettings.minApprovals
+                actual: _votingSettings.minApprovalRatio
             });
         }
 
@@ -699,10 +697,11 @@ abstract contract MajorityVotingBase is
 
         emit VotingSettingsUpdated({
             votingMode: _votingSettings.votingMode,
-            supportThreshold: _votingSettings.supportThreshold,
-            minParticipation: _votingSettings.minParticipation,
+            supportThresholdRatio: _votingSettings.supportThresholdRatio,
+            minParticipationRatio: _votingSettings.minParticipationRatio,
             minDuration: _votingSettings.minDuration,
-            minProposerVotingPower: _votingSettings.minProposerVotingPower
+            minProposerVotingPower: _votingSettings.minProposerVotingPower,
+            minApprovalRatio: _votingSettings.minApprovalRatio
         });
     }
 

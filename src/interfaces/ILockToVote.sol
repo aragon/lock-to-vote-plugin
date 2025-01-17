@@ -17,10 +17,13 @@ interface ILockToVote is ILockToVoteBase {
     /// - the voter can increase the amount of tokens assigned
     /// @param proposalId The proposal Id.
     /// @param voter The account address to be checked.
+    /// @dev `voteOption`, 1 -> abstain, 2 -> yes, 3 -> no
+    /// @param voteOption The value of the new vote to register. If an existing vote existed, it will be replaced.
     /// @return Returns true if the account is allowed to vote.
     function canVote(
         uint256 proposalId,
-        address voter
+        address voter,
+        IMajorityVoting.VoteOption voteOption
     ) external view returns (bool);
 
     /// @notice Votes on a proposal and, depending on the mode, executes it.
