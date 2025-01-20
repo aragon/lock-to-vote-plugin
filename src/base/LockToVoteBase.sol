@@ -19,8 +19,18 @@ abstract contract LockToVoteBase is
 {
     error NoVotingPower();
 
+    error LockManagerAlreadyDefined();
+
     /// @inheritdoc ILockToVoteBase
     ILockManager public lockManager;
+
+    /// @notice Initializes the component to be used by inheriting contracts.
+    /// @param _lockManager The address of the contract with the ability to manager votes on behalf of users.
+    function __LockToVoteBase_init(
+        ILockManager _lockManager
+    ) internal onlyInitializing {
+        _setLockManager(_lockManager);
+    }
 
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
@@ -49,6 +59,14 @@ abstract contract LockToVoteBase is
         if (lockManager.lockedBalances(_account) > 0) return true;
         else if (lockManager.token().balanceOf(_account) > 0) return true;
         return false;
+    }
+
+    function _setLockManager(ILockManager _lockManager) private {
+        if (address(lockManager) != address(0)) {
+            revert LockManagerAlreadyDefined();
+        }
+
+        lockManager = _lockManager;
     }
 
     /// @notice This empty reserved space is put in place to allow future versions to add

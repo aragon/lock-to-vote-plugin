@@ -409,7 +409,21 @@ abstract contract MajorityVotingBase is
     /// @inheritdoc IMajorityVoting
     function isSupportThresholdReachedEarly(
         uint256 _proposalId
-    ) public view virtual returns (bool);
+    ) public view virtual returns (bool) {
+        Proposal storage proposal_ = proposals[_proposalId];
+
+        uint256 noVotesWorstCase = totalVotingPower() -
+            proposal_.tally.yes -
+            proposal_.tally.abstain;
+
+        // The code below implements the formula of the
+        // early execution support criterion explained in the top of this file.
+        // `(1 - supportThreshold) * N_yes > supportThreshold *  N_no,worst-case`
+        return
+            (RATIO_BASE - proposal_.parameters.supportThresholdRatio) *
+                proposal_.tally.yes >
+            proposal_.parameters.supportThresholdRatio * noVotesWorstCase;
+    }
 
     /// @inheritdoc IMajorityVoting
     function isMinVotingPowerReached(
@@ -470,11 +484,8 @@ abstract contract MajorityVotingBase is
     }
 
     /// @notice Returns the total voting power checkpointed for a specific block number.
-    /// @param _blockNumber The block number.
     /// @return The total voting power.
-    function totalVotingPower(
-        uint256 _blockNumber
-    ) public view virtual returns (uint256);
+    function totalVotingPower() public view virtual returns (uint256);
 
     /// @notice Returns all information for a proposal by its ID.
     /// @param _proposalId The ID of the proposal.
@@ -520,31 +531,6 @@ abstract contract MajorityVotingBase is
     ) external virtual auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID) {
         _updateVotingSettings(_votingSettings);
     }
-
-    /// @notice Creates a new majority voting proposal.
-    /// @param _metadata The metadata of the proposal.
-    /// @param _actions The actions that will be executed after the proposal passes.
-    /// @param _allowFailureMap Allows proposal to succeed even if an action reverts.
-    ///     Uses bitmap representation.
-    ///     If the bit at index `x` is 1, the tx succeeds even if the action at `x` failed.
-    ///     Passing 0 will be treated as atomic execution.
-    /// @param _startDate The start date of the proposal vote.
-    ///     If 0, the current timestamp is used and the vote starts immediately.
-    /// @param _endDate The end date of the proposal vote.
-    ///     If 0, `_startDate + minDuration` is used.
-    /// @param _voteOption The chosen vote option to be casted on proposal creation.
-    /// @param _tryEarlyExecution If `true`,  early execution is tried after the vote cast.
-    ///     The call does not revert if early execution is not possible.
-    /// @return proposalId The ID of the proposal.
-    function createProposal(
-        bytes calldata _metadata,
-        Action[] calldata _actions,
-        uint256 _allowFailureMap,
-        uint64 _startDate,
-        uint64 _endDate,
-        VoteOption _voteOption,
-        bool _tryEarlyExecution
-    ) external virtual returns (uint256 proposalId);
 
     /// @notice Internal function to execute a proposal. It assumes the queried proposal exists.
     /// @param _proposalId The ID of the proposal.

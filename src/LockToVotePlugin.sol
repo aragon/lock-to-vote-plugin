@@ -290,9 +290,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     }
 
     /// @inheritdoc MajorityVotingBase
-    function totalVotingPower(
-        uint256 _blockNumber
-    ) public view override returns (uint256) {
+    function totalVotingPower() public view override returns (uint256) {
         return lockManager.token().totalSupply();
     }
 
