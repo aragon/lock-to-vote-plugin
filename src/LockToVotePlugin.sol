@@ -11,7 +11,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {_applyRatioCeiled} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {MajorityVotingBase} from "./base/MajorityVotingBase.sol";
 import {ILockToVoteBase} from "./interfaces/ILockToVoteBase.sol";
 
@@ -130,14 +129,8 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         proposal_.parameters.supportThresholdRatio = supportThresholdRatio();
         proposal_.parameters.startDate = _startDate;
         proposal_.parameters.endDate = _endDate;
-        proposal_.parameters.minVotingPower = _applyRatioCeiled(
-            totalVotingPower_,
-            minParticipationRatio()
-        );
-        proposal_.parameters.minApprovalPower = _applyRatioCeiled(
-            totalVotingPower_,
-            minApprovalRatio()
-        );
+        proposal_.parameters.minParticipationRatio = minParticipationRatio();
+        proposal_.parameters.minApprovalRatio = minApprovalRatio();
 
         proposal_.targetConfig = getTargetConfig();
 

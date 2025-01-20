@@ -15,7 +15,7 @@ import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {MetadataExtensionUpgradeable} from "@aragon/osx-commons-contracts/src/utils/metadata/MetadataExtensionUpgradeable.sol";
-
+import {_applyRatioCeiled} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 
 /* solhint-enable max-line-length */
@@ -193,15 +193,17 @@ abstract contract MajorityVotingBase is
     ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     /// @param startDate The start date of the proposal vote.
     /// @param endDate The end date of the proposal vote.
-    /// @param minVotingPower The minimum voting power needed for a proposal to reach minimum participation.
-    /// @param minApprovalPower Minimum amount of allocated YES votes.
+    /// @param minParticipationRatio The minimum voting power ratio needed for a proposal to reach minimum participation.
+    ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    /// @param minApprovalRatio Minimum ratio of allocated YES votes.
+    ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     struct ProposalParameters {
         VotingMode votingMode;
         uint32 supportThresholdRatio;
         uint64 startDate;
         uint64 endDate;
-        uint256 minVotingPower;
-        uint256 minApprovalPower;
+        uint256 minParticipationRatio;
+        uint256 minApprovalRatio;
     }
 
     /// @notice A container for the proposal vote tally.
@@ -422,6 +424,11 @@ abstract contract MajorityVotingBase is
     ) public view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
+        uint256 _minVotingPower = _applyRatioCeiled(
+            totalVotingPower(),
+            proposal_.parameters.minParticipationRatio
+        );
+
         // The code below implements the formula of the
         // participation criterion explained in the top of this file.
         // `N_yes + N_no + N_abstain >= minVotingPower = minParticipationRatio * N_total`
@@ -429,16 +436,18 @@ abstract contract MajorityVotingBase is
             proposal_.tally.yes +
                 proposal_.tally.no +
                 proposal_.tally.abstain >=
-            proposal_.parameters.minVotingPower;
+            _minVotingPower;
     }
 
     /// @inheritdoc IMajorityVoting
     function isMinApprovalReached(
         uint256 _proposalId
     ) public view virtual returns (bool) {
-        return
-            proposals[_proposalId].tally.yes >=
-            proposals[_proposalId].parameters.minApprovalPower;
+        uint256 _minApprovalPower = _applyRatioCeiled(
+            totalVotingPower(),
+            proposals[_proposalId].parameters.minApprovalRatio
+        );
+        return proposals[_proposalId].tally.yes >= _minApprovalPower;
     }
 
     /// @inheritdoc IMajorityVoting
