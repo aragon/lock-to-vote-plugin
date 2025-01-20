@@ -71,20 +71,16 @@ contract LockToApprovePlugin is
     }
 
     /// @notice The ID of the permission required to call the `createProposal` functions.
-    bytes32 public constant CREATE_PROPOSAL_PERMISSION_ID =
-        keccak256("CREATE_PROPOSAL_PERMISSION");
+    bytes32 public constant CREATE_PROPOSAL_PERMISSION_ID = keccak256("CREATE_PROPOSAL_PERMISSION");
 
     /// @notice The ID of the permission required to call the `execute` function.
-    bytes32 public constant EXECUTE_PROPOSAL_PERMISSION_ID =
-        keccak256("EXECUTE_PROPOSAL_PERMISSION");
+    bytes32 public constant EXECUTE_PROPOSAL_PERMISSION_ID = keccak256("EXECUTE_PROPOSAL_PERMISSION");
 
     /// @notice The ID of the permission required to call the `execute` function.
-    bytes32 public constant LOCK_MANAGER_PERMISSION_ID =
-        keccak256("LOCK_MANAGER_PERMISSION");
+    bytes32 public constant LOCK_MANAGER_PERMISSION_ID = keccak256("LOCK_MANAGER_PERMISSION");
 
     /// @notice The ID of the permission required to call the `updateVotingSettings` function.
-    bytes32 public constant UPDATE_VOTING_SETTINGS_PERMISSION_ID =
-        keccak256("UPDATE_VOTING_SETTINGS_PERMISSION");
+    bytes32 public constant UPDATE_VOTING_SETTINGS_PERMISSION_ID = keccak256("UPDATE_VOTING_SETTINGS_PERMISSION");
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
     bytes4 internal constant LOCK_TO_APPROVE_INTERFACE_ID =
@@ -95,7 +91,6 @@ contract LockToApprovePlugin is
             this.getProposal.selector ^
             this.updateVotingSettings.selector ^
             this.createProposal.selector;
-
 
     ApprovalSettings public settings;
 
@@ -120,6 +115,30 @@ contract LockToApprovePlugin is
     /// @param proposalId The id of the proposal.
     error ProposalAlreadyExists(uint256 proposalId);
 
+    /// @notice Initializes the component.
+    /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
+    /// @param _dao The IDAO interface of the associated DAO.
+    /// @param _pluginSettings The voting settings.
+    /// @param _targetConfig Configuration for the execution target, specifying the target address and operation type
+    ///     (either `Call` or `DelegateCall`). Defined by `TargetConfig` in the `IPlugin` interface,
+    ///     part of the `osx-commons-contracts` package, added in build 3.
+    /// @param _pluginMetadata The plugin specific information encoded in bytes.
+    ///     This can also be an ipfs cid encoded in bytes.
+    function initialize(
+        IDAO _dao,
+        ILockManager _lockManager,
+        ApprovalSettings calldata _pluginSettings,
+        IPlugin.TargetConfig calldata _targetConfig,
+        bytes calldata _pluginMetadata
+    ) external onlyCallAtInitialization reinitializer(1) {
+        __PluginUUPSUpgradeable_init(_dao);
+        _updatePluginSettings(_pluginSettings);
+        _setTargetConfig(_targetConfig);
+        _setMetadata(_pluginMetadata);
+        __LockToVoteBase_init(_lockManager);
+
+        emit MembershipContractAnnounced({definingContract: address(_lockManager.token())});
+    }
 
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
@@ -223,14 +242,14 @@ contract LockToApprovePlugin is
         returns (
             bool open,
             bool executed,
-                ProposalParameters memory parameters,
+            ProposalParameters memory parameters,
             uint256 approvalTally,
             Action[] memory actions,
             uint256 allowFailureMap,
             TargetConfig memory targetConfig
         )
     {
-            Proposal storage proposal_ = proposals[_proposalId];
+        Proposal storage proposal_ = proposals[_proposalId];
 
         open = _isProposalOpen(proposal_);
         executed = proposal_.executed;
@@ -296,6 +315,12 @@ contract LockToApprovePlugin is
     }
 
     /// @inheritdoc ILockToVoteBase
+    function isProposalOpen(uint256 _proposalId) external view returns (bool) {
+        Proposal storage proposal_ = proposals[_proposalId];
+        return _isProposalOpen(proposal_);
+    }
+
+    /// @inheritdoc ILockToVoteBase
     function usedVotingPower(uint256 _proposalId, address _voter) public view returns (uint256) {
         return proposals[_proposalId].approvals[_voter];
     }
@@ -331,7 +356,7 @@ contract LockToApprovePlugin is
         _execute(_proposalId, proposal_);
     }
 
-    /// @inheritdoc ILockToApprove
+    /// @notice Updates the LockManager approval settings to the given new values.
     function updatePluginSettings(
         ApprovalSettings calldata _newSettings
     ) external auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID) {

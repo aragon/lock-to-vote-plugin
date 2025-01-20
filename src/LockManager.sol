@@ -227,15 +227,17 @@ contract LockManager is ILockManager, DaoAuthorizable {
     function setPluginAddress(
         ILockToVoteBase _newPluginAddress
     ) public auth(UPDATE_SETTINGS_PERMISSION_ID) {
-        if (
+        if (address(plugin) != address(0)) {
+            revert SetPluginAddressForbidden();
+        } else if (
             !IERC165(address(_newPluginAddress)).supportsInterface(
                 type(ILockToVoteBase).interfaceId
             )
         ) {
             revert InvalidPlugin();
-        } else if (address(plugin) != address(0)) {
-            revert SetPluginAddressForbidden();
-        } else if (
+        }
+        // Is it the right plugin type?
+        else if (
             settings.pluginMode == PluginMode.APPROVAL &&
             !IERC165(address(_newPluginAddress)).supportsInterface(
                 type(ILockToApprove).interfaceId
