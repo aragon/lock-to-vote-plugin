@@ -118,12 +118,12 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
             keccak256(abi.encode(_actions, _metadata))
         );
 
-        // Store proposal related information
-        Proposal storage proposal_ = proposals[proposalId];
-
-        if (proposal_.parameters.startDate != 0) {
+        if (_proposalExists(proposalId)) {
             revert ProposalAlreadyExists(proposalId);
         }
+
+        // Store proposal related information
+        Proposal storage proposal_ = proposals[proposalId];
 
         proposal_.parameters.votingMode = votingMode();
         proposal_.parameters.supportThresholdRatio = supportThresholdRatio();

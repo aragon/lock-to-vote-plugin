@@ -101,19 +101,16 @@ contract LockToApprovePlugin is
 
     mapping(uint256 => Proposal) proposals;
 
-    event ApprovalCast(
-        uint256 proposalId,
-        address voter,
-        uint256 newVotingPower
-    );
+    event ApprovalCast(uint256 proposalId, address voter, uint256 newVotingPower);
     event ApprovalCleared(uint256 proposalId, address voter);
-    event ApprovalSettingsUpdated(
-        uint32 minApprovalRatio,
-        uint64 minProposalDuration
-    );
+    event ApprovalSettingsUpdated(uint32 minApprovalRatio, uint64 minProposalDuration);
 
     error ApprovalForbidden(uint256 proposalId, address voter);
     error DateOutOfBounds(uint256 limit, uint256 actual);
+
+    /// @notice Thrown when a proposal doesn't exist.
+    /// @param proposalId The ID of the proposal which doesn't exist.
+    error NonexistentProposal(uint256 proposalId);
 
     /// @notice Thrown if the proposal execution is forbidden.
     /// @param proposalId The ID of the proposal.
@@ -149,12 +146,7 @@ contract LockToApprovePlugin is
     }
 
     /// @inheritdoc IProposal
-    function customProposalParamsABI()
-        external
-        pure
-        override
-        returns (string memory)
-    {
+    function customProposalParamsABI() external pure override returns (string memory) {
         return "(uint256 allowFailureMap)";
     }
 
@@ -166,11 +158,7 @@ contract LockToApprovePlugin is
         uint64 _startDate,
         uint64 _endDate,
         bytes memory _data
-    )
-        external
-        auth(CREATE_PROPOSAL_PERMISSION_ID)
-        returns (uint256 proposalId)
-    {
+    ) external auth(CREATE_PROPOSAL_PERMISSION_ID) returns (uint256 proposalId) {
         uint256 _allowFailureMap;
 
         if (_data.length != 0) {
@@ -183,16 +171,14 @@ contract LockToApprovePlugin is
 
         (_startDate, _endDate) = _validateProposalDates(_startDate, _endDate);
 
-        proposalId = _createProposalId(
-            keccak256(abi.encode(_actions, _metadata))
-        );
+        proposalId = _createProposalId(keccak256(abi.encode(_actions, _metadata)));
+
+        if (_proposalExists(proposalId)) {
+            revert ProposalAlreadyExists(proposalId);
+        }
 
         // Store proposal related information
         Proposal storage proposal_ = proposals[proposalId];
-
-        if (proposal_.parameters.startDate != 0) {
-            revert ProposalAlreadyExists(proposalId);
-        }
 
         proposal_.parameters.startDate = _startDate;
         proposal_.parameters.endDate = _endDate;
@@ -212,15 +198,7 @@ contract LockToApprovePlugin is
             }
         }
 
-        emit ProposalCreated(
-            proposalId,
-            _msgSender(),
-            _startDate,
-            _endDate,
-            _metadata,
-            _actions,
-            _allowFailureMap
-        );
+        emit ProposalCreated(proposalId, _msgSender(), _startDate, _endDate, _metadata, _actions, _allowFailureMap);
 
         lockManager.proposalCreated(proposalId);
     }
@@ -262,14 +240,10 @@ contract LockToApprovePlugin is
     }
 
     /// @inheritdoc ILockToApprove
-    function canApprove(
-        uint256 _proposalId,
-        address _voter
-    ) external view returns (bool) {
+    function canApprove(uint256 _proposalId, address _voter) external view returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        return
-            _canApprove(proposal_, _voter, lockManager.lockedBalances(_voter));
+        return _canApprove(proposal_, _voter, lockManager.lockedBalances(_voter));
     }
 
     /// @inheritdoc ILockToApprove
@@ -296,7 +270,7 @@ contract LockToApprovePlugin is
 
     /// @inheritdoc ILockToApprove
     function clearApproval(uint256 _proposalId, address _voter) external auth(LOCK_MANAGER_PERMISSION_ID) {
-        ProposalApproval storage proposal_ = proposals[_proposalId];
+        Proposal storage proposal_ = proposals[_proposalId];
 
         if (proposal_.approvals[_voter] == 0 || !_isProposalOpen(proposal_)) return;
 
@@ -306,17 +280,21 @@ contract LockToApprovePlugin is
         // Clear the voting power
         proposal_.approvals[_voter] = 0;
 
-        emit VoteCleared(_proposalId, _voter);
+        emit ApprovalCleared(_proposalId, _voter);
     }
 
     /// @inheritdoc ILockToVoteBase
-    function usedVotingPower(uint256 proposalId, address voter) public view returns (uint256) {
-        return proposals[proposalId].approvals[voter];
+    function usedVotingPower(uint256 _proposalId, address _voter) public view returns (uint256) {
+        return proposals[_proposalId].approvals[_voter];
     }
 
     /// @inheritdoc IProposal
     function hasSucceeded(uint256 _proposalId) external view returns (bool) {
-        ProposalApproval storage proposal_ = proposals[_proposalId];
+        if (!_proposalExists(_proposalId)) {
+            revert NonexistentProposal(_proposalId);
+        }
+
+        Proposal storage proposal_ = proposals[_proposalId];
         return _hasSucceeded(proposal_);
     }
 
@@ -357,15 +335,20 @@ contract LockToApprovePlugin is
 
     // Internal helpers
 
-    function _isProposalOpen(
-        Proposal storage proposal_
-    ) internal view returns (bool) {
+    function _isProposalOpen(Proposal storage proposal_) internal view returns (bool) {
         uint64 currentTime = block.timestamp.toUint64();
 
         return
             proposal_.parameters.startDate <= currentTime &&
             currentTime < proposal_.parameters.endDate &&
             !proposal_.executed;
+    }
+
+    /// @notice Checks if proposal exists or not.
+    /// @param _proposalId The ID of the proposal.
+    /// @return Returns `true` if proposal exists, otherwise false.
+    function _proposalExists(uint256 _proposalId) internal view returns (bool) {
+        return proposals[_proposalId].parameters.startDate != 0;
     }
 
     function _canApprove(
@@ -385,31 +368,34 @@ contract LockToApprovePlugin is
         return true;
     }
 
-    function _canExecute(ProposalApproval storage proposal_) internal view returns (bool) {
+    function _canExecute(Proposal storage proposal_) internal view returns (bool) {
+        // Verify that the vote has not been executed already.
         if (proposal_.executed) {
-            return false;
-        } else if (proposal_.parameters.endDate < block.timestamp) {
-            return false;
-        } else if (!_hasSucceeded(proposal_)) {
             return false;
         }
 
-        return true;
+        return _hasSucceeded(proposal_);
     }
 
-    function _minApprovalTally(ProposalApproval storage proposal_) internal view returns (uint256 _minTally) {
+    function _hasSucceeded(Proposal storage proposal_) internal view returns (bool) {
+        if (proposal_.approvalTally == 0) {
+            // Avoid empty proposals to be reported as succeeded
+            return false;
+        }
+        return proposal_.approvalTally >= _minApprovalTally(proposal_);
+    }
+
+    function _minApprovalTally(Proposal storage proposal_) internal view returns (uint256 _minTally) {
         /// @dev Checking against the totalSupply() of the **underlying token**.
         /// @dev LP tokens could have important supply variations and this would impact the value of existing votes, after created.
         /// @dev However, the total supply of the underlying token (USDC, USDT, DAI, etc) will experiment little to no variations in comparison.
 
         // NOTE: Assuming a 1:1 correlation between token() and underlyingToken()
 
-        _minTally =
-            _applyRatioCeiled(lockManager.underlyingToken().totalSupply(), proposal_.parameters.minApprovalRatio);
-    }
-
-    function _hasSucceeded(ProposalApproval storage proposal_) internal view returns (bool) {
-        return proposal_.approvalTally >= _minApprovalTally(proposal_) && proposal_.approvalTally > 0;
+        _minTally = _applyRatioCeiled(
+            lockManager.underlyingToken().totalSupply(),
+            proposal_.parameters.minApprovalRatio
+        );
     }
 
     /// @notice Validates and returns the proposal dates.
@@ -430,10 +416,7 @@ contract LockToApprovePlugin is
             startDate = _start;
 
             if (startDate < currentTimestamp) {
-                revert DateOutOfBounds({
-                    limit: currentTimestamp,
-                    actual: startDate
-                });
+                revert DateOutOfBounds({limit: currentTimestamp, actual: startDate});
             }
         }
 
@@ -448,10 +431,7 @@ contract LockToApprovePlugin is
             endDate = _end;
 
             if (endDate < earliestEndDate) {
-                revert DateOutOfBounds({
-                    limit: earliestEndDate,
-                    actual: endDate
-                });
+                revert DateOutOfBounds({limit: earliestEndDate, actual: endDate});
             }
         }
     }
