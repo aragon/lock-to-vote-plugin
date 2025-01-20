@@ -112,6 +112,8 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
             revert NoVotingPower();
         }
 
+        /// @dev `minProposerVotingPower` will be checked by the permission condition behind auth(CREATE_PROPOSAL_PERMISSION_ID)
+
         (_startDate, _endDate) = _validateProposalDates(_startDate, _endDate);
 
         proposalId = _createProposalId(
@@ -185,22 +187,23 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         uint256 _proposalId,
         address _voter,
         VoteOption _voteOption,
-        uint256 _votingPower
+        uint256 _currentVotingPower
     ) public override auth(LOCK_MANAGER_PERMISSION_ID) {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        if (!_canVote(proposal_, _voter, _voteOption, _votingPower)) {
+        if (!_canVote(proposal_, _voter, _voteOption, _currentVotingPower)) {
             revert VoteCastForbidden(_proposalId, _voter);
         }
 
         // Same vote
         if (_voteOption == proposal_.votes[_voter].voteOption) {
             // Same balance, nothing to do
-            if (_votingPower == proposal_.votes[_voter].votingPower) return;
+            if (_currentVotingPower == proposal_.votes[_voter].votingPower) return;
 
             // More balance
-            uint256 diff = _votingPower - proposal_.votes[_voter].votingPower;
-            proposal_.votes[_voter].votingPower = _votingPower;
+            /// @dev Positive diff is guaranteed, as _canVote() above will return false and revert otherwise
+            uint256 diff = _currentVotingPower - proposal_.votes[_voter].votingPower;
+            proposal_.votes[_voter].votingPower = _currentVotingPower;
 
             if (proposal_.votes[_voter].voteOption == VoteOption.Yes) {
                 proposal_.tally.yes += diff;
@@ -230,17 +233,17 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
 
             // Register the new vote
             if (_voteOption == VoteOption.Yes) {
-                proposal_.tally.yes += _votingPower;
+                proposal_.tally.yes += _currentVotingPower;
             } else if (_voteOption == VoteOption.No) {
-                proposal_.tally.no += _votingPower;
+                proposal_.tally.no += _currentVotingPower;
             } else {
-                proposal_.tally.abstain += _votingPower;
+                proposal_.tally.abstain += _currentVotingPower;
             }
             proposal_.votes[_voter].voteOption = _voteOption;
-            proposal_.votes[_voter].votingPower = _votingPower;
+            proposal_.votes[_voter].votingPower = _currentVotingPower;
         }
 
-        emit VoteCast(_proposalId, _voter, _voteOption, _votingPower);
+        emit VoteCast(_proposalId, _voter, _voteOption, _currentVotingPower);
 
         if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
             _checkEarlyExecution(_proposalId, _msgSender());

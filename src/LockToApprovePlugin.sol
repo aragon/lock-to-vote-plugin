@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {ILockManager} from "./interfaces/ILockManager.sol";
+import {ILockManager, UnlockMode} from "./interfaces/ILockManager.sol";
 import {ILockToVoteBase} from "./interfaces/ILockToVote.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {LockToVoteBase} from "./base/LockToVoteBase.sol";
@@ -169,6 +169,8 @@ contract LockToApprovePlugin is
             revert NoVotingPower();
         }
 
+        /// @dev `minProposerVotingPower` will be checked by the permission condition behind auth(CREATE_PROPOSAL_PERMISSION_ID)
+
         (_startDate, _endDate) = _validateProposalDates(_startDate, _endDate);
 
         proposalId = _createProposalId(keccak256(abi.encode(_actions, _metadata)));
@@ -247,25 +249,35 @@ contract LockToApprovePlugin is
     }
 
     /// @inheritdoc ILockToApprove
-    function approve(uint256 _proposalId, address _voter, uint256 _newVotingPower)
-        external
-        auth(LOCK_MANAGER_PERMISSION_ID)
-    {
-        ProposalApproval storage proposal_ = proposals[_proposalId];
+    function approve(
+        uint256 _proposalId,
+        address _voter,
+        uint256 _currentVotingPower
+    ) external auth(LOCK_MANAGER_PERMISSION_ID) {
+        Proposal storage proposal_ = proposals[_proposalId];
 
-        if (!_canVote(proposal_, _voter, _newVotingPower)) {
+        if (!_canApprove(proposal_, _voter, _currentVotingPower)) {
             revert ApprovalForbidden(_proposalId, _voter);
         }
 
         // Add the difference between the new voting power and the current one
 
-        uint256 diff = _newVotingPower - proposal_.approvals[_voter];
+        uint256 diff = _currentVotingPower - proposal_.approvals[_voter];
         proposal_.approvalTally += diff;
         proposal_.approvals[_voter] += diff;
 
-        emit Approved(_proposalId, _voter, _newVotingPower);
+        emit ApprovalCast(_proposalId, _voter, _currentVotingPower);
 
-        _checkEarlyExecution(_proposalId, proposal_, _voter);
+        // Check if we may execute early
+        (UnlockMode unlockMode, ) = lockManager.settings();
+        if (unlockMode == UnlockMode.STRICT) {
+            if (
+                _canExecute(proposal_) &&
+                dao().hasPermission(address(this), _msgSender(), EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())
+            ) {
+                _execute(_proposalId, proposal_);
+            }
+        }
     }
 
     /// @inheritdoc ILockToApprove
@@ -289,6 +301,16 @@ contract LockToApprovePlugin is
     }
 
     /// @inheritdoc IProposal
+    function canExecute(uint256 _proposalId) external view returns (bool) {
+        if (!_proposalExists(_proposalId)) {
+            revert NonexistentProposal(_proposalId);
+        }
+
+        Proposal storage proposal_ = proposals[_proposalId];
+        return _canExecute(proposal_);
+    }
+
+    /// @inheritdoc IProposal
     function hasSucceeded(uint256 _proposalId) external view returns (bool) {
         if (!_proposalExists(_proposalId)) {
             revert NonexistentProposal(_proposalId);
@@ -299,37 +321,20 @@ contract LockToApprovePlugin is
     }
 
     /// @inheritdoc IProposal
-    function canExecute(uint256 _proposalId) external view returns (bool) {
-        ProposalApproval storage proposal_ = proposals[_proposalId];
-        return _canExecute(proposal_);
-    }
-
-    /// @inheritdoc IProposal
     function execute(uint256 _proposalId) external auth(EXECUTE_PROPOSAL_PERMISSION_ID) {
-        ProposalApproval storage proposal_ = proposals[_proposalId];
+        Proposal storage proposal_ = proposals[_proposalId];
 
         if (!_canExecute(proposal_)) {
-            revert ExecutionForbidden(_proposalId);
+            revert ProposalExecutionForbidden(_proposalId);
         }
 
         _execute(_proposalId, proposal_);
     }
 
-    /// @inheritdoc ILockToVoteBase
-    function underlyingToken() external view returns (IERC20) {
-        return lockManager.underlyingToken();
-    }
-
-    /// @inheritdoc ILockToVoteBase
-    function token() external view returns (IERC20) {
-        return lockManager.token();
-    }
-
     /// @inheritdoc ILockToApprove
-    function updatePluginSettings(LockToApproveSettings calldata _newSettings)
-        external
-        auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID)
-    {
+    function updatePluginSettings(
+        ApprovalSettings calldata _newSettings
+    ) external auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID) {
         _updatePluginSettings(_newSettings);
     }
 
@@ -436,28 +441,28 @@ contract LockToApprovePlugin is
         }
     }
 
-    function _checkEarlyExecution(uint256 _proposalId, ProposalApproval storage proposal_, address _voter) internal {
-        if (!_canExecute(proposal_)) {
-            return;
-        } else if (!dao().hasPermission(address(this), _voter, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
-            return;
-        }
-
-        _execute(_proposalId, proposal_);
-    }
-
-    function _execute(uint256 _proposalId, ProposalApproval storage proposal_) internal {
+    function _execute(uint256 _proposalId, Proposal storage proposal_) internal {
         proposal_.executed = true;
 
         // IProposal's target execution
-        _execute(bytes32(_proposalId), proposal_.actions, proposal_.allowFailureMap);
+        _execute(
+            proposal_.targetConfig.target,
+            bytes32(_proposalId),
+            proposal_.actions,
+            proposal_.allowFailureMap,
+            proposal_.targetConfig.operation
+        );
 
-        emit Executed(_proposalId);
+        emit ProposalExecuted(_proposalId);
 
         // Notify the LockManager to stop tracking this proposal ID
         lockManager.proposalEnded(_proposalId);
     }
 
+    function _updatePluginSettings(ApprovalSettings memory _newSettings) internal {
+        settings.minApprovalRatio = _newSettings.minApprovalRatio;
+        settings.minProposalDuration = _newSettings.minProposalDuration;
+    }
 
     /// @notice This empty reserved space is put in place to allow future versions to add
     /// new variables without shifting down storage in the inheritance chain
