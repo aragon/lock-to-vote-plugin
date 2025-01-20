@@ -221,20 +221,11 @@ abstract contract MajorityVotingBase is
             this.votingMode.selector ^
             this.totalVotingPower.selector ^
             this.getProposal.selector ^
-            this.updateVotingSettings.selector ^
-            bytes4(
-                keccak256(
-                    "createProposal(bytes,(address,uint256,bytes)[],uint256,uint64,uint64,uint8,bool)"
-                )
-            );
+            this.updateVotingSettings.selector;
 
     /// @notice The ID of the permission required to call the `updateVotingSettings` function.
     bytes32 public constant UPDATE_VOTING_SETTINGS_PERMISSION_ID =
         keccak256("UPDATE_VOTING_SETTINGS_PERMISSION");
-
-    /// @notice The ID of the permission required to call the `createProposal` functions.
-    bytes32 public constant CREATE_PROPOSAL_PERMISSION_ID =
-        keccak256("CREATE_PROPOSAL_PERMISSION");
 
     /// @notice The ID of the permission required to call the `execute` function.
     bytes32 public constant EXECUTE_PROPOSAL_PERMISSION_ID =

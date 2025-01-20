@@ -32,7 +32,7 @@ interface ILockToVoteBase {
         address voter
     ) external view returns (uint256);
 
-    /// @notice Internal function to check if a proposal is still open.
+    /// @notice Returns wether a proposal is open or not.
     /// @param _proposalId The ID of the proposal.
     /// @return True if the proposal is open, false otherwise.
     function isProposalOpen(uint256 _proposalId) external view returns (bool);

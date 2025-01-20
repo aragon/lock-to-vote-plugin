@@ -101,6 +101,28 @@ contract LockToApprovePlugin is
 
     mapping(uint256 => Proposal) proposals;
 
+    event ApprovalCast(
+        uint256 proposalId,
+        address voter,
+        uint256 newVotingPower
+    );
+    event ApprovalCleared(uint256 proposalId, address voter);
+    event ApprovalSettingsUpdated(
+        uint32 minApprovalRatio,
+        uint64 minProposalDuration
+    );
+
+    error ApprovalForbidden(uint256 proposalId, address voter);
+    error DateOutOfBounds(uint256 limit, uint256 actual);
+
+    /// @notice Thrown if the proposal execution is forbidden.
+    /// @param proposalId The ID of the proposal.
+    error ProposalExecutionForbidden(uint256 proposalId);
+
+    /// @notice Thrown if the proposal with same actions and metadata already exists.
+    /// @param proposalId The id of the proposal.
+    error ProposalAlreadyExists(uint256 proposalId);
+
 
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
@@ -127,7 +149,12 @@ contract LockToApprovePlugin is
     }
 
     /// @inheritdoc IProposal
-    function customProposalParamsABI() external pure override returns (string memory) {
+    function customProposalParamsABI()
+        external
+        pure
+        override
+        returns (string memory)
+    {
         return "(uint256 allowFailureMap)";
     }
 
@@ -139,7 +166,11 @@ contract LockToApprovePlugin is
         uint64 _startDate,
         uint64 _endDate,
         bytes memory _data
-    ) external auth(CREATE_PROPOSAL_PERMISSION_ID) returns (uint256 proposalId) {
+    )
+        external
+        auth(CREATE_PROPOSAL_PERMISSION_ID)
+        returns (uint256 proposalId)
+    {
         uint256 _allowFailureMap;
 
         if (_data.length != 0) {
@@ -152,10 +183,12 @@ contract LockToApprovePlugin is
 
         (_startDate, _endDate) = _validateProposalDates(_startDate, _endDate);
 
-        proposalId = _createProposalId(keccak256(abi.encode(_actions, _metadata)));
+        proposalId = _createProposalId(
+            keccak256(abi.encode(_actions, _metadata))
+        );
 
         // Store proposal related information
-        ProposalApproval storage proposal_ = proposals[proposalId];
+        Proposal storage proposal_ = proposals[proposalId];
 
         if (proposal_.parameters.startDate != 0) {
             revert ProposalAlreadyExists(proposalId);
@@ -172,14 +205,22 @@ contract LockToApprovePlugin is
             proposal_.allowFailureMap = _allowFailureMap;
         }
 
-        for (uint256 i; i < _actions.length;) {
+        for (uint256 i; i < _actions.length; ) {
             proposal_.actions.push(_actions[i]);
             unchecked {
                 ++i;
             }
         }
 
-        emit ProposalCreated(proposalId, _msgSender(), _startDate, _endDate, _metadata, _actions, _allowFailureMap);
+        emit ProposalCreated(
+            proposalId,
+            _msgSender(),
+            _startDate,
+            _endDate,
+            _metadata,
+            _actions,
+            _allowFailureMap
+        );
 
         lockManager.proposalCreated(proposalId);
     }
@@ -193,7 +234,9 @@ contract LockToApprovePlugin is
     /// @return actions The actions to be executed to the `target` contract address.
     /// @return allowFailureMap The bit map representations of which actions are allowed to revert so tx still succeeds.
     /// @return targetConfig Execution configuration, applied to the proposal when it was created. Added in build 3.
-    function getProposal(uint256 _proposalId)
+    function getProposal(
+        uint256 _proposalId
+    )
         public
         view
         virtual
@@ -218,24 +261,15 @@ contract LockToApprovePlugin is
         targetConfig = proposal_.targetConfig;
     }
 
-    /// @inheritdoc ILockToVoteBase
-    function isProposalOpen(uint256 _proposalId) external view virtual returns (bool) {
-        ProposalApproval storage proposal_ = proposals[_proposalId];
-        return _isProposalOpen(proposal_);
-    }
-
-    /// @inheritdoc IMembership
-    function isMember(address _account) external view returns (bool) {
-        if (lockManager.lockedBalances(_account) > 0) return true;
-        else if (lockManager.token().balanceOf(_account) > 0) return true;
-        return false;
-    }
-
     /// @inheritdoc ILockToApprove
-    function canApprove(uint256 _proposalId, address _voter) external view returns (bool) {
-        ProposalApproval storage proposal_ = proposals[_proposalId];
+    function canApprove(
+        uint256 _proposalId,
+        address _voter
+    ) external view returns (bool) {
+        Proposal storage proposal_ = proposals[_proposalId];
 
-        return _canVote(proposal_, _voter, lockManager.lockedBalances(_voter));
+        return
+            _canApprove(proposal_, _voter, lockManager.lockedBalances(_voter));
     }
 
     /// @inheritdoc ILockToApprove
@@ -323,18 +357,22 @@ contract LockToApprovePlugin is
 
     // Internal helpers
 
-        function _isProposalOpen(Proposal storage proposal_) internal view returns (bool) {
+    function _isProposalOpen(
+        Proposal storage proposal_
+    ) internal view returns (bool) {
         uint64 currentTime = block.timestamp.toUint64();
 
-        return proposal_.parameters.startDate <= currentTime && currentTime < proposal_.parameters.endDate
-            && !proposal_.executed;
+        return
+            proposal_.parameters.startDate <= currentTime &&
+            currentTime < proposal_.parameters.endDate &&
+            !proposal_.executed;
     }
 
-    function _canVote(ProposalApproval storage proposal_, address _voter, uint256 _newVotingBalance)
-        internal
-        view
-        returns (bool)
-    {
+    function _canApprove(
+        Proposal storage proposal_,
+        address _voter,
+        uint256 _newVotingBalance
+    ) internal view returns (bool) {
         // The proposal vote hasn't started or has already ended.
         if (!_isProposalOpen(proposal_)) {
             return false;
@@ -380,12 +418,10 @@ contract LockToApprovePlugin is
     /// @param _end The end date of the proposal. If 0, `_start + minDuration` is used.
     /// @return startDate The validated start date of the proposal.
     /// @return endDate The validated end date of the proposal.
-    function _validateProposalDates(uint64 _start, uint64 _end)
-        internal
-        view
-        virtual
-        returns (uint64 startDate, uint64 endDate)
-    {
+    function _validateProposalDates(
+        uint64 _start,
+        uint64 _end
+    ) internal view virtual returns (uint64 startDate, uint64 endDate) {
         uint64 currentTimestamp = block.timestamp.toUint64();
 
         if (_start == 0) {
@@ -394,7 +430,10 @@ contract LockToApprovePlugin is
             startDate = _start;
 
             if (startDate < currentTimestamp) {
-                revert DateOutOfBounds({limit: currentTimestamp, actual: startDate});
+                revert DateOutOfBounds({
+                    limit: currentTimestamp,
+                    actual: startDate
+                });
             }
         }
 
@@ -409,7 +448,10 @@ contract LockToApprovePlugin is
             endDate = _end;
 
             if (endDate < earliestEndDate) {
-                revert DateOutOfBounds({limit: earliestEndDate, actual: endDate});
+                revert DateOutOfBounds({
+                    limit: earliestEndDate,
+                    actual: endDate
+                });
             }
         }
     }
@@ -436,8 +478,10 @@ contract LockToApprovePlugin is
         lockManager.proposalEnded(_proposalId);
     }
 
-    function _updatePluginSettings(LockToApproveSettings memory _newSettings) internal {
-        settings.minApprovalRatio = _newSettings.minApprovalRatio;
-        settings.minProposalDuration = _newSettings.minProposalDuration;
-    }
+
+    /// @notice This empty reserved space is put in place to allow future versions to add
+    /// new variables without shifting down storage in the inheritance chain
+    /// (see [OpenZeppelin's guide about storage gaps]
+    /// (https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
+    uint256[48] private __gap;
 }

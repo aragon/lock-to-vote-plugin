@@ -13,18 +13,18 @@ import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/intro
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {_applyRatioCeiled} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {MajorityVotingBase} from "./base/MajorityVotingBase.sol";
+import {ILockToVoteBase} from "./interfaces/ILockToVoteBase.sol";
 
 contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     using SafeCastUpgradeable for uint256;
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
     bytes4 internal constant LOCK_TO_VOTE_INTERFACE_ID =
-        // this.minProposerVotingPower.selector ^
-        bytes4(
-            keccak256(
-                "createProposal(bytes,(address,uint256,bytes)[],uint64,uint64,uint8,bytes)"
-            )
-        );
+        this.minProposerVotingPower.selector ^ this.createProposal.selector;
+
+    /// @notice The ID of the permission required to call the `createProposal` functions.
+    bytes32 public constant CREATE_PROPOSAL_PERMISSION_ID =
+        keccak256("CREATE_PROPOSAL_PERMISSION");
 
     /// @notice The ID of the permission required to call `vote` and `clearVote`.
     bytes32 public constant LOCK_MANAGER_PERMISSION_ID =
@@ -283,7 +283,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         emit VoteCleared(_proposalId, _voter);
     }
 
-    /// @inheritdoc ILockToVote
+    /// @inheritdoc ILockToVoteBase
     function isProposalOpen(uint256 _proposalId) external view returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
         return _isProposalOpen(proposal_);
@@ -294,7 +294,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         return lockManager.token().totalSupply();
     }
 
-    /// @inheritdoc ILockToVote
+    /// @inheritdoc ILockToVoteBase
     function usedVotingPower(
         uint256 _proposalId,
         address _voter
