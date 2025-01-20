@@ -29,7 +29,7 @@ contract DaoBuilder is Test {
 
     bool onlyListed = true;
     uint32 minApprovalRatio = 100_000; // 10%
-    uint32 minProposalDuration = 10 days;
+    uint32 proposalDuration = 10 days;
     UnlockMode unlockMode = UnlockMode.STRICT;
 
     function withDaoOwner(address newOwner) public returns (DaoBuilder) {
@@ -48,8 +48,8 @@ contract DaoBuilder is Test {
         return this;
     }
 
-    function withMinDuration(uint32 newMinDuration) public returns (DaoBuilder) {
-        minProposalDuration = newMinDuration;
+    function withDuration(uint32 newDuration) public returns (DaoBuilder) {
+        proposalDuration = newDuration;
         return this;
     }
 
@@ -73,7 +73,8 @@ contract DaoBuilder is Test {
         dao = DAO(
             payable(
                 createProxyAndCall(
-                    address(DAO_BASE), abi.encodeCall(DAO.initialize, ("", address(this), address(0x0), ""))
+                    address(DAO_BASE),
+                    abi.encodeCall(DAO.initialize, ("", address(this), address(0x0), ""))
                 )
             )
         );
@@ -95,11 +96,15 @@ contract DaoBuilder is Test {
 
             helper = new LockManager(dao, LockManagerSettings(unlockMode), lockableToken, underlyingToken);
 
-            LockToApprovePlugin.ApprovalSettings memory targetContractSettings =
-                LockToApprovePlugin.ApprovalSettings({minApprovalRatio: minApprovalRatio, minProposalDuration: minProposalDuration});
+            LockToApprovePlugin.ApprovalSettings memory targetContractSettings = LockToApprovePlugin.ApprovalSettings({
+                minApprovalRatio: minApprovalRatio,
+                proposalDuration: proposalDuration
+            });
 
-            IPlugin.TargetConfig memory targetConfig =
-                IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call});
+            IPlugin.TargetConfig memory targetConfig = IPlugin.TargetConfig({
+                target: address(dao),
+                operation: IPlugin.Operation.Call
+            });
             bytes memory pluginMetadata = "";
 
             plugin = LockToApprovePlugin(

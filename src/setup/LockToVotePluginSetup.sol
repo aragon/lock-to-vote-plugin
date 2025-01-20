@@ -44,7 +44,7 @@ contract LockToVotePluginSetup {
 //     TokenSettings tokenSettings;
 //     // only used for GovernanceERC20 (when token is not passed)
 //     GovernanceERC20.MintSettings mintSettings;
-//     uint64 stdProposalMinDuration;
+//     uint64 proposalDuration;
 //     address stdProposer;
 //     address emergencyProposer;
 // }
@@ -164,7 +164,7 @@ contract LockToVotePluginSetup {
 //         // Deploy the Std proposal condition
 //         StandardProposalCondition stdProposalCondition = new StandardProposalCondition(
 //                 address(_dao),
-//                 installationParams.stdProposalMinDuration
+//                 installationParams.proposalDuration
 //             );
 //         // Proposer plugins can create proposals
 //         permissions[3] = PermissionLib.MultiTargetPermission({

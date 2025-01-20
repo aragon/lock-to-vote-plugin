@@ -10,6 +10,7 @@ import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {ProposalUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/ProposalUpgradeable.sol";
 import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
+import {RATIO_BASE, RatioOutOfBounds} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
 import {MetadataExtensionUpgradeable} from "@aragon/osx-commons-contracts/src/utils/metadata/MetadataExtensionUpgradeable.sol";
@@ -31,10 +32,10 @@ contract LockToApprovePlugin is
     /// @notice A container for the approval settings that will be applied as parameters on proposal creation.
     /// @param minApprovalRatio The minimum approval ratio required to approve over the total supply.
     ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
-    /// @param minProposalDuration The minimum duration of the proposal approval stage in seconds.
+    /// @param proposalDuration The amount of seconds during which the proposal will be open after startDate.
     struct ApprovalSettings {
         uint32 minApprovalRatio;
-        uint64 minProposalDuration;
+        uint64 proposalDuration;
     }
 
     /// @notice A container for proposal-related information.
@@ -98,10 +99,15 @@ contract LockToApprovePlugin is
 
     event ApprovalCast(uint256 proposalId, address voter, uint256 newVotingPower);
     event ApprovalCleared(uint256 proposalId, address voter);
-    event ApprovalSettingsUpdated(uint32 minApprovalRatio, uint64 minProposalDuration);
+    event ApprovalSettingsUpdated(uint32 minApprovalRatio, uint64 proposalDuration);
 
     error ApprovalForbidden(uint256 proposalId, address voter);
     error DateOutOfBounds(uint256 limit, uint256 actual);
+
+    /// @notice Thrown if the proposal duration value is out of bounds (less than one hour or greater than 1 year).
+    /// @param limit The limit value.
+    /// @param actual The actual value.
+    error ProposalDurationOutOfBounds(uint64 limit, uint64 actual);
 
     /// @notice Thrown when a proposal doesn't exist.
     /// @param proposalId The ID of the proposal which doesn't exist.
@@ -314,6 +320,18 @@ contract LockToApprovePlugin is
         emit ApprovalCleared(_proposalId, _voter);
     }
 
+    /// @notice Returns the proposal duration parameter setting.
+    /// @return The proposal duration in seconds.
+    function proposalDuration() public view virtual returns (uint64) {
+        return settings.proposalDuration;
+    }
+
+
+    /// @notice Returns the minimum approval ratio for proposals to succeed.
+    function minApprovalRatio() public view virtual returns (uint256) {
+        return settings.minApprovalRatio;
+    }
+
     /// @inheritdoc ILockToVoteBase
     function isProposalOpen(uint256 _proposalId) external view returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
@@ -431,7 +449,7 @@ contract LockToApprovePlugin is
     /// @notice Validates and returns the proposal dates.
     /// @param _start The start date of the proposal.
     ///     If 0, the current timestamp is used and the vote starts immediately.
-    /// @param _end The end date of the proposal. If 0, `_start + minDuration` is used.
+    /// @param _end The end date of the proposal. If 0, `_start + proposalDuration` is used.
     /// @return startDate The validated start date of the proposal.
     /// @return endDate The validated end date of the proposal.
     function _validateProposalDates(
@@ -450,10 +468,10 @@ contract LockToApprovePlugin is
             }
         }
 
-        // Since `minDuration` is limited to 1 year,
-        // `startDate + minDuration` can only overflow if the `startDate` is after `type(uint64).max - minDuration`.
+        // Since `proposalDuration` is limited to 1 year,
+        // `startDate + proposalDuration` can only overflow if the `startDate` is after `type(uint64).max - proposalDuration`.
         // In this case, the proposal creation will revert and another date can be picked.
-        uint64 earliestEndDate = startDate + settings.minProposalDuration;
+        uint64 earliestEndDate = startDate + settings.proposalDuration;
 
         if (_end == 0) {
             endDate = earliestEndDate;
@@ -485,8 +503,16 @@ contract LockToApprovePlugin is
     }
 
     function _updatePluginSettings(ApprovalSettings memory _newSettings) internal {
+        if (_newSettings.minApprovalRatio > RATIO_BASE) {
+            revert RatioOutOfBounds({limit: RATIO_BASE, actual: _newSettings.minApprovalRatio});
+        } else if (_newSettings.proposalDuration < 60 minutes) {
+            revert ProposalDurationOutOfBounds({limit: 60 minutes, actual: _newSettings.proposalDuration});
+        } else if (_newSettings.proposalDuration > 365 days) {
+            revert ProposalDurationOutOfBounds({limit: 365 days, actual: _newSettings.proposalDuration});
+        }
+
         settings.minApprovalRatio = _newSettings.minApprovalRatio;
-        settings.minProposalDuration = _newSettings.minProposalDuration;
+        settings.proposalDuration = _newSettings.proposalDuration;
     }
 
     /// @notice This empty reserved space is put in place to allow future versions to add
