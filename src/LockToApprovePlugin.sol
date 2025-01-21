@@ -33,9 +33,11 @@ contract LockToApprovePlugin is
     /// @param minApprovalRatio The minimum approval ratio required to approve over the total supply.
     ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     /// @param proposalDuration The amount of seconds during which the proposal will be open after startDate.
+    /// @param minProposerVotingPower The minimum voting power required to create a proposal.
     struct ApprovalSettings {
         uint32 minApprovalRatio;
         uint64 proposalDuration;
+        uint256 minProposerVotingPower;
     }
 
     /// @notice A container for proposal-related information.
@@ -85,10 +87,10 @@ contract LockToApprovePlugin is
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
     bytes4 internal constant LOCK_TO_APPROVE_INTERFACE_ID =
-        this.minDuration.selector ^
-            this.minProposerVotingPower.selector ^
-            this.votingMode.selector ^
-            this.totalVotingPower.selector ^
+        this.minProposerVotingPower.selector ^
+            this.currentTokenSupply.selector ^
+            this.proposalDuration.selector ^
+            this.minApprovalRatio.selector ^
             this.getProposal.selector ^
             this.updateVotingSettings.selector ^
             this.createProposal.selector;
@@ -138,7 +140,7 @@ contract LockToApprovePlugin is
         bytes calldata _pluginMetadata
     ) external onlyCallAtInitialization reinitializer(1) {
         __PluginUUPSUpgradeable_init(_dao);
-        _updatePluginSettings(_pluginSettings);
+        _updateVotingSettings(_pluginSettings);
         _setTargetConfig(_targetConfig);
         _setMetadata(_pluginMetadata);
         __LockToVoteBase_init(_lockManager);
@@ -190,11 +192,11 @@ contract LockToApprovePlugin is
             (_allowFailureMap) = abi.decode(_data, (uint256));
         }
 
-        if (lockManager.token().totalSupply() == 0) {
+        if (currentTokenSupply() == 0) {
             revert NoVotingPower();
         }
 
-        /// @dev `minProposerVotingPower` will be checked by the permission condition behind auth(CREATE_PROPOSAL_PERMISSION_ID)
+        /// @dev `minProposerVotingPower` is checked at the permission condition behind auth(CREATE_PROPOSAL_PERMISSION_ID)
 
         (_startDate, _endDate) = _validateProposalDates(_startDate, _endDate);
 
@@ -326,6 +328,11 @@ contract LockToApprovePlugin is
         return settings.proposalDuration;
     }
 
+    /// @notice Returns the minimum voting power required to create a proposal stored in the voting settings.
+    /// @return The minimum voting power required to create a proposal.
+    function minProposerVotingPower() public view virtual returns (uint256) {
+        return settings.minProposerVotingPower;
+    }
 
     /// @notice Returns the minimum approval ratio for proposals to succeed.
     function minApprovalRatio() public view virtual returns (uint256) {
@@ -336,6 +343,12 @@ contract LockToApprovePlugin is
     function isProposalOpen(uint256 _proposalId) external view returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
         return _isProposalOpen(proposal_);
+    }
+
+    /// @notice Returns the total voting power checkpointed for a specific block number.
+    /// @return The total voting power.
+    function currentTokenSupply() public view returns (uint256) {
+        return lockManager.token().totalSupply();
     }
 
     /// @inheritdoc ILockToVoteBase
@@ -375,10 +388,10 @@ contract LockToApprovePlugin is
     }
 
     /// @notice Updates the LockManager approval settings to the given new values.
-    function updatePluginSettings(
+    function updateVotingSettings(
         ApprovalSettings calldata _newSettings
     ) external auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID) {
-        _updatePluginSettings(_newSettings);
+        _updateVotingSettings(_newSettings);
     }
 
     // Internal helpers
@@ -502,7 +515,7 @@ contract LockToApprovePlugin is
         lockManager.proposalEnded(_proposalId);
     }
 
-    function _updatePluginSettings(ApprovalSettings memory _newSettings) internal {
+    function _updateVotingSettings(ApprovalSettings memory _newSettings) internal {
         if (_newSettings.minApprovalRatio > RATIO_BASE) {
             revert RatioOutOfBounds({limit: RATIO_BASE, actual: _newSettings.minApprovalRatio});
         } else if (_newSettings.proposalDuration < 60 minutes) {

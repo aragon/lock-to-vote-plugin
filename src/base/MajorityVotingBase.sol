@@ -221,7 +221,7 @@ abstract contract MajorityVotingBase is
         this.proposalDuration.selector ^
             this.minProposerVotingPower.selector ^
             this.votingMode.selector ^
-            this.totalVotingPower.selector ^
+            this.currentTokenSupply.selector ^
             this.getProposal.selector ^
             this.updateVotingSettings.selector;
 
@@ -405,7 +405,7 @@ abstract contract MajorityVotingBase is
     ) public view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        uint256 noVotesWorstCase = totalVotingPower() -
+        uint256 noVotesWorstCase = currentTokenSupply() -
             proposal_.tally.yes -
             proposal_.tally.abstain;
 
@@ -425,7 +425,7 @@ abstract contract MajorityVotingBase is
         Proposal storage proposal_ = proposals[_proposalId];
 
         uint256 _minVotingPower = _applyRatioCeiled(
-            totalVotingPower(),
+            currentTokenSupply(),
             proposal_.parameters.minParticipationRatio
         );
 
@@ -444,7 +444,7 @@ abstract contract MajorityVotingBase is
         uint256 _proposalId
     ) public view virtual returns (bool) {
         uint256 _minApprovalPower = _applyRatioCeiled(
-            totalVotingPower(),
+            currentTokenSupply(),
             proposals[_proposalId].parameters.minApprovalRatio
         );
         return proposals[_proposalId].tally.yes >= _minApprovalPower;
@@ -483,9 +483,9 @@ abstract contract MajorityVotingBase is
         return votingSettings.votingMode;
     }
 
-    /// @notice Returns the total voting power checkpointed for a specific block number.
-    /// @return The total voting power.
-    function totalVotingPower() public view virtual returns (uint256);
+    /// @notice Returns the current token supply.
+    /// @return The token supply.
+    function currentTokenSupply() public view virtual returns (uint256);
 
     /// @notice Returns all information for a proposal by its ID.
     /// @param _proposalId The ID of the proposal.

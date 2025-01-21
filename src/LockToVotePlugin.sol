@@ -107,12 +107,12 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
             (_allowFailureMap) = abi.decode(_data, (uint256));
         }
 
-        uint256 totalVotingPower_ = lockManager.token().totalSupply();
-        if (totalVotingPower_ == 0) {
+        uint256 _currentSupply = lockManager.token().totalSupply();
+        if (_currentSupply == 0) {
             revert NoVotingPower();
         }
 
-        /// @dev `minProposerVotingPower` will be checked by the permission condition behind auth(CREATE_PROPOSAL_PERMISSION_ID)
+        /// @dev `minProposerVotingPower` is checked at the the permission condition behind auth(CREATE_PROPOSAL_PERMISSION_ID)
 
         (_startDate, _endDate) = _validateProposalDates(_startDate, _endDate);
 
@@ -286,7 +286,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     }
 
     /// @inheritdoc MajorityVotingBase
-    function totalVotingPower() public view override returns (uint256) {
+    function currentTokenSupply() public view override returns (uint256) {
         return lockManager.token().totalSupply();
     }
 
