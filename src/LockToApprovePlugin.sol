@@ -82,8 +82,8 @@ contract LockToApprovePlugin is
     /// @notice The ID of the permission required to call the `execute` function.
     bytes32 public constant LOCK_MANAGER_PERMISSION_ID = keccak256("LOCK_MANAGER_PERMISSION");
 
-    /// @notice The ID of the permission required to call the `updateVotingSettings` function.
-    bytes32 public constant UPDATE_VOTING_SETTINGS_PERMISSION_ID = keccak256("UPDATE_VOTING_SETTINGS_PERMISSION");
+    /// @notice The ID of the permission required to call the `updateApprovalSettings` function.
+    bytes32 public constant UPDATE_SETTINGS_PERMISSION_ID = keccak256("UPDATE_SETTINGS_PERMISSION");
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
     bytes4 internal constant LOCK_TO_APPROVE_INTERFACE_ID =
@@ -92,7 +92,7 @@ contract LockToApprovePlugin is
             this.proposalDuration.selector ^
             this.minApprovalRatio.selector ^
             this.getProposal.selector ^
-            this.updateVotingSettings.selector ^
+            this.updateApprovalSettings.selector ^
             this.createProposal.selector;
 
     ApprovalSettings public settings;
@@ -101,7 +101,7 @@ contract LockToApprovePlugin is
 
     event ApprovalCast(uint256 proposalId, address voter, uint256 newVotingPower);
     event ApprovalCleared(uint256 proposalId, address voter);
-    event ApprovalSettingsUpdated(uint32 minApprovalRatio, uint64 proposalDuration);
+    event ApprovalSettingsUpdated(uint32 minApprovalRatio, uint64 proposalDuration, uint256 minProposerVotingPower);
 
     error ApprovalForbidden(uint256 proposalId, address voter);
     error DateOutOfBounds(uint256 limit, uint256 actual);
@@ -140,7 +140,7 @@ contract LockToApprovePlugin is
         bytes calldata _pluginMetadata
     ) external onlyCallAtInitialization reinitializer(1) {
         __PluginUUPSUpgradeable_init(_dao);
-        _updateVotingSettings(_pluginSettings);
+        _updateApprovalSettings(_pluginSettings);
         _setTargetConfig(_targetConfig);
         _setMetadata(_pluginMetadata);
         __LockToVoteBase_init(_lockManager);
@@ -388,10 +388,10 @@ contract LockToApprovePlugin is
     }
 
     /// @notice Updates the LockManager approval settings to the given new values.
-    function updateVotingSettings(
+    function updateApprovalSettings(
         ApprovalSettings calldata _newSettings
-    ) external auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID) {
-        _updateVotingSettings(_newSettings);
+    ) external auth(UPDATE_SETTINGS_PERMISSION_ID) {
+        _updateApprovalSettings(_newSettings);
     }
 
     // Internal helpers
@@ -515,7 +515,7 @@ contract LockToApprovePlugin is
         lockManager.proposalEnded(_proposalId);
     }
 
-    function _updateVotingSettings(ApprovalSettings memory _newSettings) internal {
+    function _updateApprovalSettings(ApprovalSettings memory _newSettings) internal {
         if (_newSettings.minApprovalRatio > RATIO_BASE) {
             revert RatioOutOfBounds({limit: RATIO_BASE, actual: _newSettings.minApprovalRatio});
         } else if (_newSettings.proposalDuration < 60 minutes) {
@@ -526,6 +526,13 @@ contract LockToApprovePlugin is
 
         settings.minApprovalRatio = _newSettings.minApprovalRatio;
         settings.proposalDuration = _newSettings.proposalDuration;
+        settings.minProposerVotingPower = _newSettings.minProposerVotingPower;
+
+        emit ApprovalSettingsUpdated(
+            _newSettings.minApprovalRatio,
+            _newSettings.proposalDuration,
+            _newSettings.minProposerVotingPower
+        );
     }
 
     /// @notice This empty reserved space is put in place to allow future versions to add

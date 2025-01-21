@@ -226,8 +226,8 @@ abstract contract MajorityVotingBase is
             this.updateVotingSettings.selector;
 
     /// @notice The ID of the permission required to call the `updateVotingSettings` function.
-    bytes32 public constant UPDATE_VOTING_SETTINGS_PERMISSION_ID =
-        keccak256("UPDATE_VOTING_SETTINGS_PERMISSION");
+    bytes32 public constant UPDATE_SETTINGS_PERMISSION_ID =
+        keccak256("UPDATE_SETTINGS_PERMISSION");
 
     /// @notice The ID of the permission required to call the `execute` function.
     bytes32 public constant EXECUTE_PROPOSAL_PERMISSION_ID =
@@ -524,11 +524,11 @@ abstract contract MajorityVotingBase is
     }
 
     /// @notice Updates the voting settings.
-    /// @dev Requires the `UPDATE_VOTING_SETTINGS_PERMISSION_ID` permission.
+    /// @dev Requires the `UPDATE_SETTINGS_PERMISSION_ID` permission.
     /// @param _votingSettings The new voting settings.
     function updateVotingSettings(
         VotingSettings calldata _votingSettings
-    ) external virtual auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID) {
+    ) external virtual auth(UPDATE_SETTINGS_PERMISSION_ID) {
         _updateVotingSettings(_votingSettings);
     }
 
