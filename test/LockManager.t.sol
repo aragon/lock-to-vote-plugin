@@ -26,7 +26,7 @@ contract LockManagerTest is AragonTest {
     address immutable LOCK_TO_VOTE_BASE = address(new LockToApprovePlugin());
     address immutable LOCK_MANAGER_BASE = address(
         new LockManager(
-            IDAO(address(0)), LockManagerSettings(UnlockMode.STRICT), IERC20(address(0)), IERC20(address(0))
+            IDAO(address(0)), LockManagerSettings(UnlockMode.Strict), IERC20(address(0)), IERC20(address(0))
         )
     );
 
@@ -45,7 +45,7 @@ contract LockManagerTest is AragonTest {
         builder = new DaoBuilder();
         (dao, plugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
             .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).withUnlockMode(
-            UnlockMode.STRICT
+            UnlockMode.Strict
         ).build();
     }
 
@@ -67,9 +67,9 @@ contract LockManagerTest is AragonTest {
 
         // OK
         new LockManager(
-            IDAO(address(0)), LockManagerSettings(UnlockMode.STRICT), IERC20(address(0)), IERC20(address(0))
+            IDAO(address(0)), LockManagerSettings(UnlockMode.Strict), IERC20(address(0)), IERC20(address(0))
         );
-        new LockManager(IDAO(address(0)), LockManagerSettings(UnlockMode.EARLY), IERC20(address(0)), IERC20(address(0)));
+        new LockManager(IDAO(address(0)), LockManagerSettings(UnlockMode.Early), IERC20(address(0)), IERC20(address(0)));
     }
 
     function test_WhenConstructorWithValidParams() external givenDeployingTheContract {
@@ -79,7 +79,7 @@ contract LockManagerTest is AragonTest {
 
         // 1
         lockManager = new LockManager(
-            IDAO(address(1234)), LockManagerSettings(UnlockMode.STRICT), IERC20(address(2345)), IERC20(address(3456))
+            IDAO(address(1234)), LockManagerSettings(UnlockMode.Strict), IERC20(address(2345)), IERC20(address(3456))
         );
         assertEq(address(lockManager.dao()), address(1234));
         assertEq(address(lockManager.token()), address(2345));
@@ -87,7 +87,7 @@ contract LockManagerTest is AragonTest {
 
         // 2
         lockManager = new LockManager(
-            IDAO(address(5555)), LockManagerSettings(UnlockMode.EARLY), IERC20(address(6666)), IERC20(address(7777))
+            IDAO(address(5555)), LockManagerSettings(UnlockMode.Early), IERC20(address(6666)), IERC20(address(7777))
         );
         assertEq(address(lockManager.dao()), address(5555));
         assertEq(address(lockManager.token()), address(6666));
@@ -101,7 +101,7 @@ contract LockManagerTest is AragonTest {
     function test_RevertGiven_InvalidPlugin() external whenCallingSetPluginAddress {
         // It should revert
 
-        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.Strict), lockableToken, underlyingToken);
         dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         vm.expectRevert();
         lockManager.setPluginAddress(LockToApprovePlugin(address(0x5555)));
@@ -113,7 +113,7 @@ contract LockManagerTest is AragonTest {
         (, LockToApprovePlugin plugin2,,,) = builder.build();
         (, LockToApprovePlugin plugin3,,,) = builder.build();
 
-        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.Strict), lockableToken, underlyingToken);
 
         // 1
         vm.expectRevert();
@@ -130,7 +130,7 @@ contract LockManagerTest is AragonTest {
 
         // OK 2
 
-        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.Strict), lockableToken, underlyingToken);
         dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(plugin3);
     }
@@ -142,14 +142,14 @@ contract LockManagerTest is AragonTest {
         (, LockToApprovePlugin plugin2,,,) = builder.build();
         (, LockToApprovePlugin plugin3,,,) = builder.build();
 
-        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.Strict), lockableToken, underlyingToken);
         dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(plugin2);
         assertEq(address(lockManager.plugin()), address(plugin2));
 
         // OK 2
 
-        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.Strict), lockableToken, underlyingToken);
         dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(plugin3);
         assertEq(address(lockManager.plugin()), address(plugin3));
@@ -519,7 +519,7 @@ contract LockManagerTest is AragonTest {
     function test_GivenEmptyPlugin() external givenCallingLockOrLockToVote {
         // It Locking and voting should revert
 
-        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), lockableToken, underlyingToken);
+        lockManager = new LockManager(dao, LockManagerSettings(UnlockMode.Strict), lockableToken, underlyingToken);
 
         vm.expectRevert();
         lockManager.lockAndVote(proposalId);
@@ -534,7 +534,7 @@ contract LockManagerTest is AragonTest {
         // It Voting should revert
 
         lockManager =
-            new LockManager(dao, LockManagerSettings(UnlockMode.STRICT), IERC20(address(0x1234)), underlyingToken);
+            new LockManager(dao, LockManagerSettings(UnlockMode.Strict), IERC20(address(0x1234)), underlyingToken);
         lockableToken.approve(address(lockManager), 0.1 ether);
         vm.expectRevert();
         lockManager.lock();
@@ -685,7 +685,7 @@ contract LockManagerTest is AragonTest {
         // It Should revert
 
         UnlockMode mode = lockManager.settings();
-        assertEq(uint8(mode), uint8(UnlockMode.STRICT));
+        assertEq(uint8(mode), uint8(UnlockMode.Strict));
 
         // vm.startPrank(alice);
         vm.expectRevert(NoBalance.selector);
@@ -762,7 +762,7 @@ contract LockManagerTest is AragonTest {
     modifier givenFlexibleModeIsSet() {
         (dao, plugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
             .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).withUnlockMode(
-            UnlockMode.EARLY
+            UnlockMode.Early
         ).build();
 
         Action[] memory _actions = new Action[](0);
@@ -779,7 +779,7 @@ contract LockManagerTest is AragonTest {
         // It Should revert
 
         UnlockMode mode = lockManager.settings();
-        assertEq(uint8(mode), uint8(UnlockMode.EARLY));
+        assertEq(uint8(mode), uint8(UnlockMode.Early));
 
         // vm.startPrank(alice);
         vm.expectRevert(NoBalance.selector);
@@ -883,7 +883,7 @@ contract LockManagerTest is AragonTest {
 
         lockManager = new LockManager(
             dao,
-            LockManagerSettings(UnlockMode.STRICT),
+            LockManagerSettings(UnlockMode.Strict),
             lockableToken,
             IERC20(address(0)) // underlying
         );

@@ -30,7 +30,7 @@ contract DaoBuilder is Test {
     bool onlyListed = true;
     uint32 minApprovalRatio = 100_000; // 10%
     uint32 proposalDuration = 10 days;
-    UnlockMode unlockMode = UnlockMode.STRICT;
+    UnlockMode unlockMode = UnlockMode.Strict;
 
     function withDaoOwner(address newOwner) public returns (DaoBuilder) {
         owner = newOwner;

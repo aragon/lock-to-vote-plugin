@@ -297,7 +297,7 @@ contract LockToApprovePlugin is
 
         // Check if we may execute early
         (UnlockMode unlockMode, ) = lockManager.settings();
-        if (unlockMode == UnlockMode.STRICT) {
+        if (unlockMode == UnlockMode.Strict) {
             if (
                 _canExecute(proposal_) &&
                 dao().hasPermission(address(this), _msgSender(), EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())

@@ -8,14 +8,14 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice Defines whether locked funds can be unlocked at any time or not
 enum UnlockMode {
-    STRICT,
-    EARLY
+    Strict,
+    Early
 }
 
 /// @notice Defines wether the voting plugin expects approvals or votes
 enum PluginMode {
-    APPROVAL,
-    VOTING
+    Approval,
+    Voting
 }
 
 /// @notice The struct containing the LockManager helper settings. They are immutable after deployed.

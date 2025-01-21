@@ -79,13 +79,13 @@ contract LockManager is ILockManager, DaoAuthorizable {
         IERC20 _underlyingToken
     ) DaoAuthorizable(_dao) {
         if (
-            _settings.unlockMode != UnlockMode.STRICT &&
-            _settings.unlockMode != UnlockMode.EARLY
+            _settings.unlockMode != UnlockMode.Strict &&
+            _settings.unlockMode != UnlockMode.Early
         ) {
             revert InvalidUnlockMode();
         } else if (
-            _settings.pluginMode != PluginMode.APPROVAL &&
-            _settings.pluginMode != PluginMode.VOTING
+            _settings.pluginMode != PluginMode.Approval &&
+            _settings.pluginMode != PluginMode.Voting
         ) {
             revert InvalidPluginMode();
         }
@@ -103,7 +103,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     /// @inheritdoc ILockManager
     function lockAndApprove(uint256 _proposalId) public {
-        if (settings.pluginMode != PluginMode.APPROVAL) {
+        if (settings.pluginMode != PluginMode.Approval) {
             revert InvalidPluginMode();
         }
 
@@ -117,7 +117,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
         uint256 _proposalId,
         IMajorityVoting.VoteOption _voteOption
     ) public {
-        if (settings.pluginMode != PluginMode.VOTING) {
+        if (settings.pluginMode != PluginMode.Voting) {
             revert InvalidPluginMode();
         }
 
@@ -128,7 +128,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     /// @inheritdoc ILockManager
     function approve(uint256 _proposalId) public {
-        if (settings.pluginMode != PluginMode.APPROVAL) {
+        if (settings.pluginMode != PluginMode.Approval) {
             revert InvalidPluginMode();
         }
 
@@ -140,7 +140,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
         uint256 _proposalId,
         IMajorityVoting.VoteOption _voteOption
     ) public {
-        if (settings.pluginMode != PluginMode.VOTING) {
+        if (settings.pluginMode != PluginMode.Voting) {
             revert InvalidPluginMode();
         }
 
@@ -153,7 +153,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
         address _voter,
         IMajorityVoting.VoteOption _voteOption
     ) external view returns (bool) {
-        if (settings.pluginMode == PluginMode.VOTING) {
+        if (settings.pluginMode == PluginMode.Voting) {
             return
                 ILockToVote(address(plugin)).canVote(
                     _proposalId,
@@ -170,7 +170,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
             revert NoBalance();
         }
 
-        if (settings.unlockMode == UnlockMode.STRICT) {
+        if (settings.unlockMode == UnlockMode.Strict) {
             if (_hasActiveLocks()) revert LocksStillActive();
         } else {
             _withdrawActiveVotingPower();
@@ -238,14 +238,14 @@ contract LockManager is ILockManager, DaoAuthorizable {
         }
         // Is it the right plugin type?
         else if (
-            settings.pluginMode == PluginMode.APPROVAL &&
+            settings.pluginMode == PluginMode.Approval &&
             !IERC165(address(_newPluginAddress)).supportsInterface(
                 type(ILockToApprove).interfaceId
             )
         ) {
             revert InvalidPluginMode();
         } else if (
-            settings.pluginMode == PluginMode.VOTING &&
+            settings.pluginMode == PluginMode.Voting &&
             !IERC165(address(_newPluginAddress)).supportsInterface(
                 type(ILockToVote).interfaceId
             )
@@ -352,7 +352,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
             }
 
             if (plugin.usedVotingPower(knownProposalIds[_i], msg.sender) > 0) {
-                if (settings.pluginMode == PluginMode.VOTING) {
+                if (settings.pluginMode == PluginMode.Voting) {
                     ILockToVote(address(plugin)).clearVote(
                         knownProposalIds[_i],
                         msg.sender
