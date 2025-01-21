@@ -12,13 +12,10 @@ import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/intro
 
 /// @title LockToVoteBase
 /// @author Aragon X 2024-2025
-abstract contract LockToVoteBase is
-    ILockToVoteBase,
-    IMembership,
-    ERC165Upgradeable
-{
-    error NoVotingPower();
+abstract contract LockToVoteBase is ILockToVoteBase, IMembership, ERC165Upgradeable {
+    event LockManagerDefined(ILockManager lockManager);
 
+    error NoVotingPower();
     error LockManagerAlreadyDefined();
 
     /// @inheritdoc ILockToVoteBase
@@ -26,18 +23,14 @@ abstract contract LockToVoteBase is
 
     /// @notice Initializes the component to be used by inheriting contracts.
     /// @param _lockManager The address of the contract with the ability to manager votes on behalf of users.
-    function __LockToVoteBase_init(
-        ILockManager _lockManager
-    ) internal onlyInitializing {
+    function __LockToVoteBase_init(ILockManager _lockManager) internal onlyInitializing {
         _setLockManager(_lockManager);
     }
 
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
     /// @return Returns `true` if the interface is supported.
-    function supportsInterface(
-        bytes4 _interfaceId
-    ) public view virtual override(ERC165Upgradeable) returns (bool) {
+    function supportsInterface(bytes4 _interfaceId) public view virtual override(ERC165Upgradeable) returns (bool) {
         return
             _interfaceId == type(ILockToVoteBase).interfaceId ||
             _interfaceId == type(IMembership).interfaceId ||
@@ -67,6 +60,8 @@ abstract contract LockToVoteBase is
         }
 
         lockManager = _lockManager;
+
+        emit LockManagerDefined(_lockManager);
     }
 
     /// @notice This empty reserved space is put in place to allow future versions to add

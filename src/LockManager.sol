@@ -236,21 +236,21 @@ contract LockManager is ILockManager, DaoAuthorizable {
         ) {
             revert InvalidPlugin();
         }
-        // Is it the right plugin type?
+        // Is it the right type of plugin?
         else if (
             settings.pluginMode == PluginMode.Approval &&
             !IERC165(address(_newPluginAddress)).supportsInterface(
                 type(ILockToApprove).interfaceId
             )
         ) {
-            revert InvalidPluginMode();
+            revert InvalidPlugin();
         } else if (
             settings.pluginMode == PluginMode.Voting &&
             !IERC165(address(_newPluginAddress)).supportsInterface(
                 type(ILockToVote).interfaceId
             )
         ) {
-            revert InvalidPluginMode();
+            revert InvalidPlugin();
         }
 
         plugin = _newPluginAddress;
