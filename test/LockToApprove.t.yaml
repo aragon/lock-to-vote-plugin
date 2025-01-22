@@ -9,6 +9,7 @@ LockToVoteTest:
         and:
           - it: should set the DAO address
           - it: should initialize normally
+          - it: should define the given settings
   - when: calling updateSettings
     and:
       - when: updateSettings without the permission
