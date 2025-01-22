@@ -35,7 +35,7 @@ contract DaoBuilder is Test {
     PluginMode pluginMode = PluginMode.Approval;
 
     // Voting
-    MajorityVotingBase.VotingMode votingMode = MajorityVotingBase.VotingMode.EarlyExecution;
+    MajorityVotingBase.VotingMode votingMode = MajorityVotingBase.VotingMode.Standard;
     uint32 supportThresholdRatio = 100_000; // 10%
     uint32 minParticipationRatio = 100_000; // 10%
     // Approval + voting
@@ -72,8 +72,18 @@ contract DaoBuilder is Test {
         return this;
     }
 
-    function withVotingMode(MajorityVotingBase.VotingMode newVotingMode) public returns (DaoBuilder) {
-        votingMode = newVotingMode;
+    function withStandardVoting() public returns (DaoBuilder) {
+        votingMode = MajorityVotingBase.VotingMode.Standard;
+        return this;
+    }
+
+    function withVoteReplacement() public returns (DaoBuilder) {
+        votingMode = MajorityVotingBase.VotingMode.VoteReplacement;
+        return this;
+    }
+
+    function withEarlyExecution() public returns (DaoBuilder) {
+        votingMode = MajorityVotingBase.VotingMode.EarlyExecution;
         return this;
     }
 
@@ -204,15 +214,27 @@ contract DaoBuilder is Test {
         dao.grant(address(dao), address(targetPlugin), dao.EXECUTE_PERMISSION_ID());
 
         // The LockManager can manage the plugin
-        dao.grant(address(targetPlugin), address(lockManager), LockToApprovePlugin(address(targetPlugin)).LOCK_MANAGER_PERMISSION_ID());
+        dao.grant(
+            address(targetPlugin),
+            address(lockManager),
+            LockToApprovePlugin(address(targetPlugin)).LOCK_MANAGER_PERMISSION_ID()
+        );
 
         if (proposers.length > 0) {
             for (uint256 i = 0; i < proposers.length; i++) {
-                dao.grant(address(targetPlugin), proposers[i], LockToApprovePlugin(address(targetPlugin)).CREATE_PROPOSAL_PERMISSION_ID());
+                dao.grant(
+                    address(targetPlugin),
+                    proposers[i],
+                    LockToApprovePlugin(address(targetPlugin)).CREATE_PROPOSAL_PERMISSION_ID()
+                );
             }
         } else {
             // Ensure that at least the owner can propose
-            dao.grant(address(targetPlugin), owner, LockToApprovePlugin(address(targetPlugin)).CREATE_PROPOSAL_PERMISSION_ID());
+            dao.grant(
+                address(targetPlugin),
+                owner,
+                LockToApprovePlugin(address(targetPlugin)).CREATE_PROPOSAL_PERMISSION_ID()
+            );
         }
 
         // Transfer ownership to the owner
