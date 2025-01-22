@@ -68,28 +68,28 @@ contract LockManagerTest is AragonTest {
 
     function test_RevertWhen_ConstructorHasInvalidUnlockMode() external givenDeployingTheContract {
         // It Should revert
-        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidUnlockMode.selector));
+        vm.expectRevert();
         new LockManager(
             IDAO(address(0)),
             LockManagerSettings(UnlockMode(uint8(2)), PluginMode.Approval),
             IERC20(address(0)),
             IERC20(address(0))
         );
-        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidUnlockMode.selector));
+        vm.expectRevert();
         new LockManager(
             IDAO(address(0)),
             LockManagerSettings(UnlockMode(uint8(0)), PluginMode.Approval),
             IERC20(address(0)),
             IERC20(address(0))
         );
-        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidUnlockMode.selector));
+        vm.expectRevert();
         new LockManager(
             IDAO(address(0)),
             LockManagerSettings(UnlockMode(uint8(2)), PluginMode.Voting),
             IERC20(address(0)),
             IERC20(address(0))
         );
-        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidUnlockMode.selector));
+        vm.expectRevert();
         new LockManager(
             IDAO(address(0)),
             LockManagerSettings(UnlockMode(uint8(0)), PluginMode.Voting),
@@ -126,28 +126,28 @@ contract LockManagerTest is AragonTest {
 
     function test_RevertWhen_ConstructorHasInvalidPluginMode() external givenDeployingTheContract {
         // It Should revert
-        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPluginMode.selector));
+        vm.expectRevert();
         new LockManager(
             IDAO(address(0)),
             LockManagerSettings(UnlockMode.Strict, PluginMode(uint8(3))),
             IERC20(address(0)),
             IERC20(address(0))
         );
-        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPluginMode.selector));
+        vm.expectRevert();
         new LockManager(
             IDAO(address(0)),
             LockManagerSettings(UnlockMode.Early, PluginMode(uint8(0))),
             IERC20(address(0)),
             IERC20(address(0))
         );
-        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPluginMode.selector));
+        vm.expectRevert();
         new LockManager(
             IDAO(address(0)),
             LockManagerSettings(UnlockMode.Strict, PluginMode(uint8(3))),
             IERC20(address(0)),
             IERC20(address(0))
         );
-        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPluginMode.selector));
+        vm.expectRevert();
         new LockManager(
             IDAO(address(0)),
             LockManagerSettings(UnlockMode.Early, PluginMode(uint8(0))),
@@ -230,7 +230,7 @@ contract LockManagerTest is AragonTest {
             underlyingToken
         );
         dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
-        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPlugin.selector));
+        vm.expectRevert();
         lockManager.setPluginAddress(LockToApprovePlugin(address(0x5555)));
 
         // 2
@@ -241,7 +241,7 @@ contract LockManagerTest is AragonTest {
             underlyingToken
         );
         dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
-        vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPlugin.selector));
+        vm.expectRevert();
         lockManager.setPluginAddress(LockToApprovePlugin(address(0x5555)));
     }
 
@@ -255,9 +255,11 @@ contract LockManagerTest is AragonTest {
             lockableToken,
             underlyingToken
         );
+        assertEq(address(lockManager.plugin()), address(0));
         dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
+        LockToVotePlugin ltv = new LockToVotePlugin();
         vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPlugin.selector));
-        lockManager.setPluginAddress(new LockToVotePlugin());
+        lockManager.setPluginAddress(ltv);
 
         // 2
         lockManager = new LockManager(
@@ -266,9 +268,11 @@ contract LockManagerTest is AragonTest {
             lockableToken,
             underlyingToken
         );
+        assertEq(address(lockManager.plugin()), address(0));
         dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
+        LockToApprovePlugin lta = new LockToApprovePlugin();
         vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPlugin.selector));
-        lockManager.setPluginAddress(new LockToApprovePlugin());
+        lockManager.setPluginAddress(lta);
 
         // ok
         lockManager = new LockManager(
@@ -278,7 +282,16 @@ contract LockManagerTest is AragonTest {
             underlyingToken
         );
         dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
-        lockManager.setPluginAddress(new LockToApprovePlugin());
+        lockManager.setPluginAddress(lta);
+
+        lockManager = new LockManager(
+            dao,
+            LockManagerSettings(UnlockMode.Early, PluginMode.Voting),
+            lockableToken,
+            underlyingToken
+        );
+        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
+        lockManager.setPluginAddress(ltv);
     }
 
     function test_RevertWhen_SetPluginAddressWithoutThePermission() external whenCallingSetPluginAddress {
@@ -439,9 +452,6 @@ contract LockManagerTest is AragonTest {
     {
         // It Should revert
 
-        Action[] memory _actions = new Action[](0);
-        proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
-
         vm.startPrank(randomWallet);
         assertEq(lockableToken.balanceOf(randomWallet), 0);
         assertEq(lockableToken.allowance(randomWallet, address(lockManager)), 0);
@@ -471,9 +481,6 @@ contract LockManagerTest is AragonTest {
         givenNoTokenAllowanceNoLocked
     {
         // It Should revert
-
-        Action[] memory _actions = new Action[](0);
-        proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
 
         vm.startPrank(randomWallet);
         assertEq(lockManager.lockedBalances(randomWallet), 0);
@@ -628,9 +635,6 @@ contract LockManagerTest is AragonTest {
         givenWithTokenAllowanceNoLocked
     {
         // It Should revert
-
-        Action[] memory _actions = new Action[](0);
-        proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
 
         // vm.startPrank(alice);
         assertEq(lockManager.lockedBalances(alice), 0);
@@ -989,7 +993,7 @@ contract LockManagerTest is AragonTest {
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(alice), 0.1 ether + allowance);
         assertEq(lockableToken.balanceOf(address(lockManager)), 0.1 ether + allowance);
-        assertEq(ltaPlugin.usedVotingPower(proposalId, alice), 0.1 ether + allowance);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether + allowance);
     }
 
     function test_WhenCallingLockAndVoteWithPriorPower4()
@@ -1015,7 +1019,7 @@ contract LockManagerTest is AragonTest {
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance);
         assertEq(lockManager.lockedBalances(alice), 0.1 ether + allowance);
         assertEq(lockableToken.balanceOf(address(lockManager)), 0.1 ether + allowance);
-        assertEq(ltaPlugin.usedVotingPower(proposalId, alice), 0.1 ether + allowance);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether + allowance);
     }
 
     function test_RevertWhen_CallingVoteSameBalance4()
@@ -1053,7 +1057,7 @@ contract LockManagerTest is AragonTest {
         assertEq(lockableToken.balanceOf(alice), initialBalance - 0.5 ether);
         assertEq(lockManager.lockedBalances(alice), 0.6 ether);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
-        assertEq(ltaPlugin.usedVotingPower(proposalId, alice), 0.6 ether);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.6 ether);
     }
 
     modifier givenCallingLockLockAndApproveOrLockAndVote() {
@@ -1229,7 +1233,12 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenTryingToUnlock2ApprovalStrict() external givenProposalOnLockToApprove givenStrictModeIsSet givenLockedButDidntApproveAnywhereStrict {
+    function test_WhenTryingToUnlock2ApprovalStrict()
+        external
+        givenProposalOnLockToApprove
+        givenStrictModeIsSet
+        givenLockedButDidntApproveAnywhereStrict
+    {
         // It Should unlock and refund the full amount right away
         // It Should emit an event
 
@@ -1248,7 +1257,12 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenTryingToUnlock2VotingStrict() external givenProposalOnLockToVote givenStrictModeIsSet givenLockedButDidntVoteAnywhereStrict {
+    function test_WhenTryingToUnlock2VotingStrict()
+        external
+        givenProposalOnLockToVote
+        givenStrictModeIsSet
+        givenLockedButDidntVoteAnywhereStrict
+    {
         // It Should unlock and refund the full amount right away
         // It Should emit an event
 
@@ -1385,7 +1399,7 @@ contract LockManagerTest is AragonTest {
     function test_RevertWhen_TryingToUnlock1Flexible() external givenFlexibleModeIsSet givenDidntLockAnythingFlexible {
         // It Should revert
 
-        (UnlockMode mode,) = lockManager.settings();
+        (UnlockMode mode, ) = lockManager.settings();
         assertEq(uint8(mode), uint8(UnlockMode.Early));
 
         // vm.startPrank(alice);

@@ -9,6 +9,7 @@ import {LockToApprovePlugin} from "../../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../../src/LockToVotePlugin.sol";
 import {LockManager} from "../../src/LockManager.sol";
 import {LockManagerSettings, UnlockMode, PluginMode} from "../../src/interfaces/ILockManager.sol";
+import {ILockToVoteBase} from "../../src/interfaces/ILockToVoteBase.sol";
 import {RATIO_BASE} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -137,6 +138,8 @@ contract DaoBuilder is Test {
             TestToken(address(lockableToken)).mint(owner, 10 ether);
         }
 
+        ILockToVoteBase targetPlugin;
+
         {
             // Plugin and helper
 
@@ -169,6 +172,7 @@ contract DaoBuilder is Test {
                         )
                     )
                 );
+                targetPlugin = ILockToVoteBase(address(ltaPlugin));
             } else {
                 MajorityVotingBase.VotingSettings memory votingSettings = MajorityVotingBase.VotingSettings({
                     votingMode: votingMode,
@@ -188,26 +192,27 @@ contract DaoBuilder is Test {
                         )
                     )
                 );
+                targetPlugin = ILockToVoteBase(address(ltvPlugin));
             }
 
             dao.grant(address(lockManager), address(this), lockManager.UPDATE_SETTINGS_PERMISSION_ID());
-            lockManager.setPluginAddress(ltaPlugin);
+            lockManager.setPluginAddress(targetPlugin);
             dao.revoke(address(lockManager), address(this), lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         }
 
         // The plugin can execute on the DAO
-        dao.grant(address(dao), address(ltaPlugin), dao.EXECUTE_PERMISSION_ID());
+        dao.grant(address(dao), address(targetPlugin), dao.EXECUTE_PERMISSION_ID());
 
         // The LockManager can manage the plugin
-        dao.grant(address(ltaPlugin), address(lockManager), ltaPlugin.LOCK_MANAGER_PERMISSION_ID());
+        dao.grant(address(targetPlugin), address(lockManager), LockToApprovePlugin(address(targetPlugin)).LOCK_MANAGER_PERMISSION_ID());
 
         if (proposers.length > 0) {
             for (uint256 i = 0; i < proposers.length; i++) {
-                dao.grant(address(ltaPlugin), proposers[i], ltaPlugin.CREATE_PROPOSAL_PERMISSION_ID());
+                dao.grant(address(targetPlugin), proposers[i], LockToApprovePlugin(address(targetPlugin)).CREATE_PROPOSAL_PERMISSION_ID());
             }
         } else {
             // Ensure that at least the owner can propose
-            dao.grant(address(ltaPlugin), owner, ltaPlugin.CREATE_PROPOSAL_PERMISSION_ID());
+            dao.grant(address(targetPlugin), owner, LockToApprovePlugin(address(targetPlugin)).CREATE_PROPOSAL_PERMISSION_ID());
         }
 
         // Transfer ownership to the owner
