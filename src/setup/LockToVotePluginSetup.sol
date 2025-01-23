@@ -65,7 +65,7 @@ contract LockToVotePluginSetup is PluginSetup {
     error WrongHelpersArrayLength(uint256 length);
 
     /// @notice The contract constructor deploying the implementation contracts to use.
-    constructor() {
+    constructor() PluginSetup(address(new LockToVotePlugin())) {
         lockManagerBase = new LockManager(
             IDAO(address(0)),
             LockManagerSettings(UnlockMode(0), PluginMode(0)),
@@ -320,11 +320,6 @@ contract LockToVotePluginSetup is PluginSetup {
             condition: PermissionLib.NO_CONDITION,
             permissionId: lockToVotePluginBase.EXECUTE_PROPOSAL_PERMISSION_ID()
         });
-    }
-
-    /// @inheritdoc IPluginSetup
-    function implementation() public view virtual override returns (address) {
-        return address(lockToVotePluginBase);
     }
 
     /// @notice Encodes the given installation parameters into a byte array
