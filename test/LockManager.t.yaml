@@ -21,13 +21,13 @@ LockManagerTest:
       - given: Invalid plugin interface
         and:
           - it: should revert
-      - when: setPluginAddress without the permission
+      - when: setPluginAddress the first time
+        then:
+          - it: should set the address
+          - it: should revert if trying to update it later
+      - when: setPluginAddress when already set
         then:
           - it: should revert
-      - when: setPluginAddress with the permission
-        then:
-          - it: should update the address
-          - it: should revert if trying to update it later
 
   # Locking and voting calls
 

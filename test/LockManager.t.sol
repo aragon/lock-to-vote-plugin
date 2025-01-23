@@ -230,7 +230,6 @@ contract LockManagerTest is AragonTest {
             lockableToken,
             underlyingToken
         );
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         vm.expectRevert();
         lockManager.setPluginAddress(LockToApprovePlugin(address(0x5555)));
 
@@ -241,7 +240,6 @@ contract LockManagerTest is AragonTest {
             lockableToken,
             underlyingToken
         );
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         vm.expectRevert();
         lockManager.setPluginAddress(LockToApprovePlugin(address(0x5555)));
     }
@@ -257,7 +255,6 @@ contract LockManagerTest is AragonTest {
             underlyingToken
         );
         assertEq(address(lockManager.plugin()), address(0));
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         LockToVotePlugin ltv = new LockToVotePlugin();
         vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPlugin.selector));
         lockManager.setPluginAddress(ltv);
@@ -270,7 +267,6 @@ contract LockManagerTest is AragonTest {
             underlyingToken
         );
         assertEq(address(lockManager.plugin()), address(0));
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         LockToApprovePlugin lta = new LockToApprovePlugin();
         vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPlugin.selector));
         lockManager.setPluginAddress(lta);
@@ -282,7 +278,6 @@ contract LockManagerTest is AragonTest {
             lockableToken,
             underlyingToken
         );
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(lta);
 
         lockManager = new LockManager(
@@ -291,99 +286,81 @@ contract LockManagerTest is AragonTest {
             lockableToken,
             underlyingToken
         );
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(ltv);
     }
 
-    function test_RevertWhen_SetPluginAddressWithoutThePermission() external whenCallingSetPluginAddress {
+    function test_WhenSetPluginAddressTheFirstTime() external whenCallingSetPluginAddress {
+        // It should set the address
+        // It should revert if trying to update it later
+
+        (, LockToApprovePlugin ltaPlugin2, , , , ) = builder.build();
+        (, LockToApprovePlugin ltaPlugin3, , , , ) = builder.build();
+        (, , LockToVotePlugin ltvPlugin2, , , ) = builder.withVotingPlugin().build();
+        (, , LockToVotePlugin ltvPlugin3, , , ) = builder.build();
+
+        // OK 1
+        lockManager = new LockManager(
+            dao,
+            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
+            lockableToken,
+            underlyingToken
+        );
+        assertEq(address(lockManager.plugin()), address(0));
+        lockManager.setPluginAddress(ltaPlugin2);
+        assertEq(address(lockManager.plugin()), address(ltaPlugin2));
+
+        // Fail to update it later
+        vm.expectRevert(abi.encodeWithSelector(LockManager.SetPluginAddressForbidden.selector));
+        lockManager.setPluginAddress(ltaPlugin3);
+
+        // OK 2
+
+        lockManager = new LockManager(
+            dao,
+            LockManagerSettings(UnlockMode.Strict, PluginMode.Voting),
+            lockableToken,
+            underlyingToken
+        );
+        assertEq(address(lockManager.plugin()), address(0));
+        lockManager.setPluginAddress(ltvPlugin2);
+        assertEq(address(lockManager.plugin()), address(ltvPlugin2));
+
+        // Fail to update it later
+        vm.expectRevert(abi.encodeWithSelector(LockManager.SetPluginAddressForbidden.selector));
+        lockManager.setPluginAddress(ltvPlugin3);
+    }
+
+    function test_RevertWhen_SetPluginAddressWhenAlreadySet() external whenCallingSetPluginAddress {
         // It should revert
 
         (, LockToApprovePlugin ltaPlugin2, , , , ) = builder.build();
         (, LockToApprovePlugin ltaPlugin3, , , , ) = builder.build();
         (, , LockToVotePlugin ltvPlugin2, , , ) = builder.withVotingPlugin().build();
-
-        lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-            lockableToken,
-            underlyingToken
-        );
+        (, , LockToVotePlugin ltvPlugin3, , , ) = builder.withVotingPlugin().build();
 
         // 1
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DaoUnauthorized.selector,
-                address(dao),
-                address(lockManager),
-                alice,
-                lockManager.UPDATE_SETTINGS_PERMISSION_ID()
-            )
-        );
-        lockManager.setPluginAddress(ltaPlugin2);
-
-        // 2
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DaoUnauthorized.selector,
-                address(dao),
-                address(lockManager),
-                alice,
-                lockManager.UPDATE_SETTINGS_PERMISSION_ID()
-            )
-        );
-        lockManager.setPluginAddress(ltaPlugin3);
-
-        // OK
-
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
-        lockManager.setPluginAddress(ltaPlugin2);
-
-        // OK 2
-
-        lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Voting),
-            lockableToken,
-            underlyingToken
-        );
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
-        lockManager.setPluginAddress(ltvPlugin2);
-    }
-
-    function test_WhenSetPluginAddressWithThePermission() external whenCallingSetPluginAddress {
-        // It should update the address
-        // It should revert if trying to update it later
-
-        (, LockToApprovePlugin ltaPlugin2, , , , ) = builder.build();
-        (, , LockToVotePlugin ltvPlugin2, , , ) = builder.withVotingPlugin().build();
-
         lockManager = new LockManager(
             dao,
             LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
             lockableToken,
             underlyingToken
         );
-        assertEq(address(lockManager.plugin()), address(0));
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(ltaPlugin2);
-        assertEq(address(lockManager.plugin()), address(ltaPlugin2));
 
-        // OK 2
+        vm.expectRevert(abi.encodeWithSelector(LockManager.SetPluginAddressForbidden.selector));
+        lockManager.setPluginAddress(ltaPlugin3);
 
+        // 2
         lockManager = new LockManager(
             dao,
             LockManagerSettings(UnlockMode.Strict, PluginMode.Voting),
             lockableToken,
             underlyingToken
         );
-        assertEq(address(lockManager.plugin()), address(0));
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(ltvPlugin2);
-        assertEq(address(lockManager.plugin()), address(ltvPlugin2));
 
-        // Attempt to set when already defined
         vm.expectRevert(abi.encodeWithSelector(LockManager.SetPluginAddressForbidden.selector));
-        lockManager.setPluginAddress(ltaPlugin2);
+        lockManager.setPluginAddress(ltvPlugin3);
     }
 
     modifier givenProposalOnLockToApprove() {

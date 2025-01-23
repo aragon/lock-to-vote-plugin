@@ -15,10 +15,6 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 /// @author Aragon X 2024
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 contract LockManager is ILockManager, DaoAuthorizable {
-    /// @notice The ID of the permission required to call `setPluginAddress` function.
-    bytes32 public constant UPDATE_SETTINGS_PERMISSION_ID =
-        keccak256("UPDATE_SETTINGS_PERMISSION");
-
     /// @notice The current LockManager settings
     LockManagerSettings public settings;
 
@@ -224,9 +220,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function setPluginAddress(
-        ILockToVoteBase _newPluginAddress
-    ) public auth(UPDATE_SETTINGS_PERMISSION_ID) {
+    function setPluginAddress(ILockToVoteBase _newPluginAddress) public {
         if (address(plugin) != address(0)) {
             revert SetPluginAddressForbidden();
         } else if (
