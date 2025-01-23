@@ -159,7 +159,7 @@ contract LockToApproveTest is AragonTest {
         });
         plugin.updateApprovalSettings(newSettings);
 
-        (uint32 minApprovalRatio, uint64 proposalDuration, uint minPvp) = plugin.settings();
+        (uint32 minApprovalRatio, uint64 proposalDuration, uint256 minPvp) = plugin.settings();
         assertEq(minApprovalRatio, 100_000, "Incorrect minApprovalRatio");
         assertEq(proposalDuration, 10 days, "Incorrect proposalDuration");
         assertEq(minPvp, 0, "Incorrect minProposerVotingPower");
@@ -177,7 +177,7 @@ contract LockToApproveTest is AragonTest {
         });
         plugin.updateApprovalSettings(newSettings);
 
-        (uint32 minApprovalRatio, uint64 proposalDuration, uint minPvp) = plugin.settings();
+        (uint32 minApprovalRatio, uint64 proposalDuration, uint256 minPvp) = plugin.settings();
         assertEq(minApprovalRatio, newSettings.minApprovalRatio, "Incorrect minApprovalRatio");
         assertEq(proposalDuration, newSettings.proposalDuration, "Incorrect proposalDuration");
         assertEq(minPvp, newSettings.minProposerVotingPower, "Incorrect minProposerVotingPower");

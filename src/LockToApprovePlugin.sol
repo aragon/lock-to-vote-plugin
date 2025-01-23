@@ -328,9 +328,8 @@ contract LockToApprovePlugin is
         return settings.proposalDuration;
     }
 
-    /// @notice Returns the minimum voting power required to create a proposal stored in the voting settings.
-    /// @return The minimum voting power required to create a proposal.
-    function minProposerVotingPower() public view virtual returns (uint256) {
+    /// @inheritdoc ILockToVoteBase
+    function minProposerVotingPower() public view override returns (uint256) {
         return settings.minProposerVotingPower;
     }
 

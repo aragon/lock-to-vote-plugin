@@ -27,10 +27,11 @@ interface ILockToVoteBase {
     /// @param proposalId The ID of the proposal.
     /// @param voter The account address to be checked.
     /// @return The amount of balance that has been allocated to the proposal by the given account.
-    function usedVotingPower(
-        uint256 proposalId,
-        address voter
-    ) external view returns (uint256);
+    function usedVotingPower(uint256 proposalId, address voter) external view returns (uint256);
+
+    /// @notice Returns the minimum voting power required to create a proposal stored in the voting settings.
+    /// @return The minimum voting power required to create a proposal.
+    function minProposerVotingPower() external view returns (uint256);
 
     /// @notice Returns wether a proposal is open or not.
     /// @param _proposalId The ID of the proposal.

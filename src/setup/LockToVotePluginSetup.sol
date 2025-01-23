@@ -18,6 +18,7 @@ import {LockToVotePlugin} from "../LockToVotePlugin.sol";
 import {LockManager} from "../LockManager.sol";
 import {LockManagerSettings, UnlockMode, PluginMode} from "../../src/interfaces/ILockManager.sol";
 import {ILockToVoteBase} from "../../src/interfaces/ILockToVoteBase.sol";
+import {MinVotingPowerCondition} from "../../src/conditions/MinVotingPowerCondition.sol";
 import {createProxyAndCall} from "../util/proxy.sol";
 
 /// @title LockToVotePluginSetup
@@ -43,10 +44,8 @@ contract LockToVotePluginSetup is PluginSetup {
         UnlockMode unlockMode;
         bytes pluginMetadata;
         IPlugin.TargetConfig targetConfig;
-        LockManagerSettings lockManagerSettings;
         LockToApprovePlugin.ApprovalSettings approvalSettings;
         LockToVotePlugin.VotingSettings votingSettings;
-        uint64 proposalDuration;
         address createProposalCaller;
         address executeCaller;
         IERC20 token;
@@ -148,11 +147,23 @@ contract LockToVotePluginSetup is PluginSetup {
         }
         LockManager(helpers[0]).setPluginAddress(ILockToVoteBase(plugin));
 
+        // Condition
+        MinVotingPowerCondition minVotingPowerCondition = new MinVotingPowerCondition(ILockToVoteBase(plugin));
+
         // Request the permissions to be granted
-        PermissionLib.MultiTargetPermission[] memory permissions = new PermissionLib.MultiTargetPermission[](7);
+        PermissionLib.MultiTargetPermission[] memory permissions = new PermissionLib.MultiTargetPermission[](8);
+
+        // The plugin can execute on the DAO
+        permissions[0] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Grant,
+            where: _dao,
+            who: plugin,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: DAO(payable(_dao)).EXECUTE_PERMISSION_ID()
+        });
 
         // The DAO can update the plugin settings
-        permissions[0] = PermissionLib.MultiTargetPermission({
+        permissions[1] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Grant,
             where: plugin,
             who: _dao,
@@ -160,8 +171,9 @@ contract LockToVotePluginSetup is PluginSetup {
             /// @dev lockToVotePluginBase and lockToApprovePluginBase return the same value for UPDATE_VOTING_SETTINGS_PERMISSION_ID
             permissionId: lockToVotePluginBase.UPDATE_SETTINGS_PERMISSION_ID()
         });
+
         // The DAO can upgrade the plugin implementation
-        permissions[1] = PermissionLib.MultiTargetPermission({
+        permissions[2] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Grant,
             where: plugin,
             who: _dao,
@@ -170,25 +182,7 @@ contract LockToVotePluginSetup is PluginSetup {
             permissionId: lockToVotePluginBase.UPGRADE_PLUGIN_PERMISSION_ID()
         });
 
-        // Grant `EXECUTE_PERMISSION` of the DAO to the plugin.
-        permissions[1] = PermissionLib.MultiTargetPermission({
-            operation: PermissionLib.Operation.Grant,
-            where: _dao,
-            who: plugin,
-            condition: PermissionLib.NO_CONDITION,
-            permissionId: DAO(payable(_dao)).EXECUTE_PERMISSION_ID()
-        });
-
-        // Allow createProposal calls on createProposalCaller
-        permissions[2] = PermissionLib.MultiTargetPermission({
-            operation: PermissionLib.Operation.Grant,
-            where: plugin,
-            who: installationParams.createProposalCaller,
-            condition: PermissionLib.NO_CONDITION,
-            permissionId: lockToVotePluginBase.CREATE_PROPOSAL_PERMISSION_ID()
-        });
-
-        // Grant `SET_TARGET_CONFIG_PERMISSION_ID` of the DAO to the plugin.
+        // The DAO can update the target config
         permissions[3] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Grant,
             where: plugin,
@@ -197,7 +191,7 @@ contract LockToVotePluginSetup is PluginSetup {
             permissionId: lockToVotePluginBase.SET_TARGET_CONFIG_PERMISSION_ID()
         });
 
-        // Grant `SET_METADATA_PERMISSION_ID` of the DAO to the plugin.
+        // The DAO can set update the plugin metadata
         permissions[4] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Grant,
             where: plugin,
@@ -206,21 +200,31 @@ contract LockToVotePluginSetup is PluginSetup {
             permissionId: lockToVotePluginBase.SET_METADATA_PERMISSION_ID()
         });
 
-        // Grant `EXECUTE_PROPOSAL_PERMISSION_ID` to the given address (could be ANY_ADDR)
+        // createProposalCaller can create proposals on the plugin
         permissions[5] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Grant,
             where: plugin,
-            who: installationParams.executeCaller,
-            condition: PermissionLib.NO_CONDITION,
-            permissionId: lockToVotePluginBase.EXECUTE_PROPOSAL_PERMISSION_ID()
+            who: installationParams.createProposalCaller,
+            condition: address(minVotingPowerCondition),
+            permissionId: lockToVotePluginBase.CREATE_PROPOSAL_PERMISSION_ID()
         });
 
+        // The LockManager can vote/approve on the plugin
         permissions[6] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Grant,
             where: plugin,
             who: helpers[0], // Lock Manager
             condition: PermissionLib.NO_CONDITION,
             permissionId: lockToVotePluginBase.LOCK_MANAGER_PERMISSION_ID()
+        });
+
+        // executeCaller (possibly ANY_ADDR) can call execute() on the plugin
+        permissions[7] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Grant,
+            where: plugin,
+            who: installationParams.executeCaller,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: lockToVotePluginBase.EXECUTE_PROPOSAL_PERMISSION_ID()
         });
 
         preparedSetupData.helpers = helpers;
