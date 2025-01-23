@@ -86,7 +86,7 @@ contract LockToVotePluginSetup is PluginSetup {
         InstallationParameters memory installationParams = decodeInstallationParams(_installParameters);
 
         // Prepare helpers.
-        address[] memory helpers = new address[](3);
+        address[] memory helpers = new address[](5);
 
         // Lock Manager
         helpers[0] = address(
@@ -148,7 +148,9 @@ contract LockToVotePluginSetup is PluginSetup {
         LockManager(helpers[0]).setPluginAddress(ILockToVoteBase(plugin));
 
         // Condition
-        MinVotingPowerCondition minVotingPowerCondition = new MinVotingPowerCondition(ILockToVoteBase(plugin));
+        address minVotingPowerCondition = address(new MinVotingPowerCondition(ILockToVoteBase(plugin)));
+        helpers[3] = installationParams.createProposalCaller;
+        helpers[4] = installationParams.executeCaller;
 
         // Request the permissions to be granted
         PermissionLib.MultiTargetPermission[] memory permissions = new PermissionLib.MultiTargetPermission[](8);
@@ -200,12 +202,12 @@ contract LockToVotePluginSetup is PluginSetup {
             permissionId: lockToVotePluginBase.SET_METADATA_PERMISSION_ID()
         });
 
-        // createProposalCaller can create proposals on the plugin
+        // createProposalCaller (possibly ANY_ADDR) can create proposals on the plugin
         permissions[5] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Grant,
             where: plugin,
             who: installationParams.createProposalCaller,
-            condition: address(minVotingPowerCondition),
+            condition: minVotingPowerCondition,
             permissionId: lockToVotePluginBase.CREATE_PROPOSAL_PERMISSION_ID()
         });
 
@@ -231,66 +233,94 @@ contract LockToVotePluginSetup is PluginSetup {
         preparedSetupData.permissions = permissions;
     }
 
-    // /// @inheritdoc IPluginSetup
-    // function prepareUninstallation(
-    //     address _dao,
-    //     SetupPayload calldata _payload
-    // )
-    //     external
-    //     view
-    //     returns (PermissionLib.MultiTargetPermission[] memory permissions)
-    // {
-    //     // Prepare permissions.
-    //     uint256 helperLength = _payload.currentHelpers.length;
-    //     if (helperLength != 1) {
-    //         revert WrongHelpersArrayLength({length: helperLength});
-    //     }
-    //     // token can be either GovernanceERC20, GovernanceWrappedERC20, or IVotesUpgradeable, which
-    //     // does not follow the GovernanceERC20 and GovernanceWrappedERC20 standard.
-    //     address token = _payload.currentHelpers[0];
-    //     bool isGovernanceERC20 = _supportsErc20(token) &&
-    //         _supportsIVotes(token) &&
-    //         !_supportsIGovernanceWrappedERC20(token);
-    //     permissions = new PermissionLib.MultiTargetPermission[](
-    //         isGovernanceERC20 ? 4 : 3
-    //     );
-    //     // Set permissions to be Revoked.
-    //     permissions[0] = PermissionLib.MultiTargetPermission({
-    //         operation: PermissionLib.Operation.Revoke,
-    //         where: _payload.plugin,
-    //         who: _dao,
-    //         condition: PermissionLib.NO_CONDITION,
-    //         permissionId: lockToVotePluginBase
-    //             .UPDATE_OPTIMISTIC_GOVERNANCE_SETTINGS_PERMISSION_ID()
-    //     });
-    //     permissions[1] = PermissionLib.MultiTargetPermission({
-    //         operation: PermissionLib.Operation.Revoke,
-    //         where: _payload.plugin,
-    //         who: _dao,
-    //         condition: PermissionLib.NO_CONDITION,
-    //         permissionId: lockToVotePluginBase.UPGRADE_PLUGIN_PERMISSION_ID()
-    //     });
-    //     permissions[2] = PermissionLib.MultiTargetPermission({
-    //         operation: PermissionLib.Operation.Revoke,
-    //         where: _dao,
-    //         who: _payload.plugin,
-    //         condition: PermissionLib.NO_CONDITION,
-    //         permissionId: DAO(payable(_dao)).EXECUTE_PERMISSION_ID()
-    //     });
-    //     // Note: It no longer matters if proposers can still create proposals
-    //     // Revocation of permission is necessary only if the deployed token is GovernanceERC20,
-    //     // as GovernanceWrapped does not possess this permission. Only return the following
-    //     // if it's type of GovernanceERC20, otherwise revoking this permission wouldn't have any effect.
-    //     if (isGovernanceERC20) {
-    //         permissions[3] = PermissionLib.MultiTargetPermission({
-    //             operation: PermissionLib.Operation.Revoke,
-    //             where: token,
-    //             who: _dao,
-    //             condition: PermissionLib.NO_CONDITION,
-    //             permissionId: GovernanceERC20(token).MINT_PERMISSION_ID()
-    //         });
-    //     }
-    // }
+    /// @inheritdoc IPluginSetup
+    function prepareUninstallation(
+        address _dao,
+        SetupPayload calldata _payload
+    ) external view returns (PermissionLib.MultiTargetPermission[] memory permissions) {
+        // Prepare permissions.
+        uint256 helperLength = _payload.currentHelpers.length;
+        if (helperLength != 3) {
+            revert WrongHelpersArrayLength({length: helperLength});
+        }
+        permissions = new PermissionLib.MultiTargetPermission[](8);
+
+        // Set permissions to be Revoked.
+
+        // The plugin cannot execute on the DAO
+        permissions[0] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: _dao,
+            who: _payload.plugin,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: DAO(payable(_dao)).EXECUTE_PERMISSION_ID()
+        });
+
+        // The DAO cannot update the plugin settings
+        permissions[1] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: _payload.plugin,
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            /// @dev lockToVotePluginBase and lockToApprovePluginBase return the same value for UPDATE_VOTING_SETTINGS_PERMISSION_ID
+            permissionId: lockToVotePluginBase.UPDATE_SETTINGS_PERMISSION_ID()
+        });
+
+        // The DAO cannot upgrade the plugin implementation
+        permissions[2] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: _payload.plugin,
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            /// @dev lockToVotePluginBase and lockToApprovePluginBase return the same value for UPGRADE_PLUGIN_PERMISSION_ID
+            permissionId: lockToVotePluginBase.UPGRADE_PLUGIN_PERMISSION_ID()
+        });
+
+        // The DAO cannot update the target config
+        permissions[3] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: _payload.plugin,
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: lockToVotePluginBase.SET_TARGET_CONFIG_PERMISSION_ID()
+        });
+
+        // The DAO cannot set update the plugin metadata
+        permissions[4] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: _payload.plugin,
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: lockToVotePluginBase.SET_METADATA_PERMISSION_ID()
+        });
+
+        // createProposalCaller (possibly ANY_ADDR) cannot create proposals on the plugin
+        permissions[5] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: _payload.plugin,
+            who: _payload.currentHelpers[3], // createProposalCaller,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: lockToVotePluginBase.CREATE_PROPOSAL_PERMISSION_ID()
+        });
+
+        // The LockManager cannot vote/approve on the plugin
+        permissions[6] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: _payload.plugin,
+            who: _payload.currentHelpers[0], // Lock Manager
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: lockToVotePluginBase.LOCK_MANAGER_PERMISSION_ID()
+        });
+
+        // executeCaller (possibly ANY_ADDR) cannot call execute() on the plugin
+        permissions[7] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: _payload.plugin,
+            who: _payload.currentHelpers[4], // executeCaller,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: lockToVotePluginBase.EXECUTE_PROPOSAL_PERMISSION_ID()
+        });
+    }
 
     /// @inheritdoc IPluginSetup
     function implementation() public view virtual override returns (address) {

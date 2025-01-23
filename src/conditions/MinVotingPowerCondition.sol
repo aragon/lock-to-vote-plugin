@@ -40,9 +40,7 @@ contract MinVotingPowerCondition is PermissionCondition {
 
         uint256 minProposerVotingPower_ = plugin.minProposerVotingPower();
 
-        if (minProposerVotingPower_ == 0) {
-            return true;
-        } else if (token.balanceOf(_who) < minProposerVotingPower_) {
+        if (token.balanceOf(_who) < minProposerVotingPower_) {
             return false;
         }
 
