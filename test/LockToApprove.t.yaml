@@ -1,4 +1,4 @@
-LockToVoteTest:
+LockToApproveTest:
   # Contract lifecycle
   - when: deploying the contract
     then:
@@ -9,6 +9,7 @@ LockToVoteTest:
         and:
           - it: should set the DAO address
           - it: should initialize normally
+          - it: should define the given settings
   - when: calling updateSettings
     and:
       - when: updateSettings without the permission
@@ -23,7 +24,7 @@ LockToVoteTest:
       - it: does not support the empty interface
       - it: supports IERC165Upgradeable
       - it: supports IMembership
-      - it: supports ILockToVote
+      - it: supports ILockToApprove
 
   # Proposal lifecycle
   - given: Proposal not created
@@ -41,13 +42,13 @@ LockToVoteTest:
               - it: Should assign a unique proposalId to it
               - it: Should register the given parameters
               - it: Should start immediately
-              - it: Should end after minDuration
+              - it: Should end after proposalDuration
               - it: Should emit an event
               - it: Should call proposalCreated on the manager
           - when: Calling createProposal [explicit dates]
             then:
               - it: Should start at the given startDate
-              - it: Should revert if endDate is before minDuration
+              - it: Should revert if endDate is before proposalDuration
               - it: Should end on the given endDate
               - it: Should call proposalCreated on the manager
               - it: Should emit an event
@@ -59,7 +60,7 @@ LockToVoteTest:
         then:
           - it: getProposal should return empty values
           - it: isProposalOpen should return false
-          - it: canVote should return false
+          - it: canApprove should return false
           - it: hasSucceeded should return false
           - it: canExecute should return false
       - when: Calling the rest of methods
@@ -74,37 +75,37 @@ LockToVoteTest:
       - when: Calling isProposalOpen
         then:
           - it: Should return true
-      - when: Calling canVote
+      - when: Calling canApprove
         then:
           - it: Should return true when there is balance left to allocate
       - given: No lock manager permission
         then:
-          - when: Calling vote
+          - when: Calling approve
             then:
               - it: Reverts, regardless of the balance
-          - when: Calling clearVote
+          - when: Calling clearApproval
             then:
               - it: Reverts, regardless of the balance
       - given: Lock manager permission is granted
         then:
           - given: Proposal created unstarted
             then:
-              - it: Calling vote should revert, with or without balance
+              - it: Calling approve should revert, with or without balance
           - given: Proposal created and started
             and:
-              - when: Calling vote no new locked balance
+              - when: Calling approve no new locked balance
                 then:
                   - it: Should revert
-              - when: Calling vote new locked balance
+              - when: Calling approve new locked balance
                 then:
                   - it: Should increase the tally by the new amount
                   - it: Should emit an event
-              - when: Calling clearVote no vote balance
+              - when: Calling clearApproval no approve balance
                 then:
                   - it: Should do nothing
-              - when: Calling clearVote with vote balance
+              - when: Calling clearApproval with approve balance
                 then:
-                  - it: Should unassign the current voter's approval
+                  - it: Should unassign the current approver's approval
                   - it: Should decrease the proposal tally by the right amount
                   - it: Should emit an event
                   - it: usedVotingPower should return the right value
@@ -122,13 +123,13 @@ LockToVoteTest:
         then:
           - it: getProposal should return the right values
           - it: isProposalOpen should return false
-          - it: canVote should return false
+          - it: canApprove should return false
           - it: hasSucceeded should return false
           - it: canExecute should return false
-      - when: Calling vote or clearVote [defeated]
+      - when: Calling approve or clearApproval [defeated]
         then:
-          - it: Should revert for vote, despite having the permission
-          - it: Should do nothing for clearVote
+          - it: Should revert for approve, despite having the permission
+          - it: Should do nothing for clearApproval
       - when: Calling execute [defeated]
         then:
           - it: Should revert, with or without permission
@@ -139,10 +140,10 @@ LockToVoteTest:
         then:
           - it: getProposal should return the right values
           - it: isProposalOpen should return false
-          - it: canVote should return false
+          - it: canApprove should return false
           - it: hasSucceeded should return true
           - it: canExecute should return true
-      - when: Calling vote or clearVote [passed]
+      - when: Calling approve or clearApproval [passed]
         then:
           - it: Should revert, despite having the permission
       - given: No execute proposal permission
@@ -164,10 +165,10 @@ LockToVoteTest:
         then:
           - it: getProposal should return the right values
           - it: isProposalOpen should return false
-          - it: canVote should return false
+          - it: canApprove should return false
           - it: hasSucceeded should return false
           - it: canExecute should return false
-      - when: Calling vote or clearVote [executed]
+      - when: Calling approve or clearApproval [executed]
         then:
           - it: Should revert, despite having the permission
       - when: Calling execute [executed]
@@ -184,13 +185,13 @@ LockToVoteTest:
       - it: Should return the right value
 
   # Settings
-  - given: Update voting settings permission granted
+  - given: Update approval settings permission granted
     and:
       - when: Calling updatePluginSettings [granted]
         then: 
           - it: Should set the new values
           - it: Settings() should return the right values
-  - given: No update voting settings permission
+  - given: No update approval settings permission
     and:
       - when: Calling updatePluginSettings [not granted]
         then:

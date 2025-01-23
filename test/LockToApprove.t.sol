@@ -2,14 +2,13 @@
 pragma solidity 0.8.17;
 
 import {AragonTest} from "./util/AragonTest.sol";
-import {LockToVotePlugin} from "../src/LockToVotePlugin.sol";
+import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockManager} from "../src/LockManager.sol";
-import {LockManagerSettings, UnlockMode} from "../src/interfaces/ILockManager.sol";
-import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
+import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
+import {ILockToApprove} from "../src/interfaces/ILockToApprove.sol";
 import {DaoBuilder} from "./util/DaoBuilder.sol";
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
-import {LockToVoteSettings, Proposal, ProposalParameters} from "../src/interfaces/ILockToVote.sol";
 import {TestToken} from "./mocks/TestToken.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
@@ -20,23 +19,32 @@ import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/pro
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {createProxyAndCall, createSaltedProxyAndCall, predictProxyAddress} from "../src/util/proxy.sol";
 
-contract LockToVoteTest is AragonTest {
+contract LockToApproveTest is AragonTest {
     using SafeCastUpgradeable for uint256;
 
     DaoBuilder builder;
     DAO dao;
-    LockToVotePlugin plugin;
+    LockToApprovePlugin plugin;
     LockManager lockManager;
     IERC20 lockableToken;
     IERC20 underlyingToken;
     uint256 proposalId;
 
-    address immutable LOCK_TO_VOTE_BASE = address(new LockToVotePlugin());
-    address immutable LOCK_MANAGER_BASE = address(
-        new LockManager(
-            IDAO(address(0)), LockManagerSettings(UnlockMode.STRICT), IERC20(address(0)), IERC20(address(0))
-        )
-    );
+    address immutable LOCK_TO_APPROVE_BASE = address(new LockToApprovePlugin());
+    address immutable LOCK_MANAGER_BASE =
+        address(
+            new LockManager(
+                IDAO(address(0)),
+                LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
+                IERC20(address(0)),
+                IERC20(address(0))
+            )
+        );
+
+    bytes32 constant CREATE_PROPOSAL_PERMISSION_ID = keccak256("CREATE_PROPOSAL_PERMISSION");
+    bytes32 constant EXECUTE_PROPOSAL_PERMISSION_ID = keccak256("EXECUTE_PROPOSAL_PERMISSION");
+    bytes32 constant LOCK_MANAGER_PERMISSION_ID = keccak256("LOCK_MANAGER_PERMISSION");
+    bytes32 constant UPDATE_SETTINGS_PERMISSION_ID = keccak256("UPDATE_SETTINGS_PERMISSION");
 
     event ProposalCreated(
         uint256 indexed proposalId,
@@ -48,18 +56,10 @@ contract LockToVoteTest is AragonTest {
         uint256 allowFailureMap
     );
 
-    event VoteCast(uint256 proposalId, address voter, uint256 newVotingPower);
-
+    event ApprovalCast(uint256 proposalId, address voter, uint256 newVotingPower);
     event ProposalEnded(uint256 proposalId);
-
-    event VoteCleared(uint256 proposalId, address voter);
-
-    event Executed(uint256 proposalId);
-
-    bytes32 constant CREATE_PROPOSAL_PERMISSION_ID = keccak256("CREATE_PROPOSAL_PERMISSION");
-    bytes32 constant EXECUTE_PROPOSAL_PERMISSION_ID = keccak256("EXECUTE_PROPOSAL_PERMISSION");
-    bytes32 constant LOCK_MANAGER_PERMISSION_ID = keccak256("LOCK_MANAGER_PERMISSION");
-    bytes32 constant UPDATE_VOTING_SETTINGS_PERMISSION_ID = keccak256("UPDATE_VOTING_SETTINGS_PERMISSION");
+    event ApprovalCleared(uint256 proposalId, address voter);
+    event ProposalExecuted(uint256 indexed proposalId);
 
     function setUp() public {
         vm.startPrank(alice);
@@ -67,11 +67,16 @@ contract LockToVoteTest is AragonTest {
         vm.roll(100);
 
         builder = new DaoBuilder();
-        (dao, plugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).build();
-        // .withUnlockMode(UnlockMode.STRICT)
+        (dao, plugin, , lockManager, lockableToken, underlyingToken) = builder
+            .withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether)
+            .withTokenHolder(carol, 10 ether)
+            .withTokenHolder(david, 15 ether)
+            .withApprovalPlugin()
+            .build();
+        // .withStrictUnlock()
         // .withMinApprovalRatio(100_000)
-        // .withMinDuration(10 days)
+        // .withDuration(10 days)
     }
 
     function test_WhenDeployingTheContract() public {
@@ -81,9 +86,10 @@ contract LockToVoteTest is AragonTest {
         plugin.initialize(
             dao,
             lockManager,
-            LockToVoteSettings({
+            LockToApprovePlugin.ApprovalSettings({
                 minApprovalRatio: 100_000, // 10%
-                minProposalDuration: 10 days
+                proposalDuration: 10 days,
+                minProposerVotingPower: 0
             }),
             IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call}),
             abi.encode(uint256(0))
@@ -97,26 +103,36 @@ contract LockToVoteTest is AragonTest {
     function test_WhenCallingInitialize() public givenANewProxy {
         // It should set the DAO address
         // It should initialize normally
+        // It should define the given settings
 
-        LockToVoteSettings memory pluginSettings = LockToVoteSettings({
-            minApprovalRatio: 100_000, // 10%
-            minProposalDuration: 10 days
+        LockToApprovePlugin.ApprovalSettings memory settings = LockToApprovePlugin.ApprovalSettings({
+            minApprovalRatio: 110_000, // 11%
+            proposalDuration: 12 days,
+            minProposerVotingPower: 1234
         });
-        IPlugin.TargetConfig memory targetConfig =
-            IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call});
+        IPlugin.TargetConfig memory targetConfig = IPlugin.TargetConfig({
+            target: address(dao),
+            operation: IPlugin.Operation.Call
+        });
         bytes memory pluginMetadata = "";
 
-        plugin = LockToVotePlugin(
+        plugin = LockToApprovePlugin(
             createProxyAndCall(
-                address(LOCK_TO_VOTE_BASE),
+                address(LOCK_TO_APPROVE_BASE),
                 abi.encodeCall(
-                    LockToVotePlugin.initialize, (dao, lockManager, pluginSettings, targetConfig, pluginMetadata)
+                    LockToApprovePlugin.initialize,
+                    (dao, lockManager, settings, targetConfig, pluginMetadata)
                 )
             )
         );
 
         assertEq(address(plugin.dao()), address(dao), "Incorrect DAO");
         assertEq(address(plugin.lockManager()), address(lockManager), "Incorrect lockManager");
+
+        (uint32 _ratio, uint64 _duration, uint256 _minVp) = plugin.settings();
+        assertEq(_ratio, settings.minApprovalRatio);
+        assertEq(_duration, settings.proposalDuration);
+        assertEq(_minVp, settings.minProposerVotingPower);
     }
 
     modifier whenCallingUpdateSettings() {
@@ -127,39 +143,44 @@ contract LockToVoteTest is AragonTest {
         // It should revert
         vm.startPrank(address(bob));
         vm.expectRevert();
-        LockToVoteSettings memory newSettings = LockToVoteSettings({
+        LockToApprovePlugin.ApprovalSettings memory newSettings = LockToApprovePlugin.ApprovalSettings({
             minApprovalRatio: 600000, // 60%
-            minProposalDuration: 5 days
+            proposalDuration: 5 days,
+            minProposerVotingPower: 500_000_000
         });
-        plugin.updatePluginSettings(newSettings);
+        plugin.updateApprovalSettings(newSettings);
 
         vm.startPrank(address(0x1337));
         vm.expectRevert();
-        newSettings = LockToVoteSettings({
-            minApprovalRatio: 600000, // 60%
-            minProposalDuration: 5 days
+        newSettings = LockToApprovePlugin.ApprovalSettings({
+            minApprovalRatio: 800000, // 80%
+            proposalDuration: 7 days,
+            minProposerVotingPower: 200
         });
-        plugin.updatePluginSettings(newSettings);
+        plugin.updateApprovalSettings(newSettings);
 
-        (uint32 minApprovalRatio, uint64 minProposalDuration) = plugin.settings();
+        (uint32 minApprovalRatio, uint64 proposalDuration, uint minPvp) = plugin.settings();
         assertEq(minApprovalRatio, 100_000, "Incorrect minApprovalRatio");
-        assertEq(minProposalDuration, 10 days, "Incorrect minProposalDuration");
+        assertEq(proposalDuration, 10 days, "Incorrect proposalDuration");
+        assertEq(minPvp, 0, "Incorrect minProposerVotingPower");
     }
 
     function test_WhenUpdateSettingsWithThePermission() public whenCallingUpdateSettings {
         // It should update the values
 
         // vm.startPrank(alice);
-        dao.grant(address(plugin), alice, plugin.UPDATE_VOTING_SETTINGS_PERMISSION_ID());
-        LockToVoteSettings memory newSettings = LockToVoteSettings({
+        dao.grant(address(plugin), alice, plugin.UPDATE_SETTINGS_PERMISSION_ID());
+        LockToApprovePlugin.ApprovalSettings memory newSettings = LockToApprovePlugin.ApprovalSettings({
             minApprovalRatio: 700000, // 70%
-            minProposalDuration: 3 days
+            proposalDuration: 3 days,
+            minProposerVotingPower: 0
         });
-        plugin.updatePluginSettings(newSettings);
+        plugin.updateApprovalSettings(newSettings);
 
-        (uint32 minApprovalRatio, uint64 minProposalDuration) = plugin.settings();
+        (uint32 minApprovalRatio, uint64 proposalDuration, uint minPvp) = plugin.settings();
         assertEq(minApprovalRatio, newSettings.minApprovalRatio, "Incorrect minApprovalRatio");
-        assertEq(minProposalDuration, newSettings.minProposalDuration, "Incorrect minProposalDuration");
+        assertEq(proposalDuration, newSettings.proposalDuration, "Incorrect proposalDuration");
+        assertEq(minPvp, newSettings.minProposerVotingPower, "Incorrect minProposerVotingPower");
     }
 
     function test_WhenCallingSupportsInterface() public view {
@@ -169,8 +190,8 @@ contract LockToVoteTest is AragonTest {
         assertTrue(plugin.supportsInterface(0x01ffc9a7));
         // It supports IMembership
         assertTrue(plugin.supportsInterface(type(IMembership).interfaceId));
-        // It supports ILockToVote
-        assertTrue(plugin.supportsInterface(type(ILockToVote).interfaceId));
+        // It supports ILockToApprove
+        assertTrue(plugin.supportsInterface(type(ILockToApprove).interfaceId));
     }
 
     modifier givenProposalNotCreated() {
@@ -191,7 +212,11 @@ contract LockToVoteTest is AragonTest {
         vm.startPrank(bob);
         vm.expectRevert(
             abi.encodeWithSelector(
-                DaoUnauthorized.selector, address(dao), address(plugin), bob, CREATE_PROPOSAL_PERMISSION_ID
+                DaoUnauthorized.selector,
+                address(dao),
+                address(plugin),
+                bob,
+                CREATE_PROPOSAL_PERMISSION_ID
             )
         );
         proposalId = plugin.createProposal("0x", new Action[](0), 0, 0, abi.encode(uint256(0)));
@@ -199,7 +224,11 @@ contract LockToVoteTest is AragonTest {
         vm.startPrank(carol);
         vm.expectRevert(
             abi.encodeWithSelector(
-                DaoUnauthorized.selector, address(dao), address(plugin), carol, CREATE_PROPOSAL_PERMISSION_ID
+                DaoUnauthorized.selector,
+                address(dao),
+                address(plugin),
+                carol,
+                CREATE_PROPOSAL_PERMISSION_ID
             )
         );
         proposalId = plugin.createProposal("0x", new Action[](0), 0, 0, abi.encode(uint256(0)));
@@ -223,13 +252,13 @@ contract LockToVoteTest is AragonTest {
         // It Should assign a unique proposalId to it
         // It Should register the given parameters
         // It Should start immediately
-        // It Should end after minDuration
+        // It Should end after proposalDuration
         // It Should emit an event
         // It Should call proposalCreated on the lockManager
 
         vm.expectEmit();
         emit ProposalCreated(
-            13876840710005004095411466095926402277614448292371379428030366522978619098280,
+            4925969046647307679243058902756532866152674924513261495288599221022020359470,
             alice,
             block.timestamp.toUint64(),
             (block.timestamp + 10 days).toUint64(),
@@ -243,7 +272,7 @@ contract LockToVoteTest is AragonTest {
         (
             bool open,
             bool executed,
-            ProposalParameters memory parameters,
+            LockToApprovePlugin.ProposalParameters memory parameters,
             uint256 approvalTally,
             Action[] memory actions,
             uint256 allowFailureMap,
@@ -284,7 +313,7 @@ contract LockToVoteTest is AragonTest {
 
         vm.expectEmit();
         emit ProposalCreated(
-            77014594595155826630278684923227134408666612923500769942032796858285014477046,
+            31465089583227639009379940193872144868935931775341506474759055387416263087238,
             alice,
             startDate,
             endDate,
@@ -298,14 +327,14 @@ contract LockToVoteTest is AragonTest {
         (
             bool open,
             bool executed,
-            ProposalParameters memory parameters,
+            LockToApprovePlugin.ProposalParameters memory parameters,
             uint256 approvalTally,
             Action[] memory pActions,
             uint256 allowFailureMap,
             IPlugin.TargetConfig memory targetConfig
         ) = plugin.getProposal(proposalId);
 
-        assertEq(proposalId, 77014594595155826630278684923227134408666612923500769942032796858285014477046);
+        assertEq(proposalId, 31465089583227639009379940193872144868935931775341506474759055387416263087238);
         assertFalse(open);
         assertFalse(executed);
         assertEq(approvalTally, 0);
@@ -339,7 +368,7 @@ contract LockToVoteTest is AragonTest {
         // It Different data should produce different proposalId's
 
         proposalId = plugin.createProposal("hello", new Action[](0), 0, 0, abi.encode(uint256(0)));
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.ProposalAlreadyExists.selector, proposalId));
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ProposalAlreadyExists.selector, proposalId));
         plugin.createProposal("hello", new Action[](0), 0, 0, abi.encode(uint256(0)));
 
         // different
@@ -354,7 +383,7 @@ contract LockToVoteTest is AragonTest {
     function test_WhenCallingTheGettersNotCreated() public givenProposalNotCreated {
         // It getProposal should return empty values
         // It isProposalOpen should return false
-        // It canVote should return false
+        // It canApprove should return false
         // It hasSucceeded should return false
         // It canExecute should return false
 
@@ -363,7 +392,7 @@ contract LockToVoteTest is AragonTest {
         (
             bool open,
             bool executed,
-            ProposalParameters memory parameters,
+            LockToApprovePlugin.ProposalParameters memory parameters,
             uint256 approvalTally,
             Action[] memory actions,
             uint256 allowFailureMap,
@@ -382,8 +411,11 @@ contract LockToVoteTest is AragonTest {
         assertEq(uint8(targetConfig.operation), uint8(0));
 
         assertFalse(plugin.isProposalOpen(proposalId));
-        assertFalse(plugin.canVote(proposalId, alice));
+        assertFalse(plugin.canApprove(proposalId, alice));
+
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.NonexistentProposal.selector, proposalId));
         assertFalse(plugin.hasSucceeded(proposalId));
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.NonexistentProposal.selector, proposalId));
         assertFalse(plugin.canExecute(proposalId));
     }
 
@@ -393,19 +425,23 @@ contract LockToVoteTest is AragonTest {
         proposalId = 0;
 
         vm.startPrank(address(lockManager));
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.VoteCastForbidden.selector, proposalId, alice));
-        plugin.vote(proposalId, alice, 0.1 ether);
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ApprovalForbidden.selector, proposalId, alice));
+        plugin.approve(proposalId, alice, 0.1 ether);
 
         vm.startPrank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                DaoUnauthorized.selector, address(dao), address(plugin), alice, EXECUTE_PROPOSAL_PERMISSION_ID
+                DaoUnauthorized.selector,
+                address(dao),
+                address(plugin),
+                alice,
+                EXECUTE_PROPOSAL_PERMISSION_ID
             )
         );
         plugin.execute(proposalId);
 
         dao.grant(address(plugin), alice, EXECUTE_PROPOSAL_PERMISSION_ID);
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.ExecutionForbidden.selector, proposalId));
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ProposalExecutionForbidden.selector, proposalId));
         plugin.execute(proposalId);
     }
 
@@ -424,7 +460,7 @@ contract LockToVoteTest is AragonTest {
         (
             bool open,
             bool executed,
-            ProposalParameters memory parameters,
+            LockToApprovePlugin.ProposalParameters memory parameters,
             uint256 approvalTally,
             Action[] memory actions,
             uint256 allowFailureMap,
@@ -457,19 +493,19 @@ contract LockToVoteTest is AragonTest {
         assertFalse(plugin.isProposalOpen(proposalId + 1));
     }
 
-    function test_WhenCallingCanVote() public givenProposalCreated {
+    function test_WhenCallingCanApprove() public givenProposalCreated {
         // It Should return true when there is balance left to allocate
 
         lockableToken.approve(address(lockManager), 0.1 ether);
         lockManager.lock();
-        assertTrue(plugin.canVote(proposalId, alice));
+        assertTrue(plugin.canApprove(proposalId, alice));
 
         // It Should return false when there is no balance left to allocate
-        lockManager.vote(proposalId);
-        assertFalse(plugin.canVote(proposalId, alice));
+        lockManager.approve(proposalId);
+        assertFalse(plugin.canApprove(proposalId, alice));
 
         vm.startPrank(bob);
-        assertFalse(plugin.canVote(proposalId, bob));
+        assertFalse(plugin.canApprove(proposalId, bob));
     }
 
     modifier givenNoLockManagerPermission() {
@@ -478,7 +514,7 @@ contract LockToVoteTest is AragonTest {
         _;
     }
 
-    function test_WhenCallingVote() public givenProposalCreated givenNoLockManagerPermission {
+    function test_WhenCallingApprove() public givenProposalCreated givenNoLockManagerPermission {
         // It Reverts, regardless of the balance
 
         vm.startPrank(address(lockManager));
@@ -492,7 +528,7 @@ contract LockToVoteTest is AragonTest {
                 LOCK_MANAGER_PERMISSION_ID
             )
         );
-        plugin.vote(proposalId, alice, 1);
+        plugin.approve(proposalId, alice, 1);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -503,7 +539,7 @@ contract LockToVoteTest is AragonTest {
                 LOCK_MANAGER_PERMISSION_ID
             )
         );
-        plugin.vote(proposalId, bob, 100);
+        plugin.approve(proposalId, bob, 100);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -514,16 +550,16 @@ contract LockToVoteTest is AragonTest {
                 LOCK_MANAGER_PERMISSION_ID
             )
         );
-        plugin.vote(proposalId, carol, 100000);
+        plugin.approve(proposalId, carol, 100000);
 
         // OK
         vm.startPrank(alice);
         dao.grant(address(plugin), address(lockManager), LOCK_MANAGER_PERMISSION_ID);
         vm.startPrank(address(lockManager));
-        plugin.vote(proposalId, carol, 100000);
+        plugin.approve(proposalId, carol, 100000);
     }
 
-    function test_WhenCallingClearVote() public givenProposalCreated givenNoLockManagerPermission {
+    function test_WhenCallingClearApprove() public givenProposalCreated givenNoLockManagerPermission {
         // It Reverts, regardless of the balance
 
         vm.startPrank(address(lockManager));
@@ -537,7 +573,7 @@ contract LockToVoteTest is AragonTest {
                 LOCK_MANAGER_PERMISSION_ID
             )
         );
-        plugin.clearVote(proposalId, alice);
+        plugin.clearApproval(proposalId, alice);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -548,7 +584,7 @@ contract LockToVoteTest is AragonTest {
                 LOCK_MANAGER_PERMISSION_ID
             )
         );
-        plugin.clearVote(proposalId, bob);
+        plugin.clearApproval(proposalId, bob);
     }
 
     modifier givenLockManagerPermissionIsGranted() {
@@ -568,16 +604,16 @@ contract LockToVoteTest is AragonTest {
 
         vm.startPrank(address(lockManager));
 
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.VoteCastForbidden.selector, proposalId, alice));
-        plugin.vote(proposalId, alice, 0.1 ether);
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ApprovalForbidden.selector, proposalId, alice));
+        plugin.approve(proposalId, alice, 0.1 ether);
 
         // 2
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.VoteCastForbidden.selector, proposalId, bob));
-        plugin.vote(proposalId, bob, 0.1 ether);
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ApprovalForbidden.selector, proposalId, bob));
+        plugin.approve(proposalId, bob, 0.1 ether);
 
         // 2
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.VoteCastForbidden.selector, proposalId, carol));
-        plugin.vote(proposalId, carol, 0.1 ether);
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ApprovalForbidden.selector, proposalId, carol));
+        plugin.approve(proposalId, carol, 0.1 ether);
     }
 
     modifier givenProposalCreatedAndStarted() {
@@ -586,7 +622,7 @@ contract LockToVoteTest is AragonTest {
         _;
     }
 
-    function test_RevertWhen_CallingVoteNoNewLockedBalance()
+    function test_RevertWhen_CallingApproveNoNewLockedBalance()
         public
         givenProposalCreated
         givenLockManagerPermissionIsGranted
@@ -596,18 +632,18 @@ contract LockToVoteTest is AragonTest {
 
         lockableToken.approve(address(lockManager), 0.1 ether);
         lockManager.lock();
-        lockManager.vote(proposalId);
+        lockManager.approve(proposalId);
 
         vm.expectRevert(abi.encodeWithSelector(LockManager.NoNewBalance.selector));
-        lockManager.vote(proposalId);
+        lockManager.approve(proposalId);
 
         vm.startPrank(address(lockManager));
 
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.VoteCastForbidden.selector, proposalId, alice));
-        plugin.vote(proposalId, alice, 0.1 ether);
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ApprovalForbidden.selector, proposalId, alice));
+        plugin.approve(proposalId, alice, 0.1 ether);
     }
 
-    function test_WhenCallingVoteNewLockedBalance()
+    function test_WhenCallingApproveNewLockedBalance()
         public
         givenProposalCreated
         givenLockManagerPermissionIsGranted
@@ -619,23 +655,23 @@ contract LockToVoteTest is AragonTest {
         vm.startPrank(address(lockManager));
 
         vm.expectEmit();
-        emit VoteCast(proposalId, alice, 0.1 ether);
-        plugin.vote(proposalId, alice, 0.1 ether);
+        emit ApprovalCast(proposalId, alice, 0.1 ether);
+        plugin.approve(proposalId, alice, 0.1 ether);
 
-        (,,, uint256 approvalTally,,,) = plugin.getProposal(proposalId);
+        (, , , uint256 approvalTally, , , ) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
         vm.expectEmit();
-        emit VoteCast(proposalId, alice, 0.25 ether);
-        plugin.vote(proposalId, alice, 0.25 ether);
+        emit ApprovalCast(proposalId, alice, 0.25 ether);
+        plugin.approve(proposalId, alice, 0.25 ether);
 
-        (,,, approvalTally,,,) = plugin.getProposal(proposalId);
+        (, , , approvalTally, , , ) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0.25 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.25 ether);
     }
 
-    function test_WhenCallingClearVoteNoVoteBalance()
+    function test_WhenCallingClearApproveNoApproveBalance()
         public
         givenProposalCreated
         givenLockManagerPermissionIsGranted
@@ -644,18 +680,18 @@ contract LockToVoteTest is AragonTest {
         // It Should do nothing
 
         vm.startPrank(address(lockManager));
-        plugin.clearVote(proposalId, alice);
+        plugin.clearApproval(proposalId, alice);
 
-        (,,, uint256 approvalTally,,,) = plugin.getProposal(proposalId);
+        (, , , uint256 approvalTally, , , ) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0);
 
-        plugin.clearVote(proposalId, bob);
+        plugin.clearApproval(proposalId, bob);
 
-        (,,, approvalTally,,,) = plugin.getProposal(proposalId);
+        (, , , approvalTally, , , ) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0);
     }
 
-    function test_WhenCallingClearVoteWithVoteBalance()
+    function test_WhenCallingClearApproveWithApproveBalance()
         public
         givenProposalCreated
         givenLockManagerPermissionIsGranted
@@ -667,17 +703,17 @@ contract LockToVoteTest is AragonTest {
         // It usedVotingPower should return the right value
 
         vm.startPrank(address(lockManager));
-        plugin.vote(proposalId, alice, 0.1 ether);
+        plugin.approve(proposalId, alice, 0.1 ether);
 
-        (,,, uint256 approvalTally,,,) = plugin.getProposal(proposalId);
+        (, , , uint256 approvalTally, , , ) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
         vm.expectEmit();
-        emit VoteCleared(proposalId, alice);
-        plugin.clearVote(proposalId, alice);
+        emit ApprovalCleared(proposalId, alice);
+        plugin.clearApproval(proposalId, alice);
 
-        (,,, approvalTally,,,) = plugin.getProposal(proposalId);
+        (, , , approvalTally, , , ) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0);
     }
@@ -695,7 +731,7 @@ contract LockToVoteTest is AragonTest {
 
         dao.grant(address(plugin), alice, EXECUTE_PROPOSAL_PERMISSION_ID);
 
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.ExecutionForbidden.selector, proposalId));
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ProposalExecutionForbidden.selector, proposalId));
         plugin.execute(proposalId);
     }
 
@@ -703,7 +739,7 @@ contract LockToVoteTest is AragonTest {
         proposalId = plugin.createProposal("0x", new Action[](0), 0, 0, abi.encode(uint256(123)));
 
         vm.startPrank(address(lockManager));
-        plugin.vote(proposalId, alice, 0.001 ether);
+        plugin.approve(proposalId, alice, 0.001 ether);
 
         vm.warp(block.timestamp + 10 days);
 
@@ -713,7 +749,7 @@ contract LockToVoteTest is AragonTest {
     function test_WhenCallingTheGettersDefeated() public givenProposalDefeated {
         // It getProposal should return the right values
         // It isProposalOpen should return false
-        // It canVote should return false
+        // It canApprove should return false
         // It hasSucceeded should return false
         // It canExecute should return false
 
@@ -722,7 +758,7 @@ contract LockToVoteTest is AragonTest {
         (
             bool open,
             bool executed,
-            ProposalParameters memory parameters,
+            LockToApprovePlugin.ProposalParameters memory parameters,
             uint256 approvalTally,
             Action[] memory actions,
             uint256 allowFailureMap,
@@ -741,22 +777,22 @@ contract LockToVoteTest is AragonTest {
         assertEq(uint8(targetConfig.operation), uint8(IPlugin.Operation.Call));
 
         assertFalse(plugin.isProposalOpen(proposalId));
-        assertFalse(plugin.canVote(proposalId, alice));
+        assertFalse(plugin.canApprove(proposalId, alice));
         assertFalse(plugin.hasSucceeded(proposalId));
         assertFalse(plugin.canExecute(proposalId));
     }
 
-    function test_WhenCallingVoteOrClearVoteDefeated() public givenProposalDefeated {
+    function test_WhenCallingApproveOrClearApproveDefeated() public givenProposalDefeated {
         // It Should revert for vote, despite having the permission
-        // It Should do nothing for clearVote
+        // It Should do nothing for clearApprove
 
         vm.startPrank(address(lockManager));
 
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.VoteCastForbidden.selector, proposalId, alice));
-        plugin.vote(proposalId, alice, 1);
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ApprovalForbidden.selector, proposalId, alice));
+        plugin.approve(proposalId, alice, 1);
 
         // Nop
-        plugin.clearVote(proposalId, alice);
+        plugin.clearApproval(proposalId, alice);
     }
 
     function test_WhenCallingExecuteDefeated() public givenProposalDefeated {
@@ -765,14 +801,18 @@ contract LockToVoteTest is AragonTest {
         vm.startPrank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                DaoUnauthorized.selector, address(dao), address(plugin), alice, EXECUTE_PROPOSAL_PERMISSION_ID
+                DaoUnauthorized.selector,
+                address(dao),
+                address(plugin),
+                alice,
+                EXECUTE_PROPOSAL_PERMISSION_ID
             )
         );
         plugin.execute(proposalId);
 
         dao.grant(address(plugin), alice, EXECUTE_PROPOSAL_PERMISSION_ID);
 
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.ExecutionForbidden.selector, proposalId));
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ProposalExecutionForbidden.selector, proposalId));
         plugin.execute(proposalId);
     }
 
@@ -791,9 +831,9 @@ contract LockToVoteTest is AragonTest {
         lockManager.lock();
 
         vm.startPrank(address(lockManager));
-        plugin.vote(proposalId, alice, 0.1 ether);
-        plugin.vote(proposalId, address(carol), 10 ether);
-        plugin.vote(proposalId, address(david), 15 ether);
+        plugin.approve(proposalId, alice, 0.1 ether);
+        plugin.approve(proposalId, address(carol), 10 ether);
+        plugin.approve(proposalId, address(david), 15 ether);
 
         // The consumer needs to advance to block.timestamp + 10 days
 
@@ -803,7 +843,7 @@ contract LockToVoteTest is AragonTest {
     function test_WhenCallingTheGettersPassed() public givenProposalPassed {
         // It getProposal should return the right values
         // It isProposalOpen should return false
-        // It canVote should return false
+        // It canApprove should return false
         // It hasSucceeded should return true
         // It canExecute should return true
 
@@ -812,7 +852,7 @@ contract LockToVoteTest is AragonTest {
         (
             bool open,
             bool executed,
-            ProposalParameters memory parameters,
+            LockToApprovePlugin.ProposalParameters memory parameters,
             uint256 approvalTally,
             Action[] memory actions,
             uint256 allowFailureMap,
@@ -831,7 +871,7 @@ contract LockToVoteTest is AragonTest {
         assertEq(uint8(targetConfig.operation), uint8(IPlugin.Operation.Call));
 
         assertTrue(plugin.isProposalOpen(proposalId));
-        assertFalse(plugin.canVote(proposalId, alice));
+        assertFalse(plugin.canApprove(proposalId, alice));
         assertTrue(plugin.hasSucceeded(proposalId));
         assertTrue(plugin.canExecute(proposalId));
 
@@ -839,30 +879,30 @@ contract LockToVoteTest is AragonTest {
 
         vm.warp(block.timestamp + 10 days);
 
-        (open,, parameters,,,,) = plugin.getProposal(proposalId);
+        (open, , parameters, , , , ) = plugin.getProposal(proposalId);
         assertEq(parameters.startDate, block.timestamp - 10 days);
         assertEq(parameters.endDate, block.timestamp);
         assertFalse(open);
     }
 
-    function test_WhenCallingVoteOrClearVotePassed() public givenProposalPassed {
+    function test_WhenCallingApproveOrClearApprovePassed() public givenProposalPassed {
         // It Should revert, despite having the permission
 
         vm.warp(block.timestamp + 10 days);
 
         vm.startPrank(address(lockManager));
 
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.VoteCastForbidden.selector, proposalId, alice));
-        plugin.vote(proposalId, alice, 1);
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ApprovalForbidden.selector, proposalId, alice));
+        plugin.approve(proposalId, alice, 1);
 
         // Nop
-        (,,, uint256 approvalTally,,,) = plugin.getProposal(proposalId);
+        (, , , uint256 approvalTally, , , ) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 25.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
-        plugin.clearVote(proposalId, alice);
+        plugin.clearApproval(proposalId, alice);
 
-        (,,, approvalTally,,,) = plugin.getProposal(proposalId);
+        (, , , approvalTally, , , ) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 25.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
     }
@@ -880,7 +920,11 @@ contract LockToVoteTest is AragonTest {
         // alice
         vm.expectRevert(
             abi.encodeWithSelector(
-                DaoUnauthorized.selector, address(dao), address(plugin), alice, EXECUTE_PROPOSAL_PERMISSION_ID
+                DaoUnauthorized.selector,
+                address(dao),
+                address(plugin),
+                alice,
+                EXECUTE_PROPOSAL_PERMISSION_ID
             )
         );
         plugin.execute(proposalId);
@@ -901,14 +945,14 @@ contract LockToVoteTest is AragonTest {
         vm.warp(block.timestamp + 10 days);
 
         vm.expectEmit();
-        emit Executed(proposalId);
+        emit ProposalExecuted(proposalId);
 
         vm.expectEmit();
         emit ProposalEnded(proposalId);
 
         plugin.execute(proposalId);
 
-        (bool open, bool executed,,,,,) = plugin.getProposal(proposalId);
+        (bool open, bool executed, , , , , ) = plugin.getProposal(proposalId);
         assertFalse(open);
         assertTrue(executed);
 
@@ -937,9 +981,9 @@ contract LockToVoteTest is AragonTest {
         lockManager.lock();
 
         vm.startPrank(address(lockManager));
-        plugin.vote(proposalId, alice, 0.1 ether);
-        plugin.vote(proposalId, address(carol), 10 ether);
-        plugin.vote(proposalId, address(david), 15 ether);
+        plugin.approve(proposalId, alice, 0.1 ether);
+        plugin.approve(proposalId, address(carol), 10 ether);
+        plugin.approve(proposalId, address(david), 15 ether);
 
         vm.startPrank(alice);
         dao.grant(address(plugin), alice, EXECUTE_PROPOSAL_PERMISSION_ID);
@@ -952,14 +996,14 @@ contract LockToVoteTest is AragonTest {
     function test_WhenCallingTheGettersExecuted() public givenProposalExecuted {
         // It getProposal should return the right values
         // It isProposalOpen should return false
-        // It canVote should return false
+        // It canApprove should return false
         // It hasSucceeded should return false
         // It canExecute should return false
 
         (
             bool open,
             bool executed,
-            ProposalParameters memory parameters,
+            LockToApprovePlugin.ProposalParameters memory parameters,
             uint256 approvalTally,
             Action[] memory actions,
             uint256 allowFailureMap,
@@ -981,27 +1025,27 @@ contract LockToVoteTest is AragonTest {
         assertEq(uint8(targetConfig.operation), uint8(IPlugin.Operation.Call));
 
         assertFalse(plugin.isProposalOpen(proposalId));
-        assertFalse(plugin.canVote(proposalId, alice));
+        assertFalse(plugin.canApprove(proposalId, alice));
         assertTrue(plugin.hasSucceeded(proposalId));
         assertFalse(plugin.canExecute(proposalId));
     }
 
-    function test_WhenCallingVoteOrClearVoteExecuted() public givenProposalExecuted {
+    function test_WhenCallingApproveOrClearApproveExecuted() public givenProposalExecuted {
         // It Should revert, despite having the permission
 
         vm.startPrank(address(lockManager));
 
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.VoteCastForbidden.selector, proposalId, alice));
-        plugin.vote(proposalId, alice, 200 ether);
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ApprovalForbidden.selector, proposalId, alice));
+        plugin.approve(proposalId, alice, 200 ether);
 
         // Nop
-        (,,, uint256 approvalTally,,,) = plugin.getProposal(proposalId);
+        (, , , uint256 approvalTally, , , ) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 25.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
-        plugin.clearVote(proposalId, alice);
+        plugin.clearApproval(proposalId, alice);
 
-        (,,, approvalTally,,,) = plugin.getProposal(proposalId);
+        (, , , approvalTally, , , ) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 25.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
     }
@@ -1009,7 +1053,7 @@ contract LockToVoteTest is AragonTest {
     function test_WhenCallingExecuteExecuted() public givenProposalExecuted {
         // It Should revert regardless of the permission
 
-        vm.expectRevert(abi.encodeWithSelector(ILockToVote.ExecutionForbidden.selector, proposalId));
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ProposalExecutionForbidden.selector, proposalId));
         plugin.execute(proposalId);
     }
 
@@ -1043,7 +1087,7 @@ contract LockToVoteTest is AragonTest {
     }
 
     modifier givenUpdateVotingSettingsPermissionGranted() {
-        dao.grant(address(plugin), alice, UPDATE_VOTING_SETTINGS_PERMISSION_ID);
+        dao.grant(address(plugin), alice, UPDATE_SETTINGS_PERMISSION_ID);
         _;
     }
 
@@ -1051,40 +1095,48 @@ contract LockToVoteTest is AragonTest {
         // It Should set the new values
         // It Settings() should return the right values
 
-        LockToVoteSettings memory newSettings = LockToVoteSettings({
+        LockToApprovePlugin.ApprovalSettings memory newSettings = LockToApprovePlugin.ApprovalSettings({
             minApprovalRatio: 612345, // 61%
-            minProposalDuration: 13.4 days
+            proposalDuration: 13.4 days,
+            minProposerVotingPower: 505050505
         });
 
-        plugin.updatePluginSettings(newSettings);
+        plugin.updateApprovalSettings(newSettings);
 
-        (uint32 minApprovalRatio, uint64 minProposalDuration) = plugin.settings();
+        (uint32 minApprovalRatio, uint64 proposalDuration, uint256 minVp) = plugin.settings();
         assertEq(minApprovalRatio, 612345);
-        assertEq(minProposalDuration, 13.4 days);
+        assertEq(proposalDuration, 13.4 days);
+        assertEq(minVp, 505050505);
     }
 
     modifier givenNoUpdateVotingSettingsPermission() {
-        dao.revoke(address(plugin), alice, UPDATE_VOTING_SETTINGS_PERMISSION_ID);
+        dao.revoke(address(plugin), alice, UPDATE_SETTINGS_PERMISSION_ID);
         _;
     }
 
     function test_RevertWhen_CallingUpdatePluginSettingsNotGranted() public givenNoUpdateVotingSettingsPermission {
         // It Should revert
 
-        LockToVoteSettings memory newSettings = LockToVoteSettings({
+        LockToApprovePlugin.ApprovalSettings memory newSettings = LockToApprovePlugin.ApprovalSettings({
             minApprovalRatio: 612345, // 61%
-            minProposalDuration: 13.4 days
+            proposalDuration: 13.4 days,
+            minProposerVotingPower: 55555
         });
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                DaoUnauthorized.selector, address(dao), address(plugin), alice, UPDATE_VOTING_SETTINGS_PERMISSION_ID
+                DaoUnauthorized.selector,
+                address(dao),
+                address(plugin),
+                alice,
+                UPDATE_SETTINGS_PERMISSION_ID
             )
         );
-        plugin.updatePluginSettings(newSettings);
+        plugin.updateApprovalSettings(newSettings);
 
-        (uint32 minApprovalRatio, uint64 minProposalDuration) = plugin.settings();
+        (uint32 minApprovalRatio, uint64 proposalDuration, uint256 minVp) = plugin.settings();
         assertEq(minApprovalRatio, 100000);
-        assertEq(minProposalDuration, 10 days);
+        assertEq(proposalDuration, 10 days);
+        assertEq(minVp, 0);
     }
 }

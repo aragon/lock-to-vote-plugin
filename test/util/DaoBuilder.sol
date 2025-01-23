@@ -5,10 +5,11 @@ import {Test} from "forge-std/Test.sol";
 import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {createProxyAndCall, createSaltedProxyAndCall, predictProxyAddress} from "../../src/util/proxy.sol";
 import {ALICE_ADDRESS} from "../constants.sol";
-import {LockToVotePlugin} from "../../src/LockToVotePlugin.sol";
-import {LockToVoteSettings} from "../../src/interfaces/ILockToVote.sol";
+import {LockToApprovePlugin} from "../../src/LockToApprovePlugin.sol";
+import {LockToVotePlugin, MajorityVotingBase} from "../../src/LockToVotePlugin.sol";
 import {LockManager} from "../../src/LockManager.sol";
-import {LockManagerSettings, UnlockMode} from "../../src/interfaces/ILockManager.sol";
+import {LockManagerSettings, UnlockMode, PluginMode} from "../../src/interfaces/ILockManager.sol";
+import {ILockToVoteBase} from "../../src/interfaces/ILockToVoteBase.sol";
 import {RATIO_BASE} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -16,6 +17,7 @@ import {TestToken} from "../mocks/TestToken.sol";
 
 contract DaoBuilder is Test {
     address immutable DAO_BASE = address(new DAO());
+    address immutable LOCK_TO_APPROVE_BASE = address(new LockToApprovePlugin());
     address immutable LOCK_TO_VOTE_BASE = address(new LockToVotePlugin());
 
     struct MintEntry {
@@ -28,10 +30,17 @@ contract DaoBuilder is Test {
     address[] proposers;
     MintEntry[] tokenHolders;
 
-    bool onlyListed = true;
+    // Lock Manager
+    UnlockMode unlockMode = UnlockMode.Strict;
+    PluginMode pluginMode = PluginMode.Approval;
+
+    // Voting
+    MajorityVotingBase.VotingMode votingMode = MajorityVotingBase.VotingMode.Standard;
+    uint32 supportThresholdRatio = 100_000; // 10%
+    uint32 minParticipationRatio = 100_000; // 10%
+    // Approval + voting
     uint32 minApprovalRatio = 100_000; // 10%
-    uint32 minProposalDuration = 10 days;
-    UnlockMode unlockMode = UnlockMode.STRICT;
+    uint32 proposalDuration = 10 days;
 
     function withDaoOwner(address newOwner) public returns (DaoBuilder) {
         owner = newOwner;
@@ -43,14 +52,59 @@ contract DaoBuilder is Test {
         return this;
     }
 
+    function withStrictUnlock() public returns (DaoBuilder) {
+        unlockMode = UnlockMode.Strict;
+        return this;
+    }
+
+    function withEarlyUnlock() public returns (DaoBuilder) {
+        unlockMode = UnlockMode.Early;
+        return this;
+    }
+
+    function withApprovalPlugin() public returns (DaoBuilder) {
+        pluginMode = PluginMode.Approval;
+        return this;
+    }
+
+    function withVotingPlugin() public returns (DaoBuilder) {
+        pluginMode = PluginMode.Voting;
+        return this;
+    }
+
+    function withStandardVoting() public returns (DaoBuilder) {
+        votingMode = MajorityVotingBase.VotingMode.Standard;
+        return this;
+    }
+
+    function withVoteReplacement() public returns (DaoBuilder) {
+        votingMode = MajorityVotingBase.VotingMode.VoteReplacement;
+        return this;
+    }
+
+    function withEarlyExecution() public returns (DaoBuilder) {
+        votingMode = MajorityVotingBase.VotingMode.EarlyExecution;
+        return this;
+    }
+
+    function withSupportThresholdRatio(uint32 newSupportThresholdRatio) public returns (DaoBuilder) {
+        supportThresholdRatio = newSupportThresholdRatio;
+        return this;
+    }
+
+    function withMinParticipationRatio(uint32 newMinParticipationRatio) public returns (DaoBuilder) {
+        minParticipationRatio = newMinParticipationRatio;
+        return this;
+    }
+
     function withMinApprovalRatio(uint32 newApprovalRatio) public returns (DaoBuilder) {
         if (newApprovalRatio > RATIO_BASE) revert("Approval ratio above 100%");
         minApprovalRatio = newApprovalRatio;
         return this;
     }
 
-    function withMinDuration(uint32 newMinDuration) public returns (DaoBuilder) {
-        minProposalDuration = newMinDuration;
+    function withDuration(uint32 newDuration) public returns (DaoBuilder) {
+        proposalDuration = newDuration;
         return this;
     }
 
@@ -59,22 +113,25 @@ contract DaoBuilder is Test {
         return this;
     }
 
-    function withUnlockMode(UnlockMode newUnlockMode) public returns (DaoBuilder) {
-        unlockMode = newUnlockMode;
-        return this;
-    }
-
     /// @dev Creates a DAO with the given orchestration settings.
     /// @dev The setup is done on block/timestamp 0 and tests should be made on block/timestamp 1 or later.
     function build()
         public
-        returns (DAO dao, LockToVotePlugin plugin, LockManager helper, IERC20 lockableToken, IERC20 underlyingToken)
+        returns (
+            DAO dao,
+            LockToApprovePlugin ltaPlugin,
+            LockToVotePlugin ltvPlugin,
+            LockManager lockManager,
+            IERC20 lockableToken,
+            IERC20 underlyingToken
+        )
     {
         // Deploy the DAO with `this` as root
         dao = DAO(
             payable(
                 createProxyAndCall(
-                    address(DAO_BASE), abi.encodeCall(DAO.initialize, ("", address(this), address(0x0), ""))
+                    address(DAO_BASE),
+                    abi.encodeCall(DAO.initialize, ("", address(this), address(0x0), ""))
                 )
             )
         );
@@ -91,45 +148,93 @@ contract DaoBuilder is Test {
             TestToken(address(lockableToken)).mint(owner, 10 ether);
         }
 
+        ILockToVoteBase targetPlugin;
+
         {
             // Plugin and helper
 
-            helper = new LockManager(dao, LockManagerSettings(unlockMode), lockableToken, underlyingToken);
-
-            LockToVoteSettings memory targetContractSettings =
-                LockToVoteSettings({minApprovalRatio: minApprovalRatio, minProposalDuration: minProposalDuration});
-
-            IPlugin.TargetConfig memory targetConfig =
-                IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call});
-            bytes memory pluginMetadata = "";
-
-            plugin = LockToVotePlugin(
-                createProxyAndCall(
-                    address(LOCK_TO_VOTE_BASE),
-                    abi.encodeCall(
-                        LockToVotePlugin.initialize, (dao, helper, targetContractSettings, targetConfig, pluginMetadata)
-                    )
-                )
+            lockManager = new LockManager(
+                dao,
+                LockManagerSettings(unlockMode, pluginMode),
+                lockableToken,
+                underlyingToken
             );
 
-            dao.grant(address(helper), address(this), helper.UPDATE_SETTINGS_PERMISSION_ID());
-            helper.setPluginAddress(plugin);
-            dao.revoke(address(helper), address(this), helper.UPDATE_SETTINGS_PERMISSION_ID());
+            bytes memory pluginMetadata = "";
+            IPlugin.TargetConfig memory targetConfig = IPlugin.TargetConfig({
+                target: address(dao),
+                operation: IPlugin.Operation.Call
+            });
+
+            if (pluginMode == PluginMode.Approval) {
+                LockToApprovePlugin.ApprovalSettings memory approvalSettings = LockToApprovePlugin.ApprovalSettings({
+                    minApprovalRatio: minApprovalRatio,
+                    proposalDuration: proposalDuration,
+                    minProposerVotingPower: 0
+                });
+
+                ltaPlugin = LockToApprovePlugin(
+                    createProxyAndCall(
+                        address(LOCK_TO_APPROVE_BASE),
+                        abi.encodeCall(
+                            LockToApprovePlugin.initialize,
+                            (dao, lockManager, approvalSettings, targetConfig, pluginMetadata)
+                        )
+                    )
+                );
+                targetPlugin = ILockToVoteBase(address(ltaPlugin));
+            } else {
+                MajorityVotingBase.VotingSettings memory votingSettings = MajorityVotingBase.VotingSettings({
+                    votingMode: votingMode,
+                    supportThresholdRatio: supportThresholdRatio,
+                    minParticipationRatio: minParticipationRatio,
+                    minApprovalRatio: minApprovalRatio,
+                    proposalDuration: proposalDuration,
+                    minProposerVotingPower: 0
+                });
+
+                ltvPlugin = LockToVotePlugin(
+                    createProxyAndCall(
+                        address(LOCK_TO_VOTE_BASE),
+                        abi.encodeCall(
+                            LockToVotePlugin.initialize,
+                            (dao, lockManager, votingSettings, targetConfig, pluginMetadata)
+                        )
+                    )
+                );
+                targetPlugin = ILockToVoteBase(address(ltvPlugin));
+            }
+
+            dao.grant(address(lockManager), address(this), lockManager.UPDATE_SETTINGS_PERMISSION_ID());
+            lockManager.setPluginAddress(targetPlugin);
+            dao.revoke(address(lockManager), address(this), lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         }
 
         // The plugin can execute on the DAO
-        dao.grant(address(dao), address(plugin), dao.EXECUTE_PERMISSION_ID());
+        dao.grant(address(dao), address(targetPlugin), dao.EXECUTE_PERMISSION_ID());
 
         // The LockManager can manage the plugin
-        dao.grant(address(plugin), address(helper), plugin.LOCK_MANAGER_PERMISSION_ID());
+        dao.grant(
+            address(targetPlugin),
+            address(lockManager),
+            LockToApprovePlugin(address(targetPlugin)).LOCK_MANAGER_PERMISSION_ID()
+        );
 
         if (proposers.length > 0) {
             for (uint256 i = 0; i < proposers.length; i++) {
-                dao.grant(address(plugin), proposers[i], plugin.CREATE_PROPOSAL_PERMISSION_ID());
+                dao.grant(
+                    address(targetPlugin),
+                    proposers[i],
+                    LockToApprovePlugin(address(targetPlugin)).CREATE_PROPOSAL_PERMISSION_ID()
+                );
             }
         } else {
             // Ensure that at least the owner can propose
-            dao.grant(address(plugin), owner, plugin.CREATE_PROPOSAL_PERMISSION_ID());
+            dao.grant(
+                address(targetPlugin),
+                owner,
+                LockToApprovePlugin(address(targetPlugin)).CREATE_PROPOSAL_PERMISSION_ID()
+            );
         }
 
         // Transfer ownership to the owner
@@ -138,10 +243,11 @@ contract DaoBuilder is Test {
 
         // Labels
         vm.label(address(dao), "DAO");
-        vm.label(address(plugin), "LockToVote plugin");
-        vm.label(address(helper), "Lock Manager");
+        vm.label(address(ltaPlugin), "LockToApprove");
+        vm.label(address(ltaPlugin), "LockToVote");
+        vm.label(address(lockManager), "LockManager");
         vm.label(address(lockableToken), "VotingToken");
-        vm.label(address(underlyingToken), "Underlying token");
+        vm.label(address(underlyingToken), "UnderlyingToken");
 
         // Moving forward to avoid proposal creations failing or getVotes() giving inconsistent values
         vm.roll(block.number + 1);

@@ -4,6 +4,9 @@ LockManagerTest:
       - when: Constructor has invalid unlock mode
         then:
           - it: Should revert
+      - when: Constructor has invalid plugin mode
+        then:
+          - it: Should revert
       - when: Constructor with valid params
         then:
           - it: Registers the DAO address
@@ -15,12 +18,16 @@ LockManagerTest:
       - given: Invalid plugin
         and:
           - it: should revert
+      - given: Invalid plugin interface
+        and:
+          - it: should revert
       - when: setPluginAddress without the permission
         then:
           - it: should revert
       - when: setPluginAddress with the permission
         then:
           - it: should update the address
+          - it: should revert if trying to update it later
 
   # Locking and voting calls
 
@@ -29,6 +36,12 @@ LockManagerTest:
       - given: No token allowance [no locked]
         and:
           - when: Calling lock() 1
+            then:
+              - it: Should revert
+          - when: Calling lockAndApprove() 1
+            then:
+              - it: Should revert
+          - when: Calling approve() 1
             then:
               - it: Should revert
           - when: Calling lockAndVote() 1
@@ -44,10 +57,19 @@ LockManagerTest:
               - it: Should allow any token holder to lock
               - it: Should approve with the full token balance
               - it: Should emit an event
-          - when: Calling lockAndVote() 2
+          - when: Calling lockAndApprove() 2
             then:
               - it: Should allow any token holder to lock
               - it: Should approve with the full token balance
+              - it: The allocated token balance should have the full new balance
+              - it: Should emit an event
+          - when: Calling approve() 2
+            then:
+              - it: Should revert
+          - when: Calling lockAndVote() 2
+            then:
+              - it: Should allow any token holder to lock
+              - it: Should vote with the full token balance
               - it: The allocated token balance should have the full new balance
               - it: Should emit an event
           - when: Calling vote() 2
@@ -61,6 +83,16 @@ LockManagerTest:
           - when: Calling lock() 3
             then:
               - it: Should revert
+          - when: Calling lockAndApprove() 3
+            then:
+              - it: Should revert
+          - when: Calling approve() [same balance] 3
+            then:
+              - it: Should revert
+          - when: Calling approve() [more locked balance] 3
+            then:
+              - it: Should approve with the full token balance
+              - it: Should emit an event
           - when: Calling lockAndVote() 3
             then:
               - it: Should revert
@@ -69,7 +101,7 @@ LockManagerTest:
               - it: Should revert
           - when: Calling vote() [more locked balance] 3
             then:
-              - it: Should approve with the full token balance
+              - it: Should vote with the full token balance
               - it: Should emit an event
       - given: With token allowance [some locked]
         and:
@@ -79,17 +111,38 @@ LockManagerTest:
               - it: Should approve with the full token balance
               - it: Should increase the locked amount
               - it: Should emit an event
-          - when: Calling lockAndVote() [no prior votes] 4
+          - when: Calling lockAndApprove() [no prior power] 4
             then:
               - it: Should allow any token holder to lock
               - it: Should approve with the full token balance
               - it: Should increase the locked amount
               - it: The allocated token balance should have the full new balance
               - it: Should emit an event
-          - when: Calling lockAndVote() [with prior votes] 4
+          - when: Calling lockAndApprove() [with prior power] 4
             then:
               - it: Should allow any token holder to lock
               - it: Should approve with the full token balance
+              - it: Should increase the locked amount
+              - it: The allocated token balance should have the full new balance
+              - it: Should emit an event
+          - when: Calling approve() [same balance] 4
+            then:
+              - it: Should revert
+          - when: Calling approve() [more locked balance] 4
+            then:
+              - it: Should approve with the full token balance
+              - it: Should emit an event
+          - when: Calling lockAndVote() [no prior power] 4
+            then:
+              - it: Should allow any token holder to lock
+              - it: Should vote with the full token balance
+              - it: Should increase the locked amount
+              - it: The allocated token balance should have the full new balance
+              - it: Should emit an event
+          - when: Calling lockAndVote() [with prior power] 4
+            then:
+              - it: Should allow any token holder to lock
+              - it: Should vote with the full token balance
               - it: Should increase the locked amount
               - it: The allocated token balance should have the full new balance
               - it: Should emit an event
@@ -98,12 +151,12 @@ LockManagerTest:
               - it: Should revert
           - when: Calling vote() [more locked balance] 4
             then:
-              - it: Should approve with the full token balance
+              - it: Should vote with the full token balance
               - it: Should emit an event
 
   # Invalid config's
 
-  - given: Calling lock() or lockToVote()
+  - given: Calling lock(), lockAndApprove() or lockAndVote()
     then:
       - given: Empty plugin
         and:
@@ -140,21 +193,38 @@ LockManagerTest:
           - when: Trying to unlock [1 strict]
             then:
               - it: Should revert
+      - given: Locked but didn't approve anywhere [strict]
+        then:
+          - when: Trying to unlock [2 approval strict]
+            then:
+              - it: Should unlock and refund the full amount right away
+              - it: Should emit an event
       - given: Locked but didn't vote anywhere [strict]
         then:
-          - when: Trying to unlock [2 strict]
+          - when: Trying to unlock [2 voting strict]
+            then:
+              - it: Should unlock and refund the full amount right away
+              - it: Should emit an event
+      - given: Locked but approved ended or executed proposals [strict]
+        then:
+          - when: Trying to unlock [3 approved strict]
             then:
               - it: Should unlock and refund the full amount right away
               - it: Should emit an event
       - given: Locked but voted on ended or executed proposals [strict]
         then:
-          - when: Trying to unlock [3 strict]
+          - when: Trying to unlock [3 voted strict]
             then:
               - it: Should unlock and refund the full amount right away
               - it: Should emit an event
+      - given: Locked and approved currently active proposals [strict]
+        then:
+          - when: Trying to unlock [4 voted strict]
+            then:
+              - it: Should revert
       - given: Locked and voted on currently active proposals [strict]
         then:
-          - when: Trying to unlock [4 strict]
+          - when: Trying to unlock [4 voted strict]
             then:
               - it: Should revert
 
@@ -165,9 +235,21 @@ LockManagerTest:
           - when: Trying to unlock [1 flexible]
             then:
               - it: Should revert
+      - given: Locked but didn't approve anywhere [flexible]
+        then:
+          - when: Trying to unlock [2 approval flexible]
+            then:
+              - it: Should unlock and refund the full amount right away
+              - it: Should emit an event
       - given: Locked but didn't vote anywhere [flexible]
         then:
-          - when: Trying to unlock [2 flexible]
+          - when: Trying to unlock [2 voting flexible]
+            then:
+              - it: Should unlock and refund the full amount right away
+              - it: Should emit an event
+      - given: Locked but approved on ended or executed proposals [flexible]
+        then:
+          - when: Trying to unlock [3 approved flexible]
             then:
               - it: Should unlock and refund the full amount right away
               - it: Should emit an event
@@ -177,9 +259,16 @@ LockManagerTest:
             then:
               - it: Should unlock and refund the full amount right away
               - it: Should emit an event
+      - given: Locked and approved currently active proposals [flexible]
+        then:
+          - when: Trying to unlock [4 approved flexible]
+            then:
+              - it: Should deallocate the existing voting power from active proposals
+              - it: Should unlock and refund the full amount
+              - it: Should emit an event
       - given: Locked and voted on currently active proposals [flexible]
         then:
-          - when: Trying to unlock [4 flexible]
+          - when: Trying to unlock [4 voted flexible]
             then:
               - it: Should deallocate the existing voting power from active proposals
               - it: Should unlock and refund the full amount

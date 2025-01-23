@@ -12,20 +12,20 @@ import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
 import {PluginSetup, IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/PluginSetup.sol";
-import {LockToVotePlugin} from "../LockToVotePlugin.sol";
+import {LockToApprovePlugin} from "../LockToApprovePlugin.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /// @title LockToVotePluginSetup
 /// @author Aragon Association - 2022-2024
-/// @notice The setup contract of the `LockToVotePlugin` contract.
+/// @notice The setup contract of the `LockToApprovePlugin` contract.
 /// @custom:security-contact sirt@aragon.org
 contract LockToVotePluginSetup {
 // is PluginSetup {
 // using Address for address;
 // using Clones for address;
 // using ERC165Checker for address;
-// /// @notice The address of the `LockToVotePlugin` base contract.
-// LockToVotePlugin private immutable lockToVotePluginBase;
+// /// @notice The address of the `LockToApprovePlugin` base contract.
+// LockToApprovePlugin private immutable lockToVotePluginBase;
 // /// @notice The address of the `GovernanceERC20` base contract.
 // address public immutable governanceERC20Base;
 // /// @notice The address of the `GovernanceWrappedERC20` base contract.
@@ -40,11 +40,11 @@ contract LockToVotePluginSetup {
 //     string symbol;
 // }
 // struct InstallationParameters {
-//     LockToVotePlugin.PluginSettings settings;
+//     LockToApprovePlugin.PluginSettings settings;
 //     TokenSettings tokenSettings;
 //     // only used for GovernanceERC20 (when token is not passed)
 //     GovernanceERC20.MintSettings mintSettings;
-//     uint64 stdProposalMinDuration;
+//     uint64 proposalDuration;
 //     address stdProposer;
 //     address emergencyProposer;
 // }
@@ -64,7 +64,7 @@ contract LockToVotePluginSetup {
 //     GovernanceERC20 _governanceERC20Base,
 //     GovernanceWrappedERC20 _governanceWrappedERC20Base
 // ) {
-//     lockToVotePluginBase = new LockToVotePlugin();
+//     lockToVotePluginBase = new LockToApprovePlugin();
 //     governanceERC20Base = address(_governanceERC20Base);
 //     governanceWrappedERC20Base = address(_governanceWrappedERC20Base);
 // }
@@ -76,7 +76,7 @@ contract LockToVotePluginSetup {
 //     external
 //     returns (address plugin, PreparedSetupData memory preparedSetupData)
 // {
-//     // Decode `_installParameters` to extract the params needed for deploying and initializing `LockToVotePlugin` contract,
+//     // Decode `_installParameters` to extract the params needed for deploying and initializing `LockToApprovePlugin` contract,
 //     // and the required helpers
 //     InstallationParameters
 //         memory installationParams = decodeInstallationParams(
@@ -121,7 +121,7 @@ contract LockToVotePluginSetup {
 //     plugin = createERC1967Proxy(
 //         address(lockToVotePluginBase),
 //         abi.encodeCall(
-//             LockToVotePlugin.initialize,
+//             LockToApprovePlugin.initialize,
 //             (
 //                 IDAO(_dao),
 //                 installationParams.settings,
@@ -164,7 +164,7 @@ contract LockToVotePluginSetup {
 //         // Deploy the Std proposal condition
 //         StandardProposalCondition stdProposalCondition = new StandardProposalCondition(
 //                 address(_dao),
-//                 installationParams.stdProposalMinDuration
+//                 installationParams.proposalDuration
 //             );
 //         // Proposer plugins can create proposals
 //         permissions[3] = PermissionLib.MultiTargetPermission({
