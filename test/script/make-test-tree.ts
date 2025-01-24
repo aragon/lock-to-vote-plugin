@@ -40,7 +40,7 @@ function parseTestTree(content: string): TreeItem {
   const [rootKey] = rootKeys;
   if (!rootKey || !data[rootKey]) {
     throw new Error("A root node needs to be defined");
-  } else if (!data[rootKey].length) {
+  } else if (!data[rootKey]?.length) {
     throw new Error("The root node needs to include at least one element");
   }
 
@@ -51,7 +51,7 @@ function parseTestTree(content: string): TreeItem {
 }
 
 function parseRuleChildren(lines: Array<Rule>): Array<TreeItem> {
-  if (!lines.length) return [];
+  if (!lines?.length) return [];
 
   const result: Array<TreeItem> = lines.map((rule) => {
     if (!rule.when && !rule.given && !rule.it) throw new Error("All rules should have a 'given', 'when' or 'it' rule");
@@ -84,8 +84,8 @@ function parseRuleChildren(lines: Array<Rule>): Array<TreeItem> {
   return result;
 }
 
-function dedupeNodeNames(node: TreeItem, seenItems: string[] = []): string[] {
-  if (!node.children?.length) return [];
+function dedupeNodeNames(node: TreeItem, seenItems: Set<string> = new Set()): Set<string> {
+  if (!node.children?.length) return seenItems;
 
   // If a node has been seen before, append a suffix to it
   for (let i = 0; i < node.children.length; i++) {
@@ -93,20 +93,19 @@ function dedupeNodeNames(node: TreeItem, seenItems: string[] = []): string[] {
 
     let str = child.content.trim();
     if (str.startsWith("It ")) continue;
-    else if (seenItems.includes(str)) {
+    else if (seenItems.has(str)) {
       let suffixIdx = 1;
       do {
         suffixIdx++;
         str = child.content.trim() + " " + suffixIdx.toString();
-      } while (seenItems.includes(str));
+      } while (seenItems.has(str));
 
       child.content = str;
     }
-    seenItems.push(str);
+    seenItems.add(str);
 
     // Process children
-    const newSeenItems = dedupeNodeNames(child, seenItems);
-    seenItems = seenItems.concat(newSeenItems);
+    seenItems = dedupeNodeNames(child, seenItems);
   }
   return seenItems;
 }
@@ -114,7 +113,7 @@ function dedupeNodeNames(node: TreeItem, seenItems: string[] = []): string[] {
 function renderTree(root: TreeItem): string {
   let result = root.content + "\n";
 
-  for (let i = 0; i < root.children.length; i++) {
+  for (let i = 0; i < root.children?.length; i++) {
     const item = root.children[i];
     const newLines = renderTreeItem(item, i === root.children.length - 1);
     result += newLines.join("\n") + "\n";
@@ -136,11 +135,11 @@ function renderTreeItem(root: TreeItem, lastChildren: boolean, prefix = ""): Arr
   }
 
   // Add any children
-  for (let i = 0; i < root.children.length; i++) {
+  for (let i = 0; i < root.children?.length; i++) {
     const item = root.children[i];
 
     // Last child
-    if (i === root.children.length - 1) {
+    if (i === root.children?.length - 1) {
       const newPrefix = lastChildren ? prefix + "    " : prefix + "│   ";
       const lines = renderTreeItem(item, true, newPrefix);
       lines.forEach((line) => result.push(line));
@@ -171,7 +170,5 @@ async function readStdinText() {
 }
 
 if (import.meta.main) {
-  main().catch((err) => {
-    console.error("Error: " + err.message);
-  });
+  main();
 }

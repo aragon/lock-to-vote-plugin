@@ -28,6 +28,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     bytes32 public constant LOCK_MANAGER_PERMISSION_ID = keccak256("LOCK_MANAGER_PERMISSION");
 
     event VoteCleared(uint256 proposalId, address voter);
+    error VoteRemovalForbidden(uint256 proposalId, address voter);
 
     /// @notice Initializes the component.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
@@ -205,9 +206,13 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     /// @inheritdoc ILockToVote
     function clearVote(uint256 _proposalId, address _voter) external auth(LOCK_MANAGER_PERMISSION_ID) {
         Proposal storage proposal_ = proposals[_proposalId];
-        if (proposal_.votes[_voter].votingPower == 0 || !_isProposalOpen(proposal_)) {
+        if (proposal_.votes[_voter].votingPower == 0) {
             // Nothing to do
             return;
+        } else if (!_isProposalOpen(proposal_)) {
+            revert VoteRemovalForbidden(_proposalId, _voter);
+        } else if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
+            revert VoteRemovalForbidden(_proposalId, _voter);
         }
 
         // Undo that vote
@@ -261,7 +266,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
             return false;
         }
         // No voting power or lowering the existing one is not allowed
-        else if (_newVotingPower == 0 || _newVotingPower < proposal_.votes[_voter].votingPower) {
+        else if (_newVotingPower == 0 || _newVotingPower <= proposal_.votes[_voter].votingPower) {
             return false;
         }
         // The voter has already voted but vote replacment is not allowed.
@@ -286,19 +291,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     }
 
     function _execute(uint256 _proposalId) internal override {
-        Proposal storage proposal_ = proposals[_proposalId];
-        proposal_.executed = true;
-
-        // IProposal's target execution
-        _execute(
-            proposal_.targetConfig.target,
-            bytes32(_proposalId),
-            proposal_.actions,
-            proposal_.allowFailureMap,
-            proposal_.targetConfig.operation
-        );
-
-        emit ProposalExecuted(_proposalId);
+        super._execute(_proposalId);
 
         // Notify the LockManager to stop tracking this proposal ID
         lockManager.proposalEnded(_proposalId);
