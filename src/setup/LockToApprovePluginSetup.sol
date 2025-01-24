@@ -13,18 +13,18 @@ import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {PluginSetup, IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/PluginSetup.sol";
-import {LockToVotePlugin} from "../LockToVotePlugin.sol";
+import {LockToApprovePlugin} from "../LockToApprovePlugin.sol";
 import {LockManager} from "../LockManager.sol";
 import {LockManagerSettings, UnlockMode, PluginMode} from "../../src/interfaces/ILockManager.sol";
 import {ILockToVoteBase} from "../../src/interfaces/ILockToVoteBase.sol";
 import {MinVotingPowerCondition} from "../../src/conditions/MinVotingPowerCondition.sol";
 import {createProxyAndCall} from "../util/proxy.sol";
 
-/// @title LockToVotePluginSetup
+/// @title LockToApprovePluginSetup
 /// @author Aragon X - 2022-2025
-/// @notice The setup contract of the `LockToVotePlugin` contract.
+/// @notice The setup contract of the `LockToApprovePlugin` contract.
 /// @custom:security-contact sirt@aragon.org
-contract LockToVotePluginSetup is PluginSetup {
+contract LockToApprovePluginSetup is PluginSetup {
     using Address for address;
     using Clones for address;
     using ERC165Checker for address;
@@ -36,7 +36,7 @@ contract LockToVotePluginSetup is PluginSetup {
     /// @param unlockMode Whether tokens can be unlocked at any time or only when a voter has no votes on active proposals
     /// @param token The address of the token that users can lock for voting (staking token in most cases)
     /// @param underlyingToken If users obtain `token` by staking another token, the address of that token. Zero otherwise.
-    /// @param votingSettings The voting plugin settings
+    /// @param approvalSettings The plugin settings
     /// @param pluginMetadata An IPFS URI pointing to a pinned JSON file with the plugin's details
     /// @param createProposalCaller The address that can call createProposal (can be ANY_ADDR)
     /// @param executeCaller The address that can call execute (can be ANY_ADDR)
@@ -45,7 +45,7 @@ contract LockToVotePluginSetup is PluginSetup {
         UnlockMode unlockMode;
         IERC20 token;
         IERC20 underlyingToken;
-        LockToVotePlugin.VotingSettings votingSettings;
+        LockToApprovePlugin.ApprovalSettings approvalSettings;
         bytes pluginMetadata;
         address createProposalCaller;
         address executeCaller;
@@ -65,7 +65,7 @@ contract LockToVotePluginSetup is PluginSetup {
     error WrongHelpersArrayLength(uint256 length);
 
     /// @notice The contract constructor deploying the implementation contracts to use.
-    constructor() PluginSetup(address(new LockToVotePlugin())) {
+    constructor() PluginSetup(address(new LockToApprovePlugin())) {
         lockManagerImpl = new LockManager(
             IDAO(address(0)),
             LockManagerSettings(UnlockMode(0), PluginMode(0)),
@@ -79,7 +79,7 @@ contract LockToVotePluginSetup is PluginSetup {
         address _dao,
         bytes calldata _installParameters
     ) external returns (address plugin, PreparedSetupData memory preparedSetupData) {
-        // Decode `_installParameters` to extract the params needed for deploying and initializing `LockToVotePlugin` contract,
+        // Decode `_installParameters` to extract the params needed for deploying and initializing `LockToApprovePlugin` contract,
         // and the required helpers
         InstallationParameters memory installationParams = decodeInstallationParams(_installParameters);
 
@@ -90,7 +90,7 @@ contract LockToVotePluginSetup is PluginSetup {
         helpers[0] = address(
             new LockManager(
                 IDAO(_dao),
-                LockManagerSettings(installationParams.unlockMode, PluginMode.Voting),
+                LockManagerSettings(installationParams.unlockMode, PluginMode.Approval),
                 installationParams.token,
                 installationParams.underlyingToken
             )
@@ -114,11 +114,11 @@ contract LockToVotePluginSetup is PluginSetup {
         plugin = createProxyAndCall(
             implementation(),
             abi.encodeCall(
-                LockToVotePlugin.initialize,
+                LockToApprovePlugin.initialize,
                 (
                     IDAO(_dao),
                     LockManager(helpers[0]),
-                    installationParams.votingSettings,
+                    installationParams.approvalSettings,
                     installationParams.targetConfig,
                     installationParams.pluginMetadata
                 )
@@ -131,7 +131,7 @@ contract LockToVotePluginSetup is PluginSetup {
         helpers[1] = installationParams.createProposalCaller;
         helpers[2] = installationParams.executeCaller;
 
-        LockToVotePlugin impl = LockToVotePlugin(implementation());
+        LockToApprovePlugin impl = LockToApprovePlugin(implementation());
 
         // Request the permissions to be granted
         PermissionLib.MultiTargetPermission[] memory permissions = new PermissionLib.MultiTargetPermission[](8);
@@ -190,7 +190,7 @@ contract LockToVotePluginSetup is PluginSetup {
             permissionId: impl.CREATE_PROPOSAL_PERMISSION_ID()
         });
 
-        // The LockManager can vote and clearVote on the plugin
+        // The LockManager can call approve and clearApproval on the plugin
         permissions[6] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Grant,
             where: plugin,
@@ -225,7 +225,8 @@ contract LockToVotePluginSetup is PluginSetup {
         permissions = new PermissionLib.MultiTargetPermission[](8);
 
         // Set permissions to be Revoked.
-        LockToVotePlugin impl = LockToVotePlugin(implementation());
+
+        LockToApprovePlugin impl = LockToApprovePlugin(implementation());
 
         // The plugin cannot execute on the DAO
         permissions[0] = PermissionLib.MultiTargetPermission({
@@ -281,7 +282,7 @@ contract LockToVotePluginSetup is PluginSetup {
             permissionId: impl.CREATE_PROPOSAL_PERMISSION_ID()
         });
 
-        // The LockManager cannot call vote or clearVote on the plugin
+        // The LockManager cannot call approve or clearApproval on the plugin
         permissions[6] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Revoke,
             where: _payload.plugin,
