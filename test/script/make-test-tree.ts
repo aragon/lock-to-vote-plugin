@@ -20,11 +20,14 @@ type TreeItem = {
 
 async function main() {
   const content = await readStdinText();
-  const tree = processTree(content);
-  Deno.stdout.write(new TextEncoder().encode(tree));
+  const tree = parseTestTree(content);
+  dedupeNodeNames(tree);
+
+  const strTree = renderTree(tree);
+  Deno.stdout.write(new TextEncoder().encode(strTree));
 }
 
-function processTree(content: string) {
+function parseTestTree(content: string): TreeItem {
   const data: { [k: string]: Array<Rule> } = parse(content);
   if (!data || typeof data !== "object") {
     throw new Error("The file format is not a valid yaml object");
@@ -41,19 +44,17 @@ function processTree(content: string) {
     throw new Error("The root node needs to include at least one element");
   }
 
-  const root: TreeItem = {
+  return {
     content: rootKey,
     children: parseRuleChildren(data[rootKey]),
   };
-  return renderTree(root);
 }
 
 function parseRuleChildren(lines: Array<Rule>): Array<TreeItem> {
   if (!lines.length) return [];
 
   const result: Array<TreeItem> = lines.map((rule) => {
-    if (!rule.when && !rule.given && !rule.it)
-      throw new Error("All rules should have a 'given', 'when' or 'it' rule");
+    if (!rule.when && !rule.given && !rule.it) throw new Error("All rules should have a 'given', 'when' or 'it' rule");
 
     let content = "";
     if (rule.given) {
@@ -83,6 +84,33 @@ function parseRuleChildren(lines: Array<Rule>): Array<TreeItem> {
   return result;
 }
 
+function dedupeNodeNames(node: TreeItem, seenItems: string[] = []): string[] {
+  if (!node.children?.length) return [];
+
+  // If a node has been seen before, append a suffix to it
+  for (let i = 0; i < node.children.length; i++) {
+    const child = node.children[i];
+
+    let str = child.content.trim();
+    if (str.startsWith("It ")) continue;
+    else if (seenItems.includes(str)) {
+      let suffixIdx = 1;
+      do {
+        suffixIdx++;
+        str = child.content.trim() + " " + suffixIdx.toString();
+      } while (seenItems.includes(str));
+
+      child.content = str;
+    }
+    seenItems.push(str);
+
+    // Process children
+    const newSeenItems = dedupeNodeNames(child, seenItems);
+    seenItems = seenItems.concat(newSeenItems);
+  }
+  return seenItems;
+}
+
 function renderTree(root: TreeItem): string {
   let result = root.content + "\n";
 
@@ -95,17 +123,11 @@ function renderTree(root: TreeItem): string {
   return result;
 }
 
-function renderTreeItem(
-  root: TreeItem,
-  lastChildren: boolean,
-  prefix = "",
-): Array<string> {
+function renderTreeItem(root: TreeItem, lastChildren: boolean, prefix = ""): Array<string> {
   const result: string[] = [];
 
   // Add ourselves
-  const content = root.comment
-    ? `${root.content} // ${root.comment}`
-    : root.content;
+  const content = root.comment ? `${root.content} // ${root.comment}` : root.content;
 
   if (lastChildren) {
     result.push(prefix + "└── " + content);
