@@ -6,11 +6,8 @@ import {DaoBuilder} from "./util/DaoBuilder.sol";
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {createProxyAndCall} from "../src/util/proxy.sol";
-import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
-import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
-import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
 import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
 import {LockManager} from "../src/LockManager.sol";
@@ -26,17 +23,6 @@ contract LockManagerTest is AragonTest {
     IERC20 lockableToken;
     IERC20 underlyingToken;
     uint256 proposalId;
-
-    address immutable LOCK_TO_VOTE_BASE = address(new LockToApprovePlugin());
-    address immutable LOCK_MANAGER_BASE =
-        address(
-            new LockManager(
-                IDAO(address(0)),
-                LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-                IERC20(address(0)),
-                IERC20(address(0))
-            )
-        );
 
     event BalanceLocked(address voter, uint256 amount);
     event BalanceUnlocked(address voter, uint256 amount);

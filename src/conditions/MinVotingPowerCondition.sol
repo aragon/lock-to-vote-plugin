@@ -10,8 +10,7 @@ import {PermissionCondition} from "@aragon/osx-commons-contracts/src/permission/
 
 /// @title MinVotingPowerCondition
 /// @author Aragon X - 2024
-/// @notice Checks if an account's voting power or token balance meets the threshold set
-///         in an associated TokenVoting plugin.
+/// @notice Checks if an account's voting power or token balance meets the threshold defined on the given plugin.
 /// @custom:security-contact sirt@aragon.org
 contract MinVotingPowerCondition is PermissionCondition {
     /// @notice The address of the `ILockToVoteBase` plugin used to fetch the settings from.

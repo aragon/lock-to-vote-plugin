@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.17;
+
+import {AragonTest} from "./util/AragonTest.sol";
+import {DaoBuilder} from "./util/DaoBuilder.sol";
+import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
+import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
+import {createProxyAndCall} from "../src/util/proxy.sol";
+import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
+import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
+import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
+import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
+import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
+import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
+import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
+import {LockManager} from "../src/LockManager.sol";
+import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+contract MinVotingPowerConditionTest is AragonTest {
+    DaoBuilder builder;
+    LockToApprovePlugin ltaPlugin;
+    LockToVotePlugin ltvPlugin;
+    IERC20 token;
+
+    function setUp() public {
+        vm.startPrank(alice);
+        vm.warp(1 days);
+        vm.roll(100);
+
+        builder = new DaoBuilder();
+        (, ltaPlugin, ltvPlugin, , token, ) = builder
+            .withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether)
+            .withTokenHolder(carol, 10 ether)
+            .withTokenHolder(david, 15 ether)
+            .withApprovalPlugin()
+            .build();
+    }
+
+    function test_Unimplemeneted() public {
+        vm.skip(true);
+    }
+}
