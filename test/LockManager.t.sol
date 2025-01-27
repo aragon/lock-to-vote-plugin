@@ -6,11 +6,8 @@ import {DaoBuilder} from "./util/DaoBuilder.sol";
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {createProxyAndCall} from "../src/util/proxy.sol";
-import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
-import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
-import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
 import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
 import {LockManager} from "../src/LockManager.sol";
@@ -26,17 +23,6 @@ contract LockManagerTest is AragonTest {
     IERC20 lockableToken;
     IERC20 underlyingToken;
     uint256 proposalId;
-
-    address immutable LOCK_TO_VOTE_BASE = address(new LockToApprovePlugin());
-    address immutable LOCK_MANAGER_BASE =
-        address(
-            new LockManager(
-                IDAO(address(0)),
-                LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-                IERC20(address(0)),
-                IERC20(address(0))
-            )
-        );
 
     event BalanceLocked(address voter, uint256 amount);
     event BalanceUnlocked(address voter, uint256 amount);
@@ -230,7 +216,6 @@ contract LockManagerTest is AragonTest {
             lockableToken,
             underlyingToken
         );
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         vm.expectRevert();
         lockManager.setPluginAddress(LockToApprovePlugin(address(0x5555)));
 
@@ -241,7 +226,6 @@ contract LockManagerTest is AragonTest {
             lockableToken,
             underlyingToken
         );
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         vm.expectRevert();
         lockManager.setPluginAddress(LockToApprovePlugin(address(0x5555)));
     }
@@ -257,7 +241,6 @@ contract LockManagerTest is AragonTest {
             underlyingToken
         );
         assertEq(address(lockManager.plugin()), address(0));
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         LockToVotePlugin ltv = new LockToVotePlugin();
         vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPlugin.selector));
         lockManager.setPluginAddress(ltv);
@@ -270,7 +253,6 @@ contract LockManagerTest is AragonTest {
             underlyingToken
         );
         assertEq(address(lockManager.plugin()), address(0));
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         LockToApprovePlugin lta = new LockToApprovePlugin();
         vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPlugin.selector));
         lockManager.setPluginAddress(lta);
@@ -282,7 +264,6 @@ contract LockManagerTest is AragonTest {
             lockableToken,
             underlyingToken
         );
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(lta);
 
         lockManager = new LockManager(
@@ -291,99 +272,81 @@ contract LockManagerTest is AragonTest {
             lockableToken,
             underlyingToken
         );
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(ltv);
     }
 
-    function test_RevertWhen_SetPluginAddressWithoutThePermission() external whenCallingSetPluginAddress {
+    function test_WhenSetPluginAddressTheFirstTime() external whenCallingSetPluginAddress {
+        // It should set the address
+        // It should revert if trying to update it later
+
+        (, LockToApprovePlugin ltaPlugin2, , , , ) = builder.build();
+        (, LockToApprovePlugin ltaPlugin3, , , , ) = builder.build();
+        (, , LockToVotePlugin ltvPlugin2, , , ) = builder.withVotingPlugin().build();
+        (, , LockToVotePlugin ltvPlugin3, , , ) = builder.build();
+
+        // OK 1
+        lockManager = new LockManager(
+            dao,
+            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
+            lockableToken,
+            underlyingToken
+        );
+        assertEq(address(lockManager.plugin()), address(0));
+        lockManager.setPluginAddress(ltaPlugin2);
+        assertEq(address(lockManager.plugin()), address(ltaPlugin2));
+
+        // Fail to update it later
+        vm.expectRevert(abi.encodeWithSelector(LockManager.SetPluginAddressForbidden.selector));
+        lockManager.setPluginAddress(ltaPlugin3);
+
+        // OK 2
+
+        lockManager = new LockManager(
+            dao,
+            LockManagerSettings(UnlockMode.Strict, PluginMode.Voting),
+            lockableToken,
+            underlyingToken
+        );
+        assertEq(address(lockManager.plugin()), address(0));
+        lockManager.setPluginAddress(ltvPlugin2);
+        assertEq(address(lockManager.plugin()), address(ltvPlugin2));
+
+        // Fail to update it later
+        vm.expectRevert(abi.encodeWithSelector(LockManager.SetPluginAddressForbidden.selector));
+        lockManager.setPluginAddress(ltvPlugin3);
+    }
+
+    function test_RevertWhen_SetPluginAddressWhenAlreadySet() external whenCallingSetPluginAddress {
         // It should revert
 
         (, LockToApprovePlugin ltaPlugin2, , , , ) = builder.build();
         (, LockToApprovePlugin ltaPlugin3, , , , ) = builder.build();
         (, , LockToVotePlugin ltvPlugin2, , , ) = builder.withVotingPlugin().build();
-
-        lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-            lockableToken,
-            underlyingToken
-        );
+        (, , LockToVotePlugin ltvPlugin3, , , ) = builder.withVotingPlugin().build();
 
         // 1
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DaoUnauthorized.selector,
-                address(dao),
-                address(lockManager),
-                alice,
-                lockManager.UPDATE_SETTINGS_PERMISSION_ID()
-            )
-        );
-        lockManager.setPluginAddress(ltaPlugin2);
-
-        // 2
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DaoUnauthorized.selector,
-                address(dao),
-                address(lockManager),
-                alice,
-                lockManager.UPDATE_SETTINGS_PERMISSION_ID()
-            )
-        );
-        lockManager.setPluginAddress(ltaPlugin3);
-
-        // OK
-
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
-        lockManager.setPluginAddress(ltaPlugin2);
-
-        // OK 2
-
-        lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Voting),
-            lockableToken,
-            underlyingToken
-        );
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
-        lockManager.setPluginAddress(ltvPlugin2);
-    }
-
-    function test_WhenSetPluginAddressWithThePermission() external whenCallingSetPluginAddress {
-        // It should update the address
-        // It should revert if trying to update it later
-
-        (, LockToApprovePlugin ltaPlugin2, , , , ) = builder.build();
-        (, , LockToVotePlugin ltvPlugin2, , , ) = builder.withVotingPlugin().build();
-
         lockManager = new LockManager(
             dao,
             LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
             lockableToken,
             underlyingToken
         );
-        assertEq(address(lockManager.plugin()), address(0));
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(ltaPlugin2);
-        assertEq(address(lockManager.plugin()), address(ltaPlugin2));
 
-        // OK 2
+        vm.expectRevert(abi.encodeWithSelector(LockManager.SetPluginAddressForbidden.selector));
+        lockManager.setPluginAddress(ltaPlugin3);
 
+        // 2
         lockManager = new LockManager(
             dao,
             LockManagerSettings(UnlockMode.Strict, PluginMode.Voting),
             lockableToken,
             underlyingToken
         );
-        assertEq(address(lockManager.plugin()), address(0));
-        dao.grant(address(lockManager), alice, lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         lockManager.setPluginAddress(ltvPlugin2);
-        assertEq(address(lockManager.plugin()), address(ltvPlugin2));
 
-        // Attempt to set when already defined
         vm.expectRevert(abi.encodeWithSelector(LockManager.SetPluginAddressForbidden.selector));
-        lockManager.setPluginAddress(ltaPlugin2);
+        lockManager.setPluginAddress(ltvPlugin3);
     }
 
     modifier givenProposalOnLockToApprove() {
@@ -833,11 +796,9 @@ contract LockManagerTest is AragonTest {
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
     }
 
-    function test_WhenCallingVoteMoreLockedBalance3()
-        external
-        // givenProposalOnLockToVote
-        // givenLockedTokens
-        // givenNoTokenAllowanceSomeLocked
+    function test_WhenCallingVoteMoreLockedBalance3() external // givenProposalOnLockToVote
+    // givenLockedTokens
+    // givenNoTokenAllowanceSomeLocked
     {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
             .withVoteReplacement()
@@ -1008,11 +969,9 @@ contract LockManagerTest is AragonTest {
         assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether + allowance);
     }
 
-    function test_WhenCallingLockAndVoteWithPriorPower4()
-        external
-        // givenLockedTokens
-        // givenWithTokenAllowanceSomeLocked
-        // givenProposalOnLockToVote
+    function test_WhenCallingLockAndVoteWithPriorPower4() external // givenLockedTokens
+    // givenWithTokenAllowanceSomeLocked
+    // givenProposalOnLockToVote
     {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
             .withVoteReplacement()
@@ -1061,11 +1020,9 @@ contract LockManagerTest is AragonTest {
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
     }
 
-    function test_WhenCallingVoteMoreLockedBalance4()
-        external
-        // givenProposalOnLockToVote
-        // givenLockedTokens
-        // givenWithTokenAllowanceSomeLocked
+    function test_WhenCallingVoteMoreLockedBalance4() external // givenProposalOnLockToVote
+    // givenLockedTokens
+    // givenWithTokenAllowanceSomeLocked
     {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
             .withVoteReplacement()
@@ -1425,6 +1382,15 @@ contract LockManagerTest is AragonTest {
         lockManager.unlock();
     }
 
+    function test_RevertWhen_TryingToUnlock4VotedStrict2()
+        external
+        givenStrictModeIsSet
+        givenLockedAndVotedOnCurrentlyActiveProposalsStrict
+    {
+        // It Should revert
+        vm.skip(true);
+    }
+
     modifier givenFlexibleModeIsSet() {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
             .withTokenHolder(alice, 1 ether)
@@ -1483,7 +1449,7 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenTryingToUnlock2VotingFlexible()
+    function test_WhenTryingToUnlock2VotedFlexible()
         external
         // givenProposalOnLockToVote
         // givenFlexibleModeIsSet
@@ -1544,6 +1510,136 @@ contract LockManagerTest is AragonTest {
 
     modifier givenLockedButVotedOnEndedOrExecutedProposalsFlexible() {
         _;
+    }
+
+    function test_WhenTryingToUnlock3Flexible()
+        external
+        givenFlexibleModeIsSet
+        givenLockedButVotedOnEndedOrExecutedProposalsFlexible
+    {
+        // It Should unlock and refund the full amount right away
+        // It Should emit an event
+
+        vm.skip(true);
+    }
+
+    modifier givenLockedAndApprovedCurrentlyActiveProposalsFlexible() {
+        _;
+    }
+
+    function test_WhenTryingToUnlock4ApprovedFlexible()
+        external
+        givenFlexibleModeIsSet
+        givenLockedAndApprovedCurrentlyActiveProposalsFlexible
+    {
+        // It Should deallocate the existing voting power from active proposals
+        // It Should unlock and refund the full amount
+        // It Should emit an event
+
+        vm.skip(true);
+    }
+
+    modifier givenLockedAndVotedOnCurrentlyActiveProposalsFlexible() {
+        _;
+    }
+
+    function test_WhenTryingToUnlock4VotedFlexible()
+        external
+        // givenProposalOnLockToVote
+        // givenFlexibleModeIsSet
+        givenLockedAndVotedOnCurrentlyActiveProposalsFlexible
+    {
+        // STANDARD VOTING
+
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
+            .withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether)
+            .withTokenHolder(carol, 10 ether)
+            .withTokenHolder(david, 15 ether)
+            .withVotingPlugin()
+            .withStandardVoting()
+            .withEarlyUnlock()
+            .build();
+
+        Action[] memory _actions = new Action[](0);
+        proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
+        // It Should deallocate the existing voting power from active proposals
+        // It Should unlock and refund the full amount
+        // It Should emit an event
+
+        // vm.startPrank(alice);
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether);
+
+        uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectRevert(abi.encodeWithSelector(LockToVotePlugin.VoteRemovalForbidden.selector, proposalId, alice));
+        lockManager.unlock();
+
+        assertEq(lockableToken.balanceOf(alice), initialBalance);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether);
+
+        // VOTE REPLACEMENT
+
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
+            .withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether)
+            .withTokenHolder(carol, 10 ether)
+            .withTokenHolder(david, 15 ether)
+            .withVotingPlugin()
+            .withVoteReplacement()
+            .withEarlyUnlock()
+            .build();
+
+        _actions = new Action[](0);
+        proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
+        // It Should deallocate the existing voting power from active proposals
+        // It Should unlock and refund the full amount
+        // It Should emit an event
+
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether);
+
+        initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceUnlocked(alice, 0.1 ether);
+        lockManager.unlock();
+
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0);
+
+        // EARLY EXECUTE
+
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
+            .withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether)
+            .withTokenHolder(carol, 10 ether)
+            .withTokenHolder(david, 15 ether)
+            .withVotingPlugin()
+            .withEarlyExecution()
+            .withEarlyUnlock()
+            .build();
+
+        _actions = new Action[](0);
+        proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
+        // It Should deallocate the existing voting power from active proposals
+        // It Should unlock and refund the full amount
+        // It Should emit an event
+
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether);
+
+        initialBalance = lockableToken.balanceOf(alice);
+        vm.expectRevert(abi.encodeWithSelector(LockToVotePlugin.VoteRemovalForbidden.selector, proposalId, alice));
+        lockManager.unlock();
+
+        assertEq(lockableToken.balanceOf(alice), initialBalance);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether);
     }
 
     function test_WhenTryingToUnlock3VotedFlexible()
@@ -1607,46 +1703,6 @@ contract LockManagerTest is AragonTest {
 
         assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
         assertEq(ltaPlugin.usedVotingPower(proposalId, alice), 0);
-    }
-
-    modifier givenLockedAndVotedOnCurrentlyActiveProposalsFlexible() {
-        _;
-    }
-
-    function test_WhenTryingToUnlock4VotingFlexible()
-        external
-        // givenProposalOnLockToVote
-        // givenFlexibleModeIsSet
-        givenLockedAndVotedOnCurrentlyActiveProposalsFlexible
-    {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether)
-            .withTokenHolder(carol, 10 ether)
-            .withTokenHolder(david, 15 ether)
-            .withVotingPlugin()
-            .withEarlyUnlock()
-            .build();
-
-        Action[] memory _actions = new Action[](0);
-        proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
-
-        // It Should deallocate the existing voting power from active proposals
-        // It Should unlock and refund the full amount
-        // It Should emit an event
-
-        // vm.startPrank(alice);
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether);
-
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-        vm.expectEmit();
-        emit BalanceUnlocked(alice, 0.1 ether);
-        lockManager.unlock();
-
-        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0);
     }
 
     function test_WhenCallingPlugin() external view {

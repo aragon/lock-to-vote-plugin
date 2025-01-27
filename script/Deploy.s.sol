@@ -5,13 +5,13 @@ import {Script, console} from "forge-std/Script.sol";
 import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {LockToVotePluginSetup} from "../src/setup/LockToVotePluginSetup.sol";
+import {LockToApprovePluginSetup} from "../src/setup/LockToApprovePluginSetup.sol";
 import {PluginRepoFactory} from "@aragon/osx/src/framework/plugin/repo/PluginRepoFactory.sol";
+import {PluginRepo} from "@aragon/osx/src/framework/plugin/repo/PluginRepo.sol";
 import {PluginSetupProcessor} from "@aragon/osx/src/framework/plugin/setup/PluginSetupProcessor.sol";
 import {TestToken} from "../test/mocks/TestToken.sol";
 
 contract Deploy is Script {
-    LockToVotePluginSetup lockToVotePluginSetup;
-
     modifier broadcast() {
         uint256 privKey = vm.envUint("DEPLOYMENT_PRIVATE_KEY");
         vm.startBroadcast(privKey);
@@ -22,181 +22,71 @@ contract Deploy is Script {
         vm.stopBroadcast();
     }
 
-    // function run() public broadcast {
-    //     // Deploy the plugin setup's
-    //     lockToVotePluginSetup = new LockToVotePluginSetup(
-    //         GovernanceERC20(vm.envAddress("GOVERNANCE_ERC20_BASE")),
-    //         GovernanceWrappedERC20(
-    //             vm.envAddress("GOVERNANCE_WRAPPED_ERC20_BASE")
-    //         )
-    //     );
+    function run() public broadcast {
+        address maintainer = vm.envAddress("PLUGIN_MAINTAINER");
+        address pluginRepoFactory = vm.envAddress("PLUGIN_REPO_FACTORY");
+        string memory ltvEnsSubdomain = vm.envString("LOCK_TO_VOTE_REPO_ENS_SUBDOMAIN");
+        string memory ltaEnsSubdomain = vm.envString("LOCK_TO_APPROVE_REPO_ENS_SUBDOMAIN");
 
-    //     console.log("Chain ID:", block.chainid);
+        // Deploy the plugin setup's
+        (address lockToVotePluginSetup, PluginRepo lockToVotePluginRepo) = prepareLockToVote(
+            maintainer,
+            PluginRepoFactory(pluginRepoFactory),
+            ltvEnsSubdomain
+        );
+        (address lockToApprovePluginSetup, PluginRepo lockToApprovePluginRepo) = prepareLockToApprove(
+            maintainer,
+            PluginRepoFactory(pluginRepoFactory),
+            ltaEnsSubdomain
+        );
 
-    //     DeploymentSettings memory settings;
-    //     if (vm.envOr("MINT_TEST_TOKENS", false)) {
-    //         settings = getTestTokenSettings();
-    //     } else {
-    //         settings = getProductionSettings();
-    //     }
+        console.log("Chain ID:", block.chainid);
 
-    //     console.log("");
+        console.log("");
 
-    //     // TODO: DEPLOY
+        console.log("Plugins");
+        console.log("- LockToVotePluginSetup:", lockToVotePluginSetup);
+        console.log("- LockToApprovePluginSetup:", lockToApprovePluginSetup);
+        console.log("");
 
-    //     // Done
-    //     printDeploymentSummary(factory, delegationWall);
-    // }
+        console.log("Plugin repositories");
+        console.log("- LockToVote plugin repository:", address(lockToVotePluginRepo));
+        console.log("- LockToApprove plugin repository:", address(lockToApprovePluginRepo));
+    }
 
-    // function getProductionSettings()
-    //     internal
-    //     view
-    //     returns (DeploymentSettings memory settings)
-    // {
-    //     console.log("Using production settings");
+    function prepareLockToVote(
+        address maintainer,
+        PluginRepoFactory pluginRepoFactory,
+        string memory ensSubdomain
+    ) internal returns (address pluginSetup, PluginRepo) {
+        // Publish repo
+        LockToVotePluginSetup lockToVotePluginSetup = new LockToVotePluginSetup();
 
-    //     settings = DeploymentSettings({
-    //         tokenAddress: IVotesUpgradeable(vm.envAddress("TOKEN_ADDRESS")),
-    //         timelockPeriod: uint32(vm.envUint("TIME_LOCK_PERIOD")),
-    //         l2InactivityPeriod: uint32(vm.envUint("L2_INACTIVITY_PERIOD")),
-    //         l2AggregationGracePeriod: uint32(
-    //             vm.envUint("L2_AGGREGATION_GRACE_PERIOD")
-    //         ),
-    //         skipL2: bool(vm.envBool("SKIP_L2")),
-    //         // Voting settings
-    //         minVetoRatio: uint32(vm.envUint("MIN_VETO_RATIO")),
-    //         minStdProposalDuration: uint32(
-    //             vm.envUint("MIN_STD_PROPOSAL_DURATION")
-    //         ),
-    //         minStdApprovals: uint16(vm.envUint("MIN_STD_APPROVALS")),
-    //         minEmergencyApprovals: uint16(
-    //             vm.envUint("MIN_EMERGENCY_APPROVALS")
-    //         ),
-    //         // OSx contracts
-    //         osxDaoFactory: vm.envAddress("DAO_FACTORY"),
-    //         pluginSetupProcessor: PluginSetupProcessor(
-    //             vm.envAddress("PLUGIN_SETUP_PROCESSOR")
-    //         ),
-    //         pluginRepoFactory: PluginRepoFactory(
-    //             vm.envAddress("PLUGIN_REPO_FACTORY")
-    //         ),
-    //         // Plugin setup's
-    //         multisigPluginSetup: MultisigPluginSetup(multisigPluginSetup),
-    //         emergencyMultisigPluginSetup: EmergencyMultisigPluginSetup(
-    //             emergencyMultisigPluginSetup
-    //         ),
-    //         lockToVotePluginSetup: LockToVotePluginSetup(lockToVotePluginSetup),
-    //         // Multisig members
-    //         multisigMembers: readMultisigMembers(),
-    //         multisigExpirationPeriod: uint32(
-    //             vm.envUint("MULTISIG_PROPOSAL_EXPIRATION_PERIOD")
-    //         ),
-    //         // ENS
-    //         stdMultisigEnsDomain: vm.envString("STD_MULTISIG_ENS_DOMAIN"),
-    //         emergencyMultisigEnsDomain: vm.envString(
-    //             "EMERGENCY_MULTISIG_ENS_DOMAIN"
-    //         ),
-    //         optimisticTokenVotingEnsDomain: vm.envString(
-    //             "OPTIMISTIC_TOKEN_VOTING_ENS_DOMAIN"
-    //         )
-    //     });
-    // }
+        PluginRepo pluginRepo = pluginRepoFactory.createPluginRepoWithFirstVersion(
+            ensSubdomain, // ENS repo subdomain left empty
+            address(lockToVotePluginSetup),
+            maintainer,
+            " ",
+            " "
+        );
+        return (address(lockToVotePluginSetup), pluginRepo);
+    }
 
-    // function getTestTokenSettings()
-    //     internal
-    //     returns (DeploymentSettings memory settings)
-    // {
-    //     console.log("Using test token settings");
+    function prepareLockToApprove(
+        address maintainer,
+        PluginRepoFactory pluginRepoFactory,
+        string memory ensSubdomain
+    ) internal returns (address pluginSetup, PluginRepo) {
+        // Publish repo
+        LockToApprovePluginSetup lockToApprovePluginSetup = new LockToApprovePluginSetup();
 
-    //     address[] memory multisigMembers = readMultisigMembers();
-    //     address votingToken = createTestToken(
-    //         multisigMembers
-    //     );
-
-    //     settings = DeploymentSettings({
-    //         tokenAddress: IVotesUpgradeable(votingToken),
-    //         timelockPeriod: uint32(vm.envUint("TIME_LOCK_PERIOD")),
-    //         l2InactivityPeriod: uint32(vm.envUint("L2_INACTIVITY_PERIOD")),
-    //         l2AggregationGracePeriod: uint32(
-    //             vm.envUint("L2_AGGREGATION_GRACE_PERIOD")
-    //         ),
-    //         skipL2: bool(vm.envBool("SKIP_L2")),
-    //         // Voting settings
-    //         minVetoRatio: uint32(vm.envUint("MIN_VETO_RATIO")),
-    //         minStdProposalDuration: uint32(
-    //             vm.envUint("MIN_STD_PROPOSAL_DURATION")
-    //         ),
-    //         minStdApprovals: uint16(vm.envUint("MIN_STD_APPROVALS")),
-    //         minEmergencyApprovals: uint16(
-    //             vm.envUint("MIN_EMERGENCY_APPROVALS")
-    //         ),
-    //         // OSx contracts
-    //         osxDaoFactory: vm.envAddress("DAO_FACTORY"),
-    //         pluginSetupProcessor: PluginSetupProcessor(
-    //             vm.envAddress("PLUGIN_SETUP_PROCESSOR")
-    //         ),
-    //         pluginRepoFactory: PluginRepoFactory(
-    //             vm.envAddress("PLUGIN_REPO_FACTORY")
-    //         ),
-    //         // Plugin setup's
-    //         multisigPluginSetup: MultisigPluginSetup(multisigPluginSetup),
-    //         emergencyMultisigPluginSetup: EmergencyMultisigPluginSetup(
-    //             emergencyMultisigPluginSetup
-    //         ),
-    //         lockToVotePluginSetup: LockToVotePluginSetup(lockToVotePluginSetup),
-    //         // Multisig members
-    //         multisigMembers: multisigMembers,
-    //         multisigExpirationPeriod: uint32(
-    //             vm.envUint("MULTISIG_PROPOSAL_EXPIRATION_PERIOD")
-    //         ),
-    //         // ENS
-    //         stdMultisigEnsDomain: vm.envString("STD_MULTISIG_ENS_DOMAIN"),
-    //         emergencyMultisigEnsDomain: vm.envString(
-    //             "EMERGENCY_MULTISIG_ENS_DOMAIN"
-    //         ),
-    //         optimisticTokenVotingEnsDomain: vm.envString(
-    //             "OPTIMISTIC_TOKEN_VOTING_ENS_DOMAIN"
-    //         )
-    //     });
-    // }
-
-    // function printDeploymentSummary(
-    // ) internal view {
-    //     DeploymentSettings memory settings = factory.getSettings();
-    //     Deployment memory daoDeployment = factory.getDeployment();
-
-    //     console.log("Factory:", address(factory));
-    //     console.log("");
-    //     console.log("DAO:", address(daoDeployment.dao));
-    //     console.log("Voting token:", address(settings.tokenAddress));
-    //     console.log("");
-
-    //     console.log("Plugins");
-    //     console.log(
-    //         "- Lock to vote plugin:",
-    //         address(daoDeployment.multisigPlugin)
-    //     );
-    //     console.log("");
-
-    //     console.log("Helpers");
-    //     console.log("- Lock Manager", address(daoDeployment.signerList));
-
-    //     console.log("");
-
-    //     console.log("Plugin repositories");
-    //     console.log(
-    //         "- Lock to vote plugin repository:",
-    //         address(daoDeployment.optimisticTokenVotingPluginRepo)
-    //     );
-    // }
-
-    // function createTestToken(
-    //     address[] memory members,
-    // ) internal returns (address) {
-    //     GovernanceERC20Mock testToken = new GovernanceERC20Mock(address(0));
-    //     console.log("Minting test tokens for the members");
-    //     testToken.mintAndDelegate(members, 10 ether);
-
-    //     return address(testToken);
-    // }
+        PluginRepo pluginRepo = pluginRepoFactory.createPluginRepoWithFirstVersion(
+            ensSubdomain,
+            address(lockToApprovePluginSetup),
+            maintainer,
+            " ",
+            " "
+        );
+        return (address(lockToApprovePluginSetup), pluginRepo);
+    }
 }

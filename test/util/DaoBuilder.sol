@@ -205,9 +205,7 @@ contract DaoBuilder is Test {
                 targetPlugin = ILockToVoteBase(address(ltvPlugin));
             }
 
-            dao.grant(address(lockManager), address(this), lockManager.UPDATE_SETTINGS_PERMISSION_ID());
             lockManager.setPluginAddress(targetPlugin);
-            dao.revoke(address(lockManager), address(this), lockManager.UPDATE_SETTINGS_PERMISSION_ID());
         }
 
         // The plugin can execute on the DAO
