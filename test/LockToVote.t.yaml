@@ -3,13 +3,20 @@ LockToVoteTest:
   - when: deploying the contract
     then:
       - it: should disable the initializers
-  - given: A new proxy
+      - it: should initialize normally
+  - given: a deployed contract
     then:
-      - when: calling initialize
+      - it: should refuse to initialize again
+  - given: a new proxy
+    and:
+      - given: calling initialize
         and:
           - it: should set the DAO address
-          - it: should initialize normally
-          - it: should define the given settings
+          - it: should define the voting settings
+          - it: should define the target config
+          - it: should define the plugin metadata
+          - it: should define the lock manager
+
   # Settings
   - when: calling updateVotingSettings()
     and:
@@ -384,10 +391,10 @@ LockToVoteTest:
                   and:
                   - it: canExecute() should return false
                   - it: hasSucceeded() should return false
-            - given: minVotingPower is not reached
-              and:
-                - it: canExecute() should return false
-                - it: hasSucceeded() should return false
+              - given: minVotingPower is not reached
+                and:
+                  - it: canExecute() should return false
+                  - it: hasSucceeded() should return false
           - given: the proposal is executed
             and:
               - it: canExecute() should return false

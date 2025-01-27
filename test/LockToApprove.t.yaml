@@ -3,13 +3,21 @@ LockToApproveTest:
   - when: deploying the contract
     then:
       - it: should disable the initializers
-  - given: A new proxy
+      - it: should initialize normally
+  - given: a deployed contract
     then:
-      - when: calling initialize
+      - it: should refuse to initialize again
+  - given: a new proxy
+    and:
+      - given: calling initialize
         and:
           - it: should set the DAO address
-          - it: should initialize normally
-          - it: should define the given settings
+          - it: should define the approval settings
+          - it: should define the target config
+          - it: should define the plugin metadata
+          - it: should define the lock manager
+
+  # Settings
   - when: calling updateSettings
     and:
       - when: updateSettings without the permission
@@ -175,6 +183,14 @@ LockToApproveTest:
         then:
           - it: Should revert regardless of the permission
 
+  - when: Underlying token is not defined
+    then:
+      - it: Should use the lockable token's balance to compute the approval ratio
+
+  - when: Underlying token is defined
+    then:
+      - it: Should use the underlying token's balance to compute the approval ratio
+  
   # Getters
   - when: Calling isMember
     then:

@@ -96,8 +96,24 @@ contract LockToApproveTest is AragonTest {
         );
     }
 
+    function test_GivenADeployedContract() external {
+        // It should refuse to initialize again
+
+        vm.skip(true);
+    }
+
     modifier givenANewProxy() {
         _;
+    }
+
+    function test_GivenCallingInitialize() external givenANewProxy {
+        // It should set the DAO address
+        // It should define the approval settings
+        // It should define the target config
+        // It should define the plugin metadata
+        // It should define the lock manager
+
+        vm.skip(true);
     }
 
     function test_WhenCallingInitialize() public givenANewProxy {
@@ -559,7 +575,7 @@ contract LockToApproveTest is AragonTest {
         plugin.approve(proposalId, carol, 100000);
     }
 
-    function test_WhenCallingClearApprove() public givenProposalCreated givenNoLockManagerPermission {
+    function test_WhenCallingClearApproval() public givenProposalCreated givenNoLockManagerPermission {
         // It Reverts, regardless of the balance
 
         vm.startPrank(address(lockManager));
@@ -669,6 +685,29 @@ contract LockToApproveTest is AragonTest {
         (, , , approvalTally, , , ) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0.25 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.25 ether);
+    }
+
+    function test_WhenCallingClearApprovalNoApproveBalance()
+        external
+        givenProposalCreated
+        givenLockManagerPermissionIsGranted
+        givenProposalCreatedAndStarted
+    {
+        // It Should do nothing
+        vm.skip(true);
+    }
+
+    function test_WhenCallingClearApprovalWithApproveBalance()
+        external
+        givenProposalCreated
+        givenLockManagerPermissionIsGranted
+        givenProposalCreatedAndStarted
+    {
+        // It Should unassign the current approver's approval
+        // It Should decrease the proposal tally by the right amount
+        // It Should emit an event
+        // It usedVotingPower should return the right value
+        vm.skip(true);
     }
 
     function test_WhenCallingClearApproveNoApproveBalance()
@@ -782,7 +821,7 @@ contract LockToApproveTest is AragonTest {
         assertFalse(plugin.canExecute(proposalId));
     }
 
-    function test_WhenCallingApproveOrClearApproveDefeated() public givenProposalDefeated {
+    function test_WhenCallingApproveOrClearApprovalDefeated() public givenProposalDefeated {
         // It Should revert for vote, despite having the permission
         // It Should do nothing for clearApprove
 
@@ -885,7 +924,7 @@ contract LockToApproveTest is AragonTest {
         assertFalse(open);
     }
 
-    function test_WhenCallingApproveOrClearApprovePassed() public givenProposalPassed {
+    function test_WhenCallingApproveOrClearApprovalPassed() public givenProposalPassed {
         // It Should revert, despite having the permission
 
         vm.warp(block.timestamp + 10 days);
@@ -1030,7 +1069,7 @@ contract LockToApproveTest is AragonTest {
         assertFalse(plugin.canExecute(proposalId));
     }
 
-    function test_WhenCallingApproveOrClearApproveExecuted() public givenProposalExecuted {
+    function test_WhenCallingApproveOrClearApprovalExecuted() public givenProposalExecuted {
         // It Should revert, despite having the permission
 
         vm.startPrank(address(lockManager));
@@ -1055,6 +1094,16 @@ contract LockToApproveTest is AragonTest {
 
         vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ProposalExecutionForbidden.selector, proposalId));
         plugin.execute(proposalId);
+    }
+
+    function test_WhenUnderlyingTokenIsNotDefined() external {
+        // It Should use the lockable token's balance to compute the approval ratio
+        vm.skip(true);
+    }
+
+    function test_WhenUnderlyingTokenIsDefined() external {
+        // It Should use the underlying token's balance to compute the approval ratio
+        vm.skip(true);
     }
 
     function test_WhenCallingIsMember() public {
@@ -1086,12 +1135,12 @@ contract LockToApproveTest is AragonTest {
         assertEq(plugin.customProposalParamsABI(), "(uint256 allowFailureMap)");
     }
 
-    modifier givenUpdateVotingSettingsPermissionGranted() {
+    modifier givenUpdateApprovalSettingsPermissionGranted() {
         dao.grant(address(plugin), alice, UPDATE_SETTINGS_PERMISSION_ID);
         _;
     }
 
-    function test_WhenCallingUpdatePluginSettingsGranted() public givenUpdateVotingSettingsPermissionGranted {
+    function test_WhenCallingUpdatePluginSettingsGranted() public givenUpdateApprovalSettingsPermissionGranted {
         // It Should set the new values
         // It Settings() should return the right values
 
@@ -1109,12 +1158,12 @@ contract LockToApproveTest is AragonTest {
         assertEq(minVp, 505050505);
     }
 
-    modifier givenNoUpdateVotingSettingsPermission() {
+    modifier givenNoUpdateApprovalSettingsPermission() {
         dao.revoke(address(plugin), alice, UPDATE_SETTINGS_PERMISSION_ID);
         _;
     }
 
-    function test_RevertWhen_CallingUpdatePluginSettingsNotGranted() public givenNoUpdateVotingSettingsPermission {
+    function test_RevertWhen_CallingUpdatePluginSettingsNotGranted() public givenNoUpdateApprovalSettingsPermission {
         // It Should revert
 
         LockToApprovePlugin.ApprovalSettings memory newSettings = LockToApprovePlugin.ApprovalSettings({

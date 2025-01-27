@@ -211,7 +211,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
             return;
         } else if (!_isProposalOpen(proposal_)) {
             revert VoteRemovalForbidden(_proposalId, _voter);
-        } else if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
+        } else if (proposal_.parameters.votingMode != VotingMode.VoteReplacement) {
             revert VoteRemovalForbidden(_proposalId, _voter);
         }
 

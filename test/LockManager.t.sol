@@ -796,11 +796,9 @@ contract LockManagerTest is AragonTest {
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
     }
 
-    function test_WhenCallingVoteMoreLockedBalance3()
-        external
-        // givenProposalOnLockToVote
-        // givenLockedTokens
-        // givenNoTokenAllowanceSomeLocked
+    function test_WhenCallingVoteMoreLockedBalance3() external // givenProposalOnLockToVote
+    // givenLockedTokens
+    // givenNoTokenAllowanceSomeLocked
     {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
             .withVoteReplacement()
@@ -971,11 +969,9 @@ contract LockManagerTest is AragonTest {
         assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether + allowance);
     }
 
-    function test_WhenCallingLockAndVoteWithPriorPower4()
-        external
-        // givenLockedTokens
-        // givenWithTokenAllowanceSomeLocked
-        // givenProposalOnLockToVote
+    function test_WhenCallingLockAndVoteWithPriorPower4() external // givenLockedTokens
+    // givenWithTokenAllowanceSomeLocked
+    // givenProposalOnLockToVote
     {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
             .withVoteReplacement()
@@ -1024,11 +1020,9 @@ contract LockManagerTest is AragonTest {
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
     }
 
-    function test_WhenCallingVoteMoreLockedBalance4()
-        external
-        // givenProposalOnLockToVote
-        // givenLockedTokens
-        // givenWithTokenAllowanceSomeLocked
+    function test_WhenCallingVoteMoreLockedBalance4() external // givenProposalOnLockToVote
+    // givenLockedTokens
+    // givenWithTokenAllowanceSomeLocked
     {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
             .withVoteReplacement()
@@ -1388,6 +1382,15 @@ contract LockManagerTest is AragonTest {
         lockManager.unlock();
     }
 
+    function test_RevertWhen_TryingToUnlock4VotedStrict2()
+        external
+        givenStrictModeIsSet
+        givenLockedAndVotedOnCurrentlyActiveProposalsStrict
+    {
+        // It Should revert
+        vm.skip(true);
+    }
+
     modifier givenFlexibleModeIsSet() {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
             .withTokenHolder(alice, 1 ether)
@@ -1446,7 +1449,7 @@ contract LockManagerTest is AragonTest {
         _;
     }
 
-    function test_WhenTryingToUnlock2VotingFlexible()
+    function test_WhenTryingToUnlock2VotedFlexible()
         external
         // givenProposalOnLockToVote
         // givenFlexibleModeIsSet
@@ -1507,6 +1510,136 @@ contract LockManagerTest is AragonTest {
 
     modifier givenLockedButVotedOnEndedOrExecutedProposalsFlexible() {
         _;
+    }
+
+    function test_WhenTryingToUnlock3Flexible()
+        external
+        givenFlexibleModeIsSet
+        givenLockedButVotedOnEndedOrExecutedProposalsFlexible
+    {
+        // It Should unlock and refund the full amount right away
+        // It Should emit an event
+
+        vm.skip(true);
+    }
+
+    modifier givenLockedAndApprovedCurrentlyActiveProposalsFlexible() {
+        _;
+    }
+
+    function test_WhenTryingToUnlock4ApprovedFlexible()
+        external
+        givenFlexibleModeIsSet
+        givenLockedAndApprovedCurrentlyActiveProposalsFlexible
+    {
+        // It Should deallocate the existing voting power from active proposals
+        // It Should unlock and refund the full amount
+        // It Should emit an event
+
+        vm.skip(true);
+    }
+
+    modifier givenLockedAndVotedOnCurrentlyActiveProposalsFlexible() {
+        _;
+    }
+
+    function test_WhenTryingToUnlock4VotedFlexible()
+        external
+        // givenProposalOnLockToVote
+        // givenFlexibleModeIsSet
+        givenLockedAndVotedOnCurrentlyActiveProposalsFlexible
+    {
+        // STANDARD VOTING
+
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
+            .withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether)
+            .withTokenHolder(carol, 10 ether)
+            .withTokenHolder(david, 15 ether)
+            .withVotingPlugin()
+            .withStandardVoting()
+            .withEarlyUnlock()
+            .build();
+
+        Action[] memory _actions = new Action[](0);
+        proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
+        // It Should deallocate the existing voting power from active proposals
+        // It Should unlock and refund the full amount
+        // It Should emit an event
+
+        // vm.startPrank(alice);
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether);
+
+        uint256 initialBalance = lockableToken.balanceOf(alice);
+        vm.expectRevert(abi.encodeWithSelector(LockToVotePlugin.VoteRemovalForbidden.selector, proposalId, alice));
+        lockManager.unlock();
+
+        assertEq(lockableToken.balanceOf(alice), initialBalance);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether);
+
+        // VOTE REPLACEMENT
+
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
+            .withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether)
+            .withTokenHolder(carol, 10 ether)
+            .withTokenHolder(david, 15 ether)
+            .withVotingPlugin()
+            .withVoteReplacement()
+            .withEarlyUnlock()
+            .build();
+
+        _actions = new Action[](0);
+        proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
+        // It Should deallocate the existing voting power from active proposals
+        // It Should unlock and refund the full amount
+        // It Should emit an event
+
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether);
+
+        initialBalance = lockableToken.balanceOf(alice);
+        vm.expectEmit();
+        emit BalanceUnlocked(alice, 0.1 ether);
+        lockManager.unlock();
+
+        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0);
+
+        // EARLY EXECUTE
+
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
+            .withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether)
+            .withTokenHolder(carol, 10 ether)
+            .withTokenHolder(david, 15 ether)
+            .withVotingPlugin()
+            .withEarlyExecution()
+            .withEarlyUnlock()
+            .build();
+
+        _actions = new Action[](0);
+        proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
+        // It Should deallocate the existing voting power from active proposals
+        // It Should unlock and refund the full amount
+        // It Should emit an event
+
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether);
+
+        initialBalance = lockableToken.balanceOf(alice);
+        vm.expectRevert(abi.encodeWithSelector(LockToVotePlugin.VoteRemovalForbidden.selector, proposalId, alice));
+        lockManager.unlock();
+
+        assertEq(lockableToken.balanceOf(alice), initialBalance);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether);
     }
 
     function test_WhenTryingToUnlock3VotedFlexible()
@@ -1570,46 +1703,6 @@ contract LockManagerTest is AragonTest {
 
         assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
         assertEq(ltaPlugin.usedVotingPower(proposalId, alice), 0);
-    }
-
-    modifier givenLockedAndVotedOnCurrentlyActiveProposalsFlexible() {
-        _;
-    }
-
-    function test_WhenTryingToUnlock4VotingFlexible()
-        external
-        // givenProposalOnLockToVote
-        // givenFlexibleModeIsSet
-        givenLockedAndVotedOnCurrentlyActiveProposalsFlexible
-    {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether)
-            .withTokenHolder(carol, 10 ether)
-            .withTokenHolder(david, 15 ether)
-            .withVotingPlugin()
-            .withEarlyUnlock()
-            .build();
-
-        Action[] memory _actions = new Action[](0);
-        proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
-
-        // It Should deallocate the existing voting power from active proposals
-        // It Should unlock and refund the full amount
-        // It Should emit an event
-
-        // vm.startPrank(alice);
-        lockableToken.approve(address(lockManager), 0.1 ether);
-        lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether);
-
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-        vm.expectEmit();
-        emit BalanceUnlocked(alice, 0.1 ether);
-        lockManager.unlock();
-
-        assertEq(lockableToken.balanceOf(alice), initialBalance + 0.1 ether);
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0);
     }
 
     function test_WhenCallingPlugin() external view {
