@@ -1,0 +1,14 @@
+MinVotingPowerConditionTest:
+- when: deploying the contract
+  then:
+    - it: records the given plugin address
+    - it: records the plugin's token address
+- when: calling isGranted
+  then:
+    - given: a plugin with zero minimum voting power
+      then:
+        - it: should return true
+    - given: a plugin with a minimum voting power
+      then:
+        - it: should return true when 'who' holds the minimum voting power
+        - it: should return false when 'who' holds less than the minimum voting power

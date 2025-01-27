@@ -1,0 +1,22 @@
+LockToApprovePluginSetupTest:
+  - when: deploying a new instance
+    then:
+      - it: completes without errors
+  - when: preparing an installation
+    and:
+      - when: passing an invalid token contract
+        then:
+          - it: should revert
+      - it: should return the plugin address
+      - it: should return a list with the 3 helpers
+      - it: all plugins use the same implementation
+      - it: the plugin has the given settings
+      - it: should set the address of the lockManager on the plugin
+      - it: the plugin should have the right lockManager address
+      - it: the list of permissions should match
+  - when: preparing an uninstallation
+    and:
+      - given: a list of helpers with more or less than 3
+        then: 
+          - it: should revert
+      - it: generates a correct list of permission changes

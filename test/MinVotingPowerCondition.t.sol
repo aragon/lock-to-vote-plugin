@@ -38,7 +38,24 @@ contract MinVotingPowerConditionTest is AragonTest {
             .build();
     }
 
-    function test_Unimplemeneted() public {
+    function test_WhenDeployingTheContract() external {
+        // It records the given plugin address
+        // It records the plugin's token address
+        vm.skip(true);
+    }
+
+    modifier whenCallingIsGranted() {
+        _;
+    }
+
+    function test_GivenAPluginWithZeroMinimumVotingPower() external whenCallingIsGranted {
+        // It should return true
+        vm.skip(true);
+    }
+
+    function test_GivenAPluginWithAMinimumVotingPower() external whenCallingIsGranted {
+        // It should return true when 'who' holds the minimum voting power
+        // It should return false when 'who' holds less than the minimum voting power
         vm.skip(true);
     }
 }
