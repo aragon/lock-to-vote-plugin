@@ -8,23 +8,25 @@ NOTE: This repository is a work in progress, **not ready for production use yet*
 **A gas-efficient pair of governance plugins, enabling immediate voting through token locking**  
 Built on Aragon OSx's modular framework, LockToVote and LockToApprove redefine DAO participation by eliminating the need for ahead of time token snapshots with an [IVotes](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/governance/utils/IVotes.sol) compatible token. Any vanilla ERC20 can now be used to participate in DAO governance.
 
-## Use Cases
+## Two flavours
 
-### `LockToApprove`
-
-Simplified binary approvals, designed for proposals requiring straightforward consent:
-- **Weighted approvals or vetoes**: Token holders lock funds to approve or object to proposals
-- **Gas friendly tokens**: Avoids the overhead of tracking past token balances (ideal for ERC20 tokens without `IVotes` support)
+![Overview](./img/overview.png)
 
 ### `LockToVote`
 
-Advanced voting with configurable modes, built for nuanced governance scenarios:
+Feature rich voting with configurable modes, built for nuanced governance scenarios:
 - **Multi-option voting**: Vote Yes/No/Abstain
 - **Three voting modes**: 
   - **Vote Replacement**: Update your vote option mid-proposal
   - **Early Execution**: Automatically execute proposals when thresholds are mathematically secured
   - **Standard Mode**: Traditional voting with append-only allocations
-- **Parameterized thresholds**: Enforce minimum participation, support ratios, and absolute approval requirements
+- **Parameterized thresholds**: Enforce a minimum participation, a certain support threshold, and a certain approval tally
+
+### `LockToApprove`
+
+Simple binary approvals, designed for proposals requiring straightforward consent:
+- **Weighted approvals or vetoes**: Token holders lock funds to approve or object to proposals
+- **Gas friendly tokens**: Avoids the overhead of tracking past token balances (ideal for ERC20 tokens without `IVotes` support)
 
 ## Architecture Overview
 
