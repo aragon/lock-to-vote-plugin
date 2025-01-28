@@ -558,12 +558,16 @@ abstract contract MajorityVotingBase is
     ) internal view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
+        // Support threshold, depending on the status and mode
         if (_isProposalOpen(proposal_)) {
-            // Early execution
-            if (proposal_.parameters.votingMode != VotingMode.EarlyExecution) {
+            // If the proposal is still open and the voting mode is VoteReplacement,
+            // success cannot be determined until the voting period ends.
+            if (proposal_.parameters.votingMode == VotingMode.VoteReplacement) {
                 return false;
             }
-            if (!isSupportThresholdReachedEarly(_proposalId)) {
+            // For Standard and EarlyExecution modes, check if the support threshold
+            // has been reached early to determine success while proposal is still open.
+            else if (!isSupportThresholdReachedEarly(_proposalId)) {
                 return false;
             }
         } else {
@@ -572,10 +576,12 @@ abstract contract MajorityVotingBase is
                 return false;
             }
         }
+
+        // Check the rest
         if (!isMinVotingPowerReached(_proposalId)) {
             return false;
         }
-        if (!isMinApprovalReached(_proposalId)) {
+        else if (!isMinApprovalReached(_proposalId)) {
             return false;
         }
 
@@ -594,9 +600,19 @@ abstract contract MajorityVotingBase is
         // Verify that the vote has not been executed already.
         if (proposal_.executed) {
             return false;
+        } else if(!_hasSucceeded(_proposalId)) {
+            return false;
+        }
+        /// @dev Handling the case of Standard and VoteReplacement voting modes
+        /// @dev Enforce waiting until endDate, which is not covered by _hasSucceeded()
+        else if (
+            proposal_.parameters.votingMode != VotingMode.EarlyExecution &&
+            block.timestamp.toUint64() < proposal_.parameters.endDate
+        ) {
+            return false;
         }
 
-        return _hasSucceeded(_proposalId);
+        return true;
     }
 
     /// @notice Internal function to check if a proposal is still open.
