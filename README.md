@@ -1,11 +1,10 @@
 # Lock to Vote Plugin
 
 [![Built with Foundry](https://img.shields.io/badge/Built%20with-Foundry-FF6E3D?logo=ethereum)](https://book.getfoundry.sh/)
-[![License: MIT](https://img.shields.io/badge/License-AGPLv3-blue.svg)](LICENSE.md)
 
 NOTE: This repository is a work in progress, **not ready for production use yet**.
 
-**A gas-efficient pair of governance plugins, enabling immediate voting through token locking**  
+**A gas-efficient pair of governance plugins, enabling immediate voting through token locking**
 Built on Aragon OSx's modular framework, LockToVote and LockToApprove redefine DAO participation by eliminating the need for ahead of time token snapshots with an [IVotes](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/governance/utils/IVotes.sol) compatible token. Any vanilla ERC20 can now be used to participate in DAO governance.
 
 ## Two flavours
@@ -16,7 +15,7 @@ Built on Aragon OSx's modular framework, LockToVote and LockToApprove redefine D
 
 Feature rich voting with configurable modes, built for nuanced governance scenarios:
 - **Multi-option voting**: Vote Yes/No/Abstain
-- **Three voting modes**: 
+- **Three voting modes**:
   - **Vote Replacement**: Update your vote option mid-proposal
   - **Early Execution**: Automatically execute proposals when thresholds are mathematically secured
   - **Standard Mode**: Traditional voting with append-only allocations
