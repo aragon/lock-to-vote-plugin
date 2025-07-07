@@ -1,188 +1,250 @@
 .DEFAULT_TARGET: help
 
-# Import the .env files and export their values (ignore any error if missing)
--include .env
+# Import settings and constants
+include .env
 
-# RULE SPECIFIC ENV VARS [optional]
-
-# Override the verifier and block explorer parameters (network dependent)
-deploy-testnet: export ETHERSCAN_API_KEY_PARAM = --etherscan-api-key $(ETHERSCAN_API_KEY)
-deploy-prodnet: export ETHERSCAN_API_KEY_PARAM = --etherscan-api-key $(ETHERSCAN_API_KEY)
-# deploy-testnet: export VERIFIER_TYPE_PARAM = --verifier blockscout
-# deploy-testnet: export VERIFIER_URL_PARAM = --verifier-url "https://server/api\?"
+SHELL:=/bin/bash
 
 # CONSTANTS
 
-TEST_COVERAGE_SRC_FILES:=$(wildcard test/*.sol test/**/*.sol script/*.sol script/**/*.sol src/escrow/increasing/delegation/*.sol src/libs/ProxyLib.sol)
-DEPLOY_SCRIPT:=script/Deploy.s.sol:Deploy
-VERBOSITY:=-vvv
-SHELL:=/bin/bash
+# NOTE: Choose the appropriate deployment script
+DEPLOYMENT_SCRIPT := DeployNewPluginRepo
 
-SOLIDITY_VERSION=0.8.17
-TEST_TREE_MARKDOWN=TEST_TREE.md
-SOURCE_FILES=$(wildcard test/*.t.yaml test/integration/*.t.yaml)
-TREE_FILES = $(SOURCE_FILES:.t.yaml=.tree)
-TARGET_TEST_FILES = $(SOURCE_FILES:.tree=.t.sol)
-MAKE_TEST_TREE=deno run ./test/script/make-test-tree.ts
-MAKEFILE=Makefile
+SOLC_VERSION := $(shell cat foundry.toml | grep solc | cut -d= -f2 | xargs echo || echo "0.8.28")
+SUPPORTED_VERIFIERS := etherscan blockscout sourcify routescan-mainnet routescan-testnet
+MAKE_TEST_TREE_CMD := deno run ./script/make-test-tree.ts
+VERIFY_CONTRACTS_SCRIPT := script/verify-contracts.sh
+TEST_TREE_MARKDOWN := TESTS.md
+ARTIFACTS_FOLDER := ./artifacts
+LOGS_FOLDER := ./logs
+VERBOSITY := -vvv
+
+# Remove quotes
+NETWORK_NAME:=$(strip $(subst ',, $(subst ",,$(NETWORK_NAME))))
+CHAIN_ID:=$(strip $(subst ',, $(subst ",,$(CHAIN_ID))))
+VERIFIER:=$(strip $(subst ',, $(subst ",,$(VERIFIER))))
+
+TEST_COVERAGE_SRC_FILES := $(wildcard test/*.sol test/**/*.sol src/*.sol src/**/*.sol)
+TEST_SOURCE_FILES := $(wildcard test/*.t.yaml test/fork-tests/*.t.yaml)
+TEST_TREE_FILES := $(TEST_SOURCE_FILES:.t.yaml=.tree)
+DEPLOYMENT_ADDRESS := $(shell cast wallet address --private-key $(DEPLOYMENT_PRIVATE_KEY) 2>/dev/null || echo "NOTE: DEPLOYMENT_PRIVATE_KEY is not properly set on .env" > /dev/stderr)
+DEPLOYMENT_SCRIPT_PARAM := script/$(DEPLOYMENT_SCRIPT).s.sol:$(DEPLOYMENT_SCRIPT)Script
+
+DEPLOYMENT_LOG_FILE=deployment-$(NETWORK_NAME)-$(shell date +"%y-%m-%d-%H-%M").log
+
+# Check values
+
+ifeq ($(filter $(VERIFIER),$(SUPPORTED_VERIFIERS)),)
+  $(error Unknown verifier: $(VERIFIER). It must be one of: $(SUPPORTED_VERIFIERS))
+endif
+
+# Conditional assignments
+
+ifeq ($(VERIFIER), etherscan)
+	# VERIFIER_URL := https://api.etherscan.io/api
+	VERIFIER_API_KEY := $(ETHERSCAN_API_KEY)
+	VERIFIER_PARAMS := --verifier $(VERIFIER) --etherscan-api-key $(ETHERSCAN_API_KEY)
+endif
+
+ifeq ($(VERIFIER), blockscout)
+	VERIFIER_URL := https://$(BLOCKSCOUT_HOST_NAME)/api\?
+	VERIFIER_API_KEY := ""
+	VERIFIER_PARAMS = --verifier $(VERIFIER) --verifier-url "$(VERIFIER_URL)"
+endif
+
+# ifeq ($(VERIFIER), sourcify)
+# endif
+
+ifneq ($(filter $(VERIFIER), routescan-mainnet routescan-testnet),)
+	ifeq ($(VERIFIER), routescan-mainnet)
+		VERIFIER_URL := https://api.routescan.io/v2/network/mainnet/evm/$(CHAIN_ID)/etherscan
+	else
+		VERIFIER_URL := https://api.routescan.io/v2/network/testnet/evm/$(CHAIN_ID)/etherscan
+	endif
+
+	VERIFIER := custom
+	VERIFIER_API_KEY := "verifyContract"
+	VERIFIER_PARAMS = --verifier $(VERIFIER) --verifier-url '$(VERIFIER_URL)' --etherscan-api-key $(VERIFIER_API_KEY)
+endif
+
+# When invoked like `make deploy slow=true`
+ifeq ($(slow),true)
+	SLOW_FLAG := --slow
+endif
 
 # TARGETS
 
 .PHONY: help
-help:
-	@echo "Available targets:"
-	@grep -E '^[a-zA-Z0-9_-]*:.*?## .*$$' Makefile \
-		| sed -n 's/^\(.*\): \(.*\)##\(.*\)/- make \1  \3/p' \
-		| sed 's/^- make    $$//g'
+help: ## Display the available targets
+	@echo -e "Available targets:\n"
+	@cat Makefile | while IFS= read -r line; do \
+	   if [[ "$$line" == "##" ]]; then \
+			echo "" ; \
+		elif [[ "$$line" =~ ^##\ (.*)$$ ]]; then \
+			printf "\n$${BASH_REMATCH[1]}\n\n" ; \
+		elif [[ "$$line" =~ ^([^:]+):(.*)##\ (.*)$$ ]]; then \
+			printf "%s %-*s %s\n" "- make" 18 "$${BASH_REMATCH[1]}" "$${BASH_REMATCH[3]}" ; \
+		fi ; \
+	done
 
-: ## 
+##
 
 .PHONY: init
-init: .env ##     Check the dependencies and prompt to install if needed
-	@which deno > /dev/null && echo "Deno is available" || echo "Install Deno:  curl -fsSL https://deno.land/install.sh | sh"
-	@which bulloak > /dev/null && echo "bulloak is available" || echo "Install bulloak:  cargo install bulloak"
-
+init: ## Check the dependencies and prompt to install if needed
 	@which forge > /dev/null || curl -L https://foundry.paradigm.xyz | bash
-	@forge build
 	@which lcov > /dev/null || echo "Note: lcov can be installed by running 'sudo apt install lcov'"
+	@forge build
 
 .PHONY: clean
-clean: ##    Clean the build artifacts
-	rm -f $(TREE_FILES)
-	rm -f $(TEST_TREE_MARKDOWN)
+clean: ## Clean the build artifacts
+	forge clean
+	rm -f $(TEST_TREE_FILES)
 	rm -Rf ./out/* lcov.info* ./report/*
 
-: ## 
+## Testing lifecycle:
+
+# Run tests faster, locally
+test: export ETHERSCAN_API_KEY=
 
 .PHONY: test
-test: ##          Run unit tests, locally
-	forge test $(VERBOSITY)
-# forge test --no-match-path $(FORK_TEST_WILDCARD) $(VERBOSITY)
+test: ## Run unit tests, locally
+	forge test $(VERBOSITY) --no-match-path ./test/fork-tests/*.sol
+
+.PHONY: test-fork
+test-fork: ## Run fork tests, using RPC_URL
+	forge test $(VERBOSITY) --match-path ./test/fork-tests/*.sol
 
 test-coverage: report/index.html ## Generate an HTML coverage report under ./report
-	@which open > /dev/null && open report/index.html || echo -n
-	@which xdg-open > /dev/null && xdg-open report/index.html || echo -n
+	@which open > /dev/null && open report/index.html || true
+	@which xdg-open > /dev/null && xdg-open report/index.html || true
 
-report/index.html: lcov.info.pruned
-	genhtml $^ -o report --branch-coverage
-
-lcov.info.pruned: lcov.info
-	lcov --remove $< -o ./$@ $^
+report/index.html: lcov.info
+	genhtml $^ -o report
 
 lcov.info: $(TEST_COVERAGE_SRC_FILES)
 	forge coverage --report lcov
-#	forge coverage --no-match-path $(FORK_TEST_WILDCARD) --report lcov
 
-: ## 
+##
 
-sync-tests: $(TREE_FILES) ##     Scaffold or sync tree files into solidity tests
+sync-tests: $(TEST_TREE_FILES) ## Scaffold or sync test definitions into solidity tests
 	@for file in $^; do \
 		if [ ! -f $${file%.tree}.t.sol ]; then \
 			echo "[Scaffold]   $${file%.tree}.t.sol" ; \
-			bulloak scaffold -s $(SOLIDITY_VERSION) --vm-skip -w $$file ; \
+			bulloak scaffold -s $(SOLC_VERSION) --vm-skip -w $$file ; \
 		else \
 			echo "[Sync file]  $${file%.tree}.t.sol" ; \
 			bulloak check --fix $$file ; \
 		fi \
 	done
 
-check-tests: $(TREE_FILES) ##    Checks if solidity files are out of sync
+	@make test-tree
+
+check-tests: $(TEST_TREE_FILES) ## Checks if the solidity test files are out of sync
 	bulloak check $^
 
-markdown-tests: $(TEST_TREE_MARKDOWN) ## Generates a markdown file with the test definitions rendered as a tree
+test-tree: $(TEST_TREE_MARKDOWN) ## Generates a markdown file with the test definitions
 
-# Internal targets
-
-# Generate a markdown file with the test trees
-$(TEST_TREE_MARKDOWN): $(TREE_FILES)
-	@echo "[Markdown]   TEST_TREE.md"
+# Generate single a markdown file with the test trees
+$(TEST_TREE_MARKDOWN): $(TEST_TREE_FILES)
+	@echo "[Markdown]   $(@)"
 	@echo "# Test tree definitions" > $@
 	@echo "" >> $@
-	@echo "Below is the graphical definition of the contract tests implemented on [the test folder](./test)" >> $@
+	@echo "Below is the graphical summary of the tests described within [test/*.t.yaml](./test)" >> $@
 	@echo "" >> $@
 
 	@for file in $^; do \
 		echo "\`\`\`" >> $@ ; \
 		cat $$file >> $@ ; \
 		echo "\`\`\`" >> $@ ; \
-		echo "" >> $@ ; \
 	done
 
 # Internal dependencies and transformations
 
-$(TREE_FILES): $(SOURCE_FILES)
+$(TEST_TREE_FILES): $(TEST_SOURCE_FILES)
 
 %.tree: %.t.yaml
+	@if ! command -v deno >/dev/null 2>&1; then \
+	    echo "Note: deno can be installed by running 'curl -fsSL https://deno.land/install.sh | sh'" ; \
+	    exit 1 ; \
+	fi
+	@if ! command -v bulloak >/dev/null 2>&1; then \
+	    echo "Note: bulloak can be installed by running 'cargo install bulloak'" ; \
+	    exit 1 ; \
+	fi
+
 	@for file in $^; do \
 	  echo "[Convert]    $$file -> $${file%.t.yaml}.tree" ; \
-		cat $$file | $(MAKE_TEST_TREE) > $${file%.t.yaml}.tree ; \
+		cat $$file | $(MAKE_TEST_TREE_CMD) > $${file%.t.yaml}.tree ; \
 	done
 
-# Copy the .env files if not present
-.env:
-	cp .env.example .env
-	@echo "NOTE: Edit the correct values of .env before you continue"
+## Deployment targets:
 
-: ## 
+predeploy: export SIMULATION=true
 
-#### Deployment targets ####
-
-pre-deploy-testnet: export RPC_URL = $(TESTNET_RPC_URL)
-pre-deploy-testnet: export NETWORK = $(TESTNET_NETWORK)
-pre-deploy-prodnet: export RPC_URL = $(PRODNET_RPC_URL)
-pre-deploy-prodnet: export NETWORK = $(PRODNET_NETWORK)
-
-pre-deploy-testnet: pre-deploy ##      Simulate a deployment to the testnet
-pre-deploy-prodnet: pre-deploy ##      Simulate a deployment to the production network
-
-: ## 
-
-deploy-testnet: export RPC_URL = $(TESTNET_RPC_URL)
-deploy-testnet: export NETWORK = $(TESTNET_NETWORK)
-deploy-prodnet: export RPC_URL = $(PRODNET_RPC_URL)
-deploy-prodnet: export NETWORK = $(PRODNET_NETWORK)
-
-deploy-testnet: export DEPLOYMENT_LOG_FILE=./deployment-$(TESTNET_NETWORK)-$(shell date +"%y-%m-%d-%H-%M").log
-deploy-prodnet: export DEPLOYMENT_LOG_FILE=./deployment-$(PRODNET_NETWORK)-$(shell date +"%y-%m-%d-%H-%M").log
-
-deploy-testnet: deploy ##      Deploy to the testnet and verify
-deploy-prodnet: deploy ##      Deploy to the production network and verify
-
-.PHONY: pre-deploy
-pre-deploy:
+.PHONY: predeploy
+predeploy: ## Simulate a protocol deployment
 	@echo "Simulating the deployment"
-	forge script $(DEPLOY_SCRIPT) \
-		--chain $(NETWORK) \
+	forge script $(DEPLOYMENT_SCRIPT_PARAM) \
 		--rpc-url $(RPC_URL) \
 		$(VERBOSITY)
 
 .PHONY: deploy
-deploy: test
+deploy: test ## Deploy the protocol, verify the source code and write to ./artifacts
 	@echo "Starting the deployment"
-	@mkdir -p logs/
-	forge script $(DEPLOY_SCRIPT) \
-		--chain $(NETWORK) \
+	@mkdir -p $(LOGS_FOLDER) $(ARTIFACTS_FOLDER)
+	forge script $(DEPLOYMENT_SCRIPT_PARAM) \
 		--rpc-url $(RPC_URL) \
+		--retries 10 \
+		--delay 8 \
 		--broadcast \
+		$(SLOW_FLAG) \
 		--verify \
-		$(VERIFIER_TYPE_PARAM) \
-		$(VERIFIER_URL_PARAM) \
-		$(ETHERSCAN_API_KEY_PARAM) \
-		$(VERBOSITY) | tee logs/$(DEPLOYMENT_LOG_FILE)
+		$(VERIFIER_PARAMS) \
+		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
 
-: ## 
+.PHONY: resume
+resume: test ## Retry pending deployment transactions, verify the code and write to ./artifacts
+	@echo "Retrying the deployment"
+	@mkdir -p $(LOGS_FOLDER) $(ARTIFACTS_FOLDER)
+	forge script $(DEPLOYMENT_SCRIPT_PARAM) \
+		--rpc-url $(RPC_URL) \
+		--retries 10 \
+		--delay 8 \
+		--broadcast \
+		$(SLOW_FLAG) \
+		--verify \
+		--resume \
+		$(VERIFIER_PARAMS) \
+		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
 
-refund: export DEPLOYMENT_ADDRESS = $(shell cast wallet address --private-key $(DEPLOYMENT_PRIVATE_KEY))
+## Verification:
+
+.PHONY: verify-etherscan
+verify-etherscan: broadcast/$(DEPLOYMENT_SCRIPT).s.sol/$(CHAIN_ID)/run-latest.json ## Verify the last deployment on an Etherscan (compatible) explorer
+	forge build
+	bash $(VERIFY_CONTRACTS_SCRIPT) $(CHAIN_ID) $(VERIFIER) $(VERIFIER_URL) $(VERIFIER_API_KEY)
+
+.PHONY: verify-blockscout
+verify-blockscout: broadcast/$(DEPLOYMENT_SCRIPT).s.sol/$(CHAIN_ID)/run-latest.json ## Verify the last deployment on BlockScout
+	forge build
+	bash $(VERIFY_CONTRACTS_SCRIPT) $(CHAIN_ID) $(VERIFIER) https://$(BLOCKSCOUT_HOST_NAME)/api $(VERIFIER_API_KEY)
+
+.PHONY: verify-sourcify
+verify-sourcify: broadcast/$(DEPLOYMENT_SCRIPT).s.sol/$(CHAIN_ID)/run-latest.json ## Verify the last deployment on Sourcify
+	forge build
+	bash $(VERIFY_CONTRACTS_SCRIPT) $(CHAIN_ID) $(VERIFIER) "" ""
+
+##
 
 .PHONY: refund
-refund: ## Refund the balance left on the deployment account
+refund: ## Refund the remaining balance left on the deployment account
 	@echo "Refunding the remaining balance on $(DEPLOYMENT_ADDRESS)"
 	@if [ -z $(REFUND_ADDRESS) -o $(REFUND_ADDRESS) = "0x0000000000000000000000000000000000000000" ]; then \
 		echo "- The refund address is empty" ; \
 		exit 1; \
 	fi
-	@BALANCE=$(shell cast balance $(DEPLOYMENT_ADDRESS) --rpc-url $(PRODNET_RPC_URL)) && \
-		GAS_PRICE=$(shell cast gas-price --rpc-url $(PRODNET_RPC_URL)) && \
+	@BALANCE=$(shell cast balance $(DEPLOYMENT_ADDRESS) --rpc-url $(RPC_URL)) && \
+		GAS_PRICE=$(shell cast gas-price --rpc-url $(RPC_URL)) && \
 		REMAINING=$$(echo "$$BALANCE - $$GAS_PRICE * 21000" | bc) && \
 		\
 		ENOUGH_BALANCE=$$(echo "$$REMAINING > 0" | bc) && \
@@ -196,6 +258,30 @@ refund: ## Refund the balance left on the deployment account
 		if [ "$$CONFIRM" != "y" ]; then echo "Aborting" ; exit 1; fi ; \
 		\
 		cast send --private-key $(DEPLOYMENT_PRIVATE_KEY) \
-			--rpc-url $(PRODNET_RPC_URL) \
+			--rpc-url $(RPC_URL) \
 			--value $$REMAINING \
 			$(REFUND_ADDRESS)
+
+# Other: Troubleshooting and helpers
+
+.PHONY: gas-price
+gas-price:
+	cast gas-price --rpc-url $(RPC_URL)
+
+.PHONY: balance
+balance:
+	cast balance $(DEPLOYMENT_ADDRESS) --rpc-url $(RPC_URL)
+
+.PHONY: clean-nonces
+clean-nonces:
+	for nonce in $(nonces); do \
+	  make clean-nonce nonce=$$nonce ; \
+	done
+
+.PHONY: clean-nonce
+clean-nonce:
+	cast send --private-key $(DEPLOYMENT_PRIVATE_KEY) \
+ 			--rpc-url $(RPC_URL) \
+ 			--value 0 \
+      --nonce $(nonce) \
+ 			$(DEPLOYMENT_ADDRESS)

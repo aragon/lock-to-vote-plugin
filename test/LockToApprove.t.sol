@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
 import {AragonTest} from "./util/AragonTest.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
@@ -31,15 +31,14 @@ contract LockToApproveTest is AragonTest {
     uint256 proposalId;
 
     address immutable LOCK_TO_APPROVE_BASE = address(new LockToApprovePlugin());
-    address immutable LOCK_MANAGER_BASE =
-        address(
-            new LockManager(
-                IDAO(address(0)),
-                LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-                IERC20(address(0)),
-                IERC20(address(0))
-            )
-        );
+    address immutable LOCK_MANAGER_BASE = address(
+        new LockManager(
+            IDAO(address(0)),
+            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
+            IERC20(address(0)),
+            IERC20(address(0))
+        )
+    );
 
     bytes32 constant CREATE_PROPOSAL_PERMISSION_ID = keccak256("CREATE_PROPOSAL_PERMISSION");
     bytes32 constant EXECUTE_PROPOSAL_PERMISSION_ID = keccak256("EXECUTE_PROPOSAL_PERMISSION");
@@ -67,13 +66,9 @@ contract LockToApproveTest is AragonTest {
         vm.roll(100);
 
         builder = new DaoBuilder();
-        (dao, plugin, , lockManager, lockableToken, underlyingToken) = builder
-            .withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether)
-            .withTokenHolder(carol, 10 ether)
-            .withTokenHolder(david, 15 ether)
-            .withApprovalPlugin()
-            .build();
+        (dao, plugin,, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
+            .withApprovalPlugin().build();
         // .withStrictUnlock()
         // .withMinApprovalRatio(100_000)
         // .withDuration(10 days)
@@ -126,18 +121,15 @@ contract LockToApproveTest is AragonTest {
             proposalDuration: 12 days,
             minProposerVotingPower: 1234
         });
-        IPlugin.TargetConfig memory targetConfig = IPlugin.TargetConfig({
-            target: address(dao),
-            operation: IPlugin.Operation.Call
-        });
+        IPlugin.TargetConfig memory targetConfig =
+            IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call});
         bytes memory pluginMetadata = "";
 
         plugin = LockToApprovePlugin(
             createProxyAndCall(
                 address(LOCK_TO_APPROVE_BASE),
                 abi.encodeCall(
-                    LockToApprovePlugin.initialize,
-                    (dao, lockManager, settings, targetConfig, pluginMetadata)
+                    LockToApprovePlugin.initialize, (dao, lockManager, settings, targetConfig, pluginMetadata)
                 )
             )
         );
@@ -228,11 +220,7 @@ contract LockToApproveTest is AragonTest {
         vm.startPrank(bob);
         vm.expectRevert(
             abi.encodeWithSelector(
-                DaoUnauthorized.selector,
-                address(dao),
-                address(plugin),
-                bob,
-                CREATE_PROPOSAL_PERMISSION_ID
+                DaoUnauthorized.selector, address(dao), address(plugin), bob, CREATE_PROPOSAL_PERMISSION_ID
             )
         );
         proposalId = plugin.createProposal("0x", new Action[](0), 0, 0, abi.encode(uint256(0)));
@@ -240,11 +228,7 @@ contract LockToApproveTest is AragonTest {
         vm.startPrank(carol);
         vm.expectRevert(
             abi.encodeWithSelector(
-                DaoUnauthorized.selector,
-                address(dao),
-                address(plugin),
-                carol,
-                CREATE_PROPOSAL_PERMISSION_ID
+                DaoUnauthorized.selector, address(dao), address(plugin), carol, CREATE_PROPOSAL_PERMISSION_ID
             )
         );
         proposalId = plugin.createProposal("0x", new Action[](0), 0, 0, abi.encode(uint256(0)));
@@ -447,11 +431,7 @@ contract LockToApproveTest is AragonTest {
         vm.startPrank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                DaoUnauthorized.selector,
-                address(dao),
-                address(plugin),
-                alice,
-                EXECUTE_PROPOSAL_PERMISSION_ID
+                DaoUnauthorized.selector, address(dao), address(plugin), alice, EXECUTE_PROPOSAL_PERMISSION_ID
             )
         );
         plugin.execute(proposalId);
@@ -674,7 +654,7 @@ contract LockToApproveTest is AragonTest {
         emit ApprovalCast(proposalId, alice, 0.1 ether);
         plugin.approve(proposalId, alice, 0.1 ether);
 
-        (, , , uint256 approvalTally, , , ) = plugin.getProposal(proposalId);
+        (,,, uint256 approvalTally,,,) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
@@ -682,7 +662,7 @@ contract LockToApproveTest is AragonTest {
         emit ApprovalCast(proposalId, alice, 0.25 ether);
         plugin.approve(proposalId, alice, 0.25 ether);
 
-        (, , , approvalTally, , , ) = plugin.getProposal(proposalId);
+        (,,, approvalTally,,,) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0.25 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.25 ether);
     }
@@ -721,12 +701,12 @@ contract LockToApproveTest is AragonTest {
         vm.startPrank(address(lockManager));
         plugin.clearApproval(proposalId, alice);
 
-        (, , , uint256 approvalTally, , , ) = plugin.getProposal(proposalId);
+        (,,, uint256 approvalTally,,,) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0);
 
         plugin.clearApproval(proposalId, bob);
 
-        (, , , approvalTally, , , ) = plugin.getProposal(proposalId);
+        (,,, approvalTally,,,) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0);
     }
 
@@ -744,7 +724,7 @@ contract LockToApproveTest is AragonTest {
         vm.startPrank(address(lockManager));
         plugin.approve(proposalId, alice, 0.1 ether);
 
-        (, , , uint256 approvalTally, , , ) = plugin.getProposal(proposalId);
+        (,,, uint256 approvalTally,,,) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
@@ -752,7 +732,7 @@ contract LockToApproveTest is AragonTest {
         emit ApprovalCleared(proposalId, alice);
         plugin.clearApproval(proposalId, alice);
 
-        (, , , approvalTally, , , ) = plugin.getProposal(proposalId);
+        (,,, approvalTally,,,) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 0);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0);
     }
@@ -840,11 +820,7 @@ contract LockToApproveTest is AragonTest {
         vm.startPrank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                DaoUnauthorized.selector,
-                address(dao),
-                address(plugin),
-                alice,
-                EXECUTE_PROPOSAL_PERMISSION_ID
+                DaoUnauthorized.selector, address(dao), address(plugin), alice, EXECUTE_PROPOSAL_PERMISSION_ID
             )
         );
         plugin.execute(proposalId);
@@ -918,7 +894,7 @@ contract LockToApproveTest is AragonTest {
 
         vm.warp(block.timestamp + 10 days);
 
-        (open, , parameters, , , , ) = plugin.getProposal(proposalId);
+        (open,, parameters,,,,) = plugin.getProposal(proposalId);
         assertEq(parameters.startDate, block.timestamp - 10 days);
         assertEq(parameters.endDate, block.timestamp);
         assertFalse(open);
@@ -935,13 +911,13 @@ contract LockToApproveTest is AragonTest {
         plugin.approve(proposalId, alice, 1);
 
         // Nop
-        (, , , uint256 approvalTally, , , ) = plugin.getProposal(proposalId);
+        (,,, uint256 approvalTally,,,) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 25.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
         plugin.clearApproval(proposalId, alice);
 
-        (, , , approvalTally, , , ) = plugin.getProposal(proposalId);
+        (,,, approvalTally,,,) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 25.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
     }
@@ -959,11 +935,7 @@ contract LockToApproveTest is AragonTest {
         // alice
         vm.expectRevert(
             abi.encodeWithSelector(
-                DaoUnauthorized.selector,
-                address(dao),
-                address(plugin),
-                alice,
-                EXECUTE_PROPOSAL_PERMISSION_ID
+                DaoUnauthorized.selector, address(dao), address(plugin), alice, EXECUTE_PROPOSAL_PERMISSION_ID
             )
         );
         plugin.execute(proposalId);
@@ -991,7 +963,7 @@ contract LockToApproveTest is AragonTest {
 
         plugin.execute(proposalId);
 
-        (bool open, bool executed, , , , , ) = plugin.getProposal(proposalId);
+        (bool open, bool executed,,,,,) = plugin.getProposal(proposalId);
         assertFalse(open);
         assertTrue(executed);
 
@@ -1078,13 +1050,13 @@ contract LockToApproveTest is AragonTest {
         plugin.approve(proposalId, alice, 200 ether);
 
         // Nop
-        (, , , uint256 approvalTally, , , ) = plugin.getProposal(proposalId);
+        (,,, uint256 approvalTally,,,) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 25.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
         plugin.clearApproval(proposalId, alice);
 
-        (, , , approvalTally, , , ) = plugin.getProposal(proposalId);
+        (,,, approvalTally,,,) = plugin.getProposal(proposalId);
         assertEq(approvalTally, 25.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
     }
@@ -1174,11 +1146,7 @@ contract LockToApproveTest is AragonTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                DaoUnauthorized.selector,
-                address(dao),
-                address(plugin),
-                alice,
-                UPDATE_SETTINGS_PERMISSION_ID
+                DaoUnauthorized.selector, address(dao), address(plugin), alice, UPDATE_SETTINGS_PERMISSION_ID
             )
         );
         plugin.updateApprovalSettings(newSettings);

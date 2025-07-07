@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
 import {AragonTest} from "./util/AragonTest.sol";
 import {DaoBuilder} from "./util/DaoBuilder.sol";
@@ -38,14 +38,10 @@ contract LockManagerTest is AragonTest {
         vm.roll(100);
 
         builder = new DaoBuilder();
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether)
-            .withTokenHolder(carol, 10 ether)
-            .withTokenHolder(david, 15 ether)
-            .withStrictUnlock()
-            .withApprovalPlugin()
-            .build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(
+            alice, 1 ether
+        ).withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
+            .withStrictUnlock().withApprovalPlugin().build();
     }
 
     modifier givenDeployingTheContract() {
@@ -211,20 +207,14 @@ contract LockManagerTest is AragonTest {
 
         // 1
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-            lockableToken,
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Approval), lockableToken, underlyingToken
         );
         vm.expectRevert();
         lockManager.setPluginAddress(LockToApprovePlugin(address(0x5555)));
 
         // 2
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Early, PluginMode.Voting),
-            lockableToken,
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Early, PluginMode.Voting), lockableToken, underlyingToken
         );
         vm.expectRevert();
         lockManager.setPluginAddress(LockToApprovePlugin(address(0x5555)));
@@ -235,10 +225,7 @@ contract LockManagerTest is AragonTest {
 
         // 1
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-            lockableToken,
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Approval), lockableToken, underlyingToken
         );
         assertEq(address(lockManager.plugin()), address(0));
         LockToVotePlugin ltv = new LockToVotePlugin();
@@ -247,10 +234,7 @@ contract LockManagerTest is AragonTest {
 
         // 2
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Early, PluginMode.Voting),
-            lockableToken,
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Early, PluginMode.Voting), lockableToken, underlyingToken
         );
         assertEq(address(lockManager.plugin()), address(0));
         LockToApprovePlugin lta = new LockToApprovePlugin();
@@ -259,18 +243,12 @@ contract LockManagerTest is AragonTest {
 
         // ok
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Early, PluginMode.Approval),
-            lockableToken,
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Early, PluginMode.Approval), lockableToken, underlyingToken
         );
         lockManager.setPluginAddress(lta);
 
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Early, PluginMode.Voting),
-            lockableToken,
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Early, PluginMode.Voting), lockableToken, underlyingToken
         );
         lockManager.setPluginAddress(ltv);
     }
@@ -279,17 +257,14 @@ contract LockManagerTest is AragonTest {
         // It should set the address
         // It should revert if trying to update it later
 
-        (, LockToApprovePlugin ltaPlugin2, , , , ) = builder.build();
-        (, LockToApprovePlugin ltaPlugin3, , , , ) = builder.build();
-        (, , LockToVotePlugin ltvPlugin2, , , ) = builder.withVotingPlugin().build();
-        (, , LockToVotePlugin ltvPlugin3, , , ) = builder.build();
+        (, LockToApprovePlugin ltaPlugin2,,,,) = builder.build();
+        (, LockToApprovePlugin ltaPlugin3,,,,) = builder.build();
+        (,, LockToVotePlugin ltvPlugin2,,,) = builder.withVotingPlugin().build();
+        (,, LockToVotePlugin ltvPlugin3,,,) = builder.build();
 
         // OK 1
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-            lockableToken,
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Approval), lockableToken, underlyingToken
         );
         assertEq(address(lockManager.plugin()), address(0));
         lockManager.setPluginAddress(ltaPlugin2);
@@ -302,10 +277,7 @@ contract LockManagerTest is AragonTest {
         // OK 2
 
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Voting),
-            lockableToken,
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Voting), lockableToken, underlyingToken
         );
         assertEq(address(lockManager.plugin()), address(0));
         lockManager.setPluginAddress(ltvPlugin2);
@@ -319,17 +291,14 @@ contract LockManagerTest is AragonTest {
     function test_RevertWhen_SetPluginAddressWhenAlreadySet() external whenCallingSetPluginAddress {
         // It should revert
 
-        (, LockToApprovePlugin ltaPlugin2, , , , ) = builder.build();
-        (, LockToApprovePlugin ltaPlugin3, , , , ) = builder.build();
-        (, , LockToVotePlugin ltvPlugin2, , , ) = builder.withVotingPlugin().build();
-        (, , LockToVotePlugin ltvPlugin3, , , ) = builder.withVotingPlugin().build();
+        (, LockToApprovePlugin ltaPlugin2,,,,) = builder.build();
+        (, LockToApprovePlugin ltaPlugin3,,,,) = builder.build();
+        (,, LockToVotePlugin ltvPlugin2,,,) = builder.withVotingPlugin().build();
+        (,, LockToVotePlugin ltvPlugin3,,,) = builder.withVotingPlugin().build();
 
         // 1
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-            lockableToken,
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Approval), lockableToken, underlyingToken
         );
         lockManager.setPluginAddress(ltaPlugin2);
 
@@ -338,10 +307,7 @@ contract LockManagerTest is AragonTest {
 
         // 2
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Voting),
-            lockableToken,
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Voting), lockableToken, underlyingToken
         );
         lockManager.setPluginAddress(ltvPlugin2);
 
@@ -796,14 +762,13 @@ contract LockManagerTest is AragonTest {
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
     }
 
-    function test_WhenCallingVoteMoreLockedBalance3() external // givenProposalOnLockToVote
+    function test_WhenCallingVoteMoreLockedBalance3()
+        external // givenProposalOnLockToVote
     // givenLockedTokens
     // givenNoTokenAllowanceSomeLocked
     {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withVoteReplacement()
-            .withVotingPlugin()
-            .build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+            builder.withVoteReplacement().withVotingPlugin().build();
 
         lockableToken.approve(address(lockManager), 0.1 ether);
         lockManager.lock();
@@ -969,14 +934,13 @@ contract LockManagerTest is AragonTest {
         assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0.1 ether + allowance);
     }
 
-    function test_WhenCallingLockAndVoteWithPriorPower4() external // givenLockedTokens
+    function test_WhenCallingLockAndVoteWithPriorPower4()
+        external // givenLockedTokens
     // givenWithTokenAllowanceSomeLocked
     // givenProposalOnLockToVote
     {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withVoteReplacement()
-            .withVotingPlugin()
-            .build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+            builder.withVoteReplacement().withVotingPlugin().build();
 
         lockableToken.approve(address(lockManager), 0.1 ether);
         lockManager.lock();
@@ -1020,14 +984,13 @@ contract LockManagerTest is AragonTest {
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
     }
 
-    function test_WhenCallingVoteMoreLockedBalance4() external // givenProposalOnLockToVote
+    function test_WhenCallingVoteMoreLockedBalance4()
+        external // givenProposalOnLockToVote
     // givenLockedTokens
     // givenWithTokenAllowanceSomeLocked
     {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withVoteReplacement()
-            .withVotingPlugin()
-            .build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+            builder.withVoteReplacement().withVotingPlugin().build();
 
         lockableToken.approve(address(lockManager), 0.1 ether);
         lockManager.lock();
@@ -1061,10 +1024,7 @@ contract LockManagerTest is AragonTest {
         // It Locking and voting should revert
 
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-            lockableToken,
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Approval), lockableToken, underlyingToken
         );
 
         vm.expectRevert();
@@ -1075,10 +1035,7 @@ contract LockManagerTest is AragonTest {
 
         // voting
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Voting),
-            lockableToken,
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Voting), lockableToken, underlyingToken
         );
 
         vm.expectRevert();
@@ -1094,10 +1051,7 @@ contract LockManagerTest is AragonTest {
         // It Voting should revert
 
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-            IERC20(address(0x1234)),
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Approval), IERC20(address(0x1234)), underlyingToken
         );
         lockableToken.approve(address(lockManager), 0.1 ether);
         vm.expectRevert();
@@ -1111,10 +1065,7 @@ contract LockManagerTest is AragonTest {
 
         // Voting
         lockManager = new LockManager(
-            dao,
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Voting),
-            IERC20(address(0x1234)),
-            underlyingToken
+            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Voting), IERC20(address(0x1234)), underlyingToken
         );
         lockableToken.approve(address(lockManager), 0.1 ether);
         vm.expectRevert();
@@ -1214,7 +1165,7 @@ contract LockManagerTest is AragonTest {
     function test_RevertWhen_TryingToUnlock1Strict() external givenStrictModeIsSet givenDidntLockAnythingStrict {
         // It Should revert
 
-        (UnlockMode mode, ) = lockManager.settings();
+        (UnlockMode mode,) = lockManager.settings();
         assertEq(uint8(mode), uint8(UnlockMode.Strict));
 
         // vm.startPrank(alice);
@@ -1310,14 +1261,10 @@ contract LockManagerTest is AragonTest {
         // givenStrictModeIsSet
         givenLockedButVotedOnEndedOrExecutedProposalsStrict
     {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether)
-            .withTokenHolder(carol, 10 ether)
-            .withTokenHolder(david, 15 ether)
-            .withVotingPlugin()
-            .withStrictUnlock()
-            .build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(
+            alice, 1 ether
+        ).withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
+            .withVotingPlugin().withStrictUnlock().build();
 
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -1392,13 +1339,10 @@ contract LockManagerTest is AragonTest {
     }
 
     modifier givenFlexibleModeIsSet() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether)
-            .withTokenHolder(carol, 10 ether)
-            .withTokenHolder(david, 15 ether)
-            .withEarlyUnlock()
-            .build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(
+            alice, 1 ether
+        ).withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
+            .withEarlyUnlock().build();
 
         Action[] memory _actions = new Action[](0);
         proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -1413,7 +1357,7 @@ contract LockManagerTest is AragonTest {
     function test_RevertWhen_TryingToUnlock1Flexible() external givenFlexibleModeIsSet givenDidntLockAnythingFlexible {
         // It Should revert
 
-        (UnlockMode mode, ) = lockManager.settings();
+        (UnlockMode mode,) = lockManager.settings();
         assertEq(uint8(mode), uint8(UnlockMode.Early));
 
         // vm.startPrank(alice);
@@ -1455,14 +1399,10 @@ contract LockManagerTest is AragonTest {
         // givenFlexibleModeIsSet
         givenLockedButDidntVoteAnywhereFlexible
     {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether)
-            .withTokenHolder(carol, 10 ether)
-            .withTokenHolder(david, 15 ether)
-            .withVotingPlugin()
-            .withEarlyUnlock()
-            .build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(
+            alice, 1 ether
+        ).withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
+            .withVotingPlugin().withEarlyUnlock().build();
 
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -1551,15 +1491,10 @@ contract LockManagerTest is AragonTest {
     {
         // STANDARD VOTING
 
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether)
-            .withTokenHolder(carol, 10 ether)
-            .withTokenHolder(david, 15 ether)
-            .withVotingPlugin()
-            .withStandardVoting()
-            .withEarlyUnlock()
-            .build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(
+            alice, 1 ether
+        ).withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
+            .withVotingPlugin().withStandardVoting().withEarlyUnlock().build();
 
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -1582,15 +1517,10 @@ contract LockManagerTest is AragonTest {
 
         // VOTE REPLACEMENT
 
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether)
-            .withTokenHolder(carol, 10 ether)
-            .withTokenHolder(david, 15 ether)
-            .withVotingPlugin()
-            .withVoteReplacement()
-            .withEarlyUnlock()
-            .build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(
+            alice, 1 ether
+        ).withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
+            .withVotingPlugin().withVoteReplacement().withEarlyUnlock().build();
 
         _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -1613,15 +1543,10 @@ contract LockManagerTest is AragonTest {
 
         // EARLY EXECUTE
 
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether)
-            .withTokenHolder(carol, 10 ether)
-            .withTokenHolder(david, 15 ether)
-            .withVotingPlugin()
-            .withEarlyExecution()
-            .withEarlyUnlock()
-            .build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(
+            alice, 1 ether
+        ).withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
+            .withVotingPlugin().withEarlyExecution().withEarlyUnlock().build();
 
         _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -1648,14 +1573,10 @@ contract LockManagerTest is AragonTest {
         // givenFlexibleModeIsSet
         givenLockedButVotedOnEndedOrExecutedProposalsFlexible
     {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder
-            .withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether)
-            .withTokenHolder(carol, 10 ether)
-            .withTokenHolder(david, 15 ether)
-            .withVotingPlugin()
-            .withEarlyUnlock()
-            .build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(
+            alice, 1 ether
+        ).withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
+            .withVotingPlugin().withEarlyUnlock().build();
 
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
