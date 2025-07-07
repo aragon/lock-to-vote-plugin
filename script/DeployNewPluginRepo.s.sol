@@ -55,8 +55,8 @@ contract DeployNewPluginRepoScript is Script {
 
     function run() public broadcast {
         // Deploy the plugin setup's
-        prepareLockToVote(ltvEnsSubdomain);
-        prepareLockToApprove(ltaEnsSubdomain);
+        prepareLockToVote();
+        prepareLockToApprove();
 
         vm.label(address(lockToVotePluginRepo), "LockToVotePluginRepo");
         vm.label(address(lockToApprovePluginRepo), "LockToApprovePluginRepo");
@@ -71,29 +71,29 @@ contract DeployNewPluginRepoScript is Script {
         }
     }
 
-    function prepareLockToVote(string memory ensSubdomain) internal {
+    function prepareLockToVote() internal {
         lockToVotePluginSetup = address(new LockToVotePluginSetup());
 
         // Use a random value if empty
-        if (bytes(ensSubdomain).length == 0) {
-            ensSubdomain = string.concat("lock-to-vote-plugin-", vm.toString(block.timestamp));
+        if (bytes(ltvEnsSubdomain).length == 0) {
+            ltvEnsSubdomain = string.concat("lock-to-vote-plugin-", vm.toString(block.timestamp));
         }
 
         lockToVotePluginRepo = pluginRepoFactory.createPluginRepoWithFirstVersion(
-            ensSubdomain, address(lockToVotePluginSetup), maintainer, " ", " "
+            ltvEnsSubdomain, address(lockToVotePluginSetup), maintainer, " ", " "
         );
     }
 
-    function prepareLockToApprove(string memory ensSubdomain) internal {
+    function prepareLockToApprove() internal {
         lockToApprovePluginSetup = address(new LockToApprovePluginSetup());
 
         // Use a random value if empty
-        if (bytes(ensSubdomain).length == 0) {
-            ensSubdomain = string.concat("lock-to-approve-plugin-", vm.toString(block.timestamp));
+        if (bytes(ltaEnsSubdomain).length == 0) {
+            ltaEnsSubdomain = string.concat("lock-to-approve-plugin-", vm.toString(block.timestamp));
         }
 
         lockToApprovePluginRepo = pluginRepoFactory.createPluginRepoWithFirstVersion(
-            ensSubdomain, address(lockToApprovePluginSetup), maintainer, " ", " "
+            ltaEnsSubdomain, address(lockToApprovePluginSetup), maintainer, " ", " "
         );
     }
 
@@ -107,6 +107,7 @@ contract DeployNewPluginRepoScript is Script {
         console.log("- LockToVote plugin repository:     ", address(lockToVotePluginRepo));
         console.log("- LockToApprove plugin repository:  ", address(lockToApprovePluginRepo));
         console.log("- Maintainer:                       ", address(maintainer));
+        console.log("");
     }
 
     function writeJsonArtifacts() internal {
