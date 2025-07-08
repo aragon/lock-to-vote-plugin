@@ -1099,17 +1099,17 @@ contract LockManagerTest is AragonTest {
         vm.startPrank(address(ltaPlugin));
 
         vm.expectRevert();
-        assertEq(lockManager.knownProposalIds(0), 0);
+        assertEq(lockManager.knownProposalIdAt(0), 0);
 
         lockManager.proposalCreated(1234);
-        assertEq(lockManager.knownProposalIds(0), 1234);
+        assertEq(lockManager.knownProposalIdAt(0), 1234);
 
         // 2
         vm.expectRevert();
-        assertEq(lockManager.knownProposalIds(1), 0);
+        assertEq(lockManager.knownProposalIdAt(1), 0);
 
         lockManager.proposalCreated(2345);
-        assertEq(lockManager.knownProposalIds(1), 2345);
+        assertEq(lockManager.knownProposalIdAt(1), 2345);
     }
 
     modifier givenProposalEndedIsCalled() {
@@ -1121,13 +1121,13 @@ contract LockManagerTest is AragonTest {
 
         vm.startPrank(address(ltaPlugin));
         lockManager.proposalCreated(1234);
-        assertEq(lockManager.knownProposalIds(0), 1234);
+        assertEq(lockManager.knownProposalIdAt(0), 1234);
 
         vm.startPrank(address(bob));
         vm.expectRevert(abi.encodeWithSelector(LockManager.InvalidPluginAddress.selector));
         lockManager.proposalEnded(1234);
 
-        assertEq(lockManager.knownProposalIds(0), 1234);
+        assertEq(lockManager.knownProposalIdAt(0), 1234);
     }
 
     function test_WhenTheCallerIsThePluginProposalEnded() external givenProposalEndedIsCalled {
@@ -1137,21 +1137,21 @@ contract LockManagerTest is AragonTest {
         lockManager.proposalCreated(1234);
         lockManager.proposalCreated(2345);
         lockManager.proposalCreated(3456);
-        assertEq(lockManager.knownProposalIds(0), 1234);
-        assertEq(lockManager.knownProposalIds(1), 2345);
-        assertEq(lockManager.knownProposalIds(2), 3456);
+        assertEq(lockManager.knownProposalIdAt(0), 1234);
+        assertEq(lockManager.knownProposalIdAt(1), 2345);
+        assertEq(lockManager.knownProposalIdAt(2), 3456);
 
         lockManager.proposalEnded(3456);
         vm.expectRevert();
-        lockManager.knownProposalIds(2);
+        lockManager.knownProposalIdAt(2);
 
         lockManager.proposalEnded(2345);
         vm.expectRevert();
-        lockManager.knownProposalIds(1);
+        lockManager.knownProposalIdAt(1);
 
         lockManager.proposalEnded(1234);
         vm.expectRevert();
-        lockManager.knownProposalIds(0);
+        lockManager.knownProposalIdAt(0);
     }
 
     modifier givenStrictModeIsSet() {

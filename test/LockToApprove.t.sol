@@ -291,7 +291,7 @@ contract LockToApproveTest is AragonTest {
         assertEq(uint8(targetConfig.operation), uint8(IPlugin.Operation.Call));
 
         // Check if proposalCreated was called on the lockManager
-        assertEq(lockManager.knownProposalIds(0), proposalId);
+        assertEq(lockManager.knownProposalIdAt(0), proposalId);
     }
 
     function test_WhenCallingCreateProposalExplicitDates()
@@ -349,7 +349,7 @@ contract LockToApproveTest is AragonTest {
         assertEq(pActions[0].value, 0.01 ether);
 
         // Check if proposalCreated was called on the lockManager
-        assertEq(lockManager.knownProposalIds(0), proposalId);
+        assertEq(lockManager.knownProposalIdAt(0), proposalId);
 
         // Revert if endDate is before minDuration
         vm.expectRevert();
@@ -969,7 +969,7 @@ contract LockToApproveTest is AragonTest {
 
         // Check if proposalEnded was called on the lockManager
         vm.expectRevert();
-        lockManager.knownProposalIds(0);
+        lockManager.knownProposalIdAt(0);
     }
 
     modifier givenProposalExecuted() {
