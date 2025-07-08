@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
 import {AragonTest} from "./util/AragonTest.sol";
 import {DaoBuilder} from "./util/DaoBuilder.sol";
@@ -29,13 +29,8 @@ contract MinVotingPowerConditionTest is AragonTest {
         vm.roll(100);
 
         builder = new DaoBuilder();
-        (, ltaPlugin, ltvPlugin, , token, ) = builder
-            .withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether)
-            .withTokenHolder(carol, 10 ether)
-            .withTokenHolder(david, 15 ether)
-            .withApprovalPlugin()
-            .build();
+        (, ltaPlugin, ltvPlugin,, token,) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(bob, 10 ether)
+            .withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).withApprovalPlugin().build();
     }
 
     function test_WhenDeployingTheContract() external {

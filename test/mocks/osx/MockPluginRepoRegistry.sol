@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
 import {IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {InterfaceBasedRegistry} from "@aragon/osx/src/test/utils/InterfaceBasedRegistryMock.sol";
