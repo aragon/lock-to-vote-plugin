@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import {AragonTest} from "./util/AragonTest.sol";
+import {AragonTest} from "./lib/TestBase.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockManager} from "../src/LockManager.sol";
 import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {ILockToApprove} from "../src/interfaces/ILockToApprove.sol";
-import {DaoBuilder} from "./util/DaoBuilder.sol";
+import {DaoBuilder} from "./builders/DaoBuilder.sol";
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
 import {TestToken} from "./mocks/TestToken.sol";

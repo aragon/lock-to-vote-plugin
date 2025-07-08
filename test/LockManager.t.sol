@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import {AragonTest} from "./util/AragonTest.sol";
-import {DaoBuilder} from "./util/DaoBuilder.sol";
+import {AragonTest} from "./lib/TestBase.sol";
+import {DaoBuilder} from "./builders/DaoBuilder.sol";
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {createProxyAndCall} from "../src/util/proxy.sol";

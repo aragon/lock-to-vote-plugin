@@ -87,17 +87,17 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @notice Returns the known proposalID at the given index
-    function knownProposalIdAt(uint256 _index) public view returns (uint256) {
+    function knownProposalIdAt(uint256 _index) public view virtual returns (uint256) {
         return knownProposalIds.at(_index);
     }
 
     /// @inheritdoc ILockManager
-    function lock() public {
+    function lock() public virtual {
         _lock();
     }
 
     /// @inheritdoc ILockManager
-    function lockAndApprove(uint256 _proposalId) public {
+    function lockAndApprove(uint256 _proposalId) public virtual {
         if (settings.pluginMode != PluginMode.Approval) {
             revert InvalidPluginMode();
         }
@@ -108,7 +108,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function lockAndVote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) public {
+    function lockAndVote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) public virtual {
         if (settings.pluginMode != PluginMode.Voting) {
             revert InvalidPluginMode();
         }
@@ -119,7 +119,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function approve(uint256 _proposalId) public {
+    function approve(uint256 _proposalId) public virtual {
         if (settings.pluginMode != PluginMode.Approval) {
             revert InvalidPluginMode();
         }
@@ -128,7 +128,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function vote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) public {
+    function vote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) public virtual {
         if (settings.pluginMode != PluginMode.Voting) {
             revert InvalidPluginMode();
         }
@@ -140,6 +140,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     function canVote(uint256 _proposalId, address _voter, IMajorityVoting.VoteOption _voteOption)
         external
         view
+        virtual
         returns (bool)
     {
         if (settings.pluginMode == PluginMode.Voting) {
@@ -149,7 +150,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function unlock() public {
+    function unlock() public virtual {
         if (lockedBalances[msg.sender] == 0) {
             revert NoBalance();
         }
@@ -171,7 +172,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function proposalCreated(uint256 _proposalId) public {
+    function proposalCreated(uint256 _proposalId) public virtual {
         if (msg.sender != address(plugin)) {
             revert InvalidPluginAddress();
         }
@@ -183,7 +184,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function proposalEnded(uint256 _proposalId) public {
+    function proposalEnded(uint256 _proposalId) public virtual {
         if (msg.sender != address(plugin)) {
             revert InvalidPluginAddress();
         }
@@ -193,7 +194,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function underlyingToken() external view returns (IERC20) {
+    function underlyingToken() external view virtual returns (IERC20) {
         if (address(underlyingTokenAddress) == address(0)) {
             return token;
         }
@@ -201,7 +202,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function setPluginAddress(ILockToVoteBase _newPluginAddress) public {
+    function setPluginAddress(ILockToVoteBase _newPluginAddress) public virtual {
         if (address(plugin) != address(0)) {
             revert SetPluginAddressForbidden();
         } else if (!IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToVoteBase).interfaceId)) {
@@ -225,7 +226,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     // Internal
 
-    function _lock() internal {
+    function _lock() internal virtual {
         uint256 _allowance = token.allowance(msg.sender, address(this));
         if (_allowance == 0) {
             revert NoBalance();
@@ -236,7 +237,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
         emit BalanceLocked(msg.sender, _allowance);
     }
 
-    function _approve(uint256 _proposalId) internal {
+    function _approve(uint256 _proposalId) internal virtual {
         uint256 _currentVotingPower = lockedBalances[msg.sender];
         if (_currentVotingPower == 0) {
             revert NoBalance();
@@ -247,7 +248,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
         ILockToApprove(address(plugin)).approve(_proposalId, msg.sender, _currentVotingPower);
     }
 
-    function _vote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) internal {
+    function _vote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) internal virtual {
         uint256 _currentVotingPower = lockedBalances[msg.sender];
         if (_currentVotingPower == 0) {
             revert NoBalance();
@@ -258,7 +259,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
         ILockToVote(address(plugin)).vote(_proposalId, msg.sender, _voteOption, _currentVotingPower);
     }
 
-    function _hasActiveLocks() internal returns (bool _activeLocks) {
+    function _hasActiveLocks() internal virtual returns (bool _activeLocks) {
         uint256 _proposalCount = knownProposalIds.length();
         for (uint256 _i; _i < _proposalCount;) {
             uint256 _proposalId = knownProposalIds.at(_i);
@@ -285,7 +286,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
         }
     }
 
-    function _withdrawActiveVotingPower() internal {
+    function _withdrawActiveVotingPower() internal virtual {
         uint256 _proposalCount = knownProposalIds.length();
         for (uint256 _i; _i < _proposalCount;) {
             uint256 _proposalId = knownProposalIds.at(_i);
