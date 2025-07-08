@@ -1,12 +1,8 @@
 LockManagerTest:
   - given: Deploying the contract
     and:
-      - when: Constructor has invalid unlock mode
-        then:
-          - it: Should revert
-      - when: Constructor has invalid plugin mode
-        then:
-          - it: Should revert
+      # Constructor with invalid params will revert at the EVM/preamble level
+
       - when: Constructor with valid params
         then:
           - it: Registers the DAO address

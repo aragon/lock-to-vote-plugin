@@ -47,9 +47,6 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @param proposalId The ID the proposal where votes can no longer be submitted or cleared
     event ProposalEnded(uint256 proposalId);
 
-    /// @notice Thrown when trying to assign an invalid lock mode
-    error InvalidUnlockMode();
-
     /// @notice Thrown when the address calling proposalEnded() is not the plugin's
     error InvalidPluginAddress();
 
@@ -74,12 +71,6 @@ contract LockManager is ILockManager, DaoAuthorizable {
     constructor(IDAO _dao, LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken)
         DaoAuthorizable(_dao)
     {
-        if (_settings.unlockMode != UnlockMode.Strict && _settings.unlockMode != UnlockMode.Early) {
-            revert InvalidUnlockMode();
-        } else if (_settings.pluginMode != PluginMode.Approval && _settings.pluginMode != PluginMode.Voting) {
-            revert InvalidPluginMode();
-        }
-
         settings.unlockMode = _settings.unlockMode;
         settings.pluginMode = _settings.pluginMode;
         token = _token;

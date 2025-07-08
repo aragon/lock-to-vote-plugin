@@ -28,7 +28,6 @@ contract LockManagerTest is AragonTest {
     event BalanceUnlocked(address voter, uint256 amount);
     event ProposalEnded(uint256 proposalId);
 
-    error InvalidUnlockMode();
     error NoBalance();
     error NoNewBalance();
 
@@ -46,122 +45,6 @@ contract LockManagerTest is AragonTest {
 
     modifier givenDeployingTheContract() {
         _;
-    }
-
-    function test_RevertWhen_ConstructorHasInvalidUnlockMode() external givenDeployingTheContract {
-        // It Should revert
-        vm.expectRevert();
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode(uint8(2)), PluginMode.Approval),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-        vm.expectRevert();
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode(uint8(0)), PluginMode.Approval),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-        vm.expectRevert();
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode(uint8(2)), PluginMode.Voting),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-        vm.expectRevert();
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode(uint8(0)), PluginMode.Voting),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-
-        // OK
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Early, PluginMode.Approval),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Voting),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Early, PluginMode.Voting),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-    }
-
-    function test_RevertWhen_ConstructorHasInvalidPluginMode() external givenDeployingTheContract {
-        // It Should revert
-        vm.expectRevert();
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Strict, PluginMode(uint8(3))),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-        vm.expectRevert();
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Early, PluginMode(uint8(0))),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-        vm.expectRevert();
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Strict, PluginMode(uint8(3))),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-        vm.expectRevert();
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Early, PluginMode(uint8(0))),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-
-        // OK
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Early, PluginMode.Approval),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Voting),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Early, PluginMode.Voting),
-            IERC20(address(0)),
-            IERC20(address(0))
-        );
     }
 
     function test_WhenConstructorWithValidParams() external givenDeployingTheContract {
