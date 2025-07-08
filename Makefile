@@ -156,6 +156,7 @@ $(TEST_TREE_MARKDOWN): $(TEST_TREE_FILES)
 		echo "\`\`\`" >> $@ ; \
 		cat $$file >> $@ ; \
 		echo "\`\`\`" >> $@ ; \
+		echo "" >> $@ ; \
 	done
 
 # Internal dependencies and transformations

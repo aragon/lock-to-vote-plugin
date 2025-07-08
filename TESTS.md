@@ -1,14 +1,10 @@
 # Test tree definitions
 
-Below is the graphical definition of the contract tests implemented on [the test folder](./test)
+Below is the graphical summary of the tests described within [test/*.t.yaml](./test)
 
 ```
 LockManagerTest
 ├── Given Deploying the contract
-│   ├── When Constructor has invalid unlock mode
-│   │   └── It Should revert
-│   ├── When Constructor has invalid plugin mode
-│   │   └── It Should revert
 │   └── When Constructor with valid params
 │       ├── It Registers the DAO address
 │       ├── It Stores the given settings
