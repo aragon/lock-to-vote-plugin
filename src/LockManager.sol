@@ -87,6 +87,11 @@ contract LockManager is ILockManager, DaoAuthorizable {
         return knownProposalIds.at(_index);
     }
 
+    /// @notice Returns the number of known proposalID's
+    function knownProposalIdsLength() public view virtual returns (uint256) {
+        return knownProposalIds.length();
+    }
+
     /// @inheritdoc ILockManager
     function lock() public virtual {
         _lock();

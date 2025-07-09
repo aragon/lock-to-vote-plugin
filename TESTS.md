@@ -4,193 +4,171 @@ Below is the graphical summary of the tests described within [test/*.t.yaml](./t
 
 ```
 LockManagerTest
-├── Given Deploying the contract
-│   └── When Constructor with valid params
-│       ├── It Registers the DAO address
-│       ├── It Stores the given settings
-│       └── It Stores the given token addresses
-├── When calling setPluginAddress
-│   ├── Given Invalid plugin
-│   │   └── It should revert
-│   ├── Given Invalid plugin interface
-│   │   └── It should revert
-│   ├── When setPluginAddress the first time
-│   │   ├── It should set the address
-│   │   └── It should revert if trying to update it later
-│   └── When setPluginAddress when already set
-│       └── It should revert
-├── Given No locked tokens
-│   ├── Given No token allowance no locked
-│   │   ├── When Calling lock 1
-│   │   │   └── It Should revert
-│   │   ├── When Calling lockAndApprove 1
-│   │   │   └── It Should revert
-│   │   ├── When Calling approve 1
-│   │   │   └── It Should revert
-│   │   ├── When Calling lockAndVote 1
-│   │   │   └── It Should revert
-│   │   └── When Calling vote 1
-│   │       └── It Should revert
-│   └── Given With token allowance no locked
-│       ├── When Calling lock 2
-│       │   ├── It Should allow any token holder to lock
-│       │   ├── It Should approve with the full token balance
-│       │   └── It Should emit an event
-│       ├── When Calling lockAndApprove 2
-│       │   ├── It Should allow any token holder to lock
-│       │   ├── It Should approve with the full token balance
-│       │   ├── It The allocated token balance should have the full new balance
-│       │   └── It Should emit an event
-│       ├── When Calling approve 2
-│       │   └── It Should revert
-│       ├── When Calling lockAndVote 2
-│       │   ├── It Should allow any token holder to lock
-│       │   ├── It Should vote with the full token balance
-│       │   ├── It The allocated token balance should have the full new balance
-│       │   └── It Should emit an event
-│       └── When Calling vote 2
+├── Given The contract is being deployed
+│   ├── When Deploying with valid parameters and a nonzero underlying token
+│   │   ├── It Should set the DAO address correctly
+│   │   ├── It Should set the unlockMode correctly
+│   │   ├── It Should set the pluginMode correctly
+│   │   ├── It Should set the token address correctly
+│   │   ├── It Should set the underlying token address correctly
+│   │   └── It Should initialize the plugin address to address(0)
+│   └── When Deploying with a zeroaddress for the underlying token
+│       └── It Should set the underlying token address to address(0)
+├── Given The plugin address has not been set yet
+│   ├── When Calling setPluginAddress with an address that does not support ILockToVoteBase
+│   │   └── It Should revert with InvalidPlugin
+│   ├── Given The pluginMode is Approval
+│   │   ├── When Calling setPluginAddress with a plugin that supports ILockToVoteBase but not ILockToApprove
+│   │   │   └── It Should revert with InvalidPlugin
+│   │   └── When Calling setPluginAddress with a valid Approval plugin
+│   │       └── It Should set the plugin address
+│   └── Given The pluginMode is Voting
+│       ├── When Calling setPluginAddress with a plugin that supports ILockToVoteBase but not ILockToVote
+│       │   └── It Should revert with InvalidPlugin
+│       └── When Calling setPluginAddress with a valid Voting plugin
+│           └── It Should set the plugin address
+├── Given The plugin address has already been set
+│   └── When Calling setPluginAddress again
+│       └── It Should revert with SetPluginAddressForbidden
+├── Given A user wants to lock tokens // The user has a non-zero token balance
+│   ├── When The user has not approved the LockManager to spend any tokens // Allowance is 0
+│   │   └── When Calling lock
+│   │       └── It Should revert with NoBalance
+│   └── When The user has approved the LockManager to spend tokens // Allowance is > 0
+│       └── When Calling lock 2
+│           ├── It Should transfer the full allowance amount from the user
+│           ├── It Should increase the user's lockedBalances by the allowance amount
+│           └── It Should emit a BalanceLocked event with the correct user and amount
+├── Given pluginMode is Voting
+│   └── Given A plugin is set and a proposal is active
+│       ├── When Calling approve
+│       │   └── It Should revert with InvalidPluginMode
+│       ├── When Calling lockAndApprove
+│       │   └── It Should revert with InvalidPluginMode
+│       ├── Given The user has no locked balance
+│       │   ├── When Calling vote
+│       │   │   └── It Should revert with NoBalance
+│       │   ├── Given The user has no token allowance for the LockManager
+│       │   │   └── When Calling lockAndVote
+│       │   │       └── It Should revert with NoBalance
+│       │   └── Given The user has a token allowance for the LockManager
+│       │       └── When Calling lockAndVote 2
+│       │           ├── It Should first lock the tokens by transferring the full allowance
+│       │           └── It Should then call vote() on the plugin with the new balance
+│       └── Given The user has a locked balance
+│           ├── When Calling vote for the first time on a proposal
+│           │   └── It Should call vote() on the plugin with the user's full locked balance
+│           ├── Given The user has already voted on the proposal with their current balance
+│           │   └── When Calling vote again with the same parameters
+│           │       └── It Should revert with NoNewBalance
+│           └── Given The user locks more tokens
+│               └── When Calling vote again
+│                   └── It Should call vote() on the plugin with the new, larger balance
+├── Given pluginMode is Approval
+│   └── Given A plugin is set and a proposal is active 2
+│       ├── When Calling vote 2
+│       │   └── It Should revert with InvalidPluginMode
+│       ├── When Calling lockAndVote 3
+│       │   └── It Should revert with InvalidPluginMode
+│       ├── Given The user has no locked balance 2
+│       │   ├── When Calling approve 2
+│       │   │   └── It Should revert with NoBalance
+│       │   ├── Given The user has no token allowance for the LockManager 2
+│       │   │   └── When Calling lockAndApprove 2
+│       │   │       └── It Should revert with NoBalance
+│       │   └── Given The user has a token allowance for the LockManager 2
+│       │       └── When Calling lockAndApprove 3
+│       │           ├── It Should first lock the tokens by transferring the full allowance
+│       │           └── It Should then call approve() on the plugin with the new balance
+│       └── Given The user has a locked balance 2
+│           ├── When Calling approve for the first time on a proposal
+│           │   └── It Should call approve() on the plugin with the user's full locked balance
+│           ├── Given The user has already approved the proposal with their current balance
+│           │   └── When Calling approve again
+│           │       └── It Should revert with NoNewBalance
+│           └── Given The user locks more tokens 2
+│               └── When Calling approve again 2
+│                   └── It Should call approve() on the plugin with the new, larger balance
+├── Given A user wants to unlock tokens
+│   ├── Given The user has no locked balance 3
+│   │   └── When Calling unlock
+│   │       └── It Should revert with NoBalance
+│   └── Given The user has a locked balance 3
+│       ├── Given unlockMode is Strict
+│       │   ├── Given The user has no active votes on any open proposals
+│       │   │   └── When Calling unlock 2
+│       │   │       ├── It Should transfer the locked balance back to the user
+│       │   │       ├── It Should set the user's lockedBalances to 0
+│       │   │       └── It Should emit a BalanceUnlocked event
+│       │   ├── Given The user has an active vote on at least one open proposal
+│       │   │   └── When Calling unlock 3
+│       │   │       └── It Should revert with LocksStillActive
+│       │   └── Given The user only has votes on proposals that are now closed // The contract should garbage-collect the closed proposal during the check
+│       │       └── When Calling unlock 4
+│       │           ├── It Should succeed and transfer the locked balance back to the user
+│       │           └── It Should remove the closed proposal from knownProposalIds
+│       └── Given unlockMode is Default
+│           ├── Given The user has no active votes on any open proposals 2
+│           │   └── When Calling unlock 5
+│           │       └── It Should succeed and transfer the locked balance back to the user
+│           ├── Given The user has votes on open proposals
+│           │   └── When Calling unlock 6
+│           │       ├── It Should call clearVote() on the plugin for each active proposal
+│           │       ├── It Should transfer the locked balance back to the user
+│           │       ├── It Should set the user's lockedBalances to 0
+│           │       └── It Should emit a BalanceUnlocked event
+│           ├── Given The user has approvals on open proposals
+│           │   └── When Calling unlock 7
+│           │       ├── It Should call clearApproval() on the plugin for each active proposal
+│           │       ├── It Should transfer the locked balance back to the user
+│           │       ├── It Should set the user's lockedBalances to 0
+│           │       └── It Should emit a BalanceUnlocked event
+│           ├── Given The user only has votes on proposals that are now closed or ended // The contract should garbage-collect the closed proposal during the check
+│           │   └── When Calling unlock 8
+│           │       ├── It Should not attempt to clear votes for the closed proposal
+│           │       ├── It Should remove the closed proposal from knownProposalIds
+│           │       └── It Should succeed and transfer the locked balance back to the user
+│           └── Given The user only has approvals on proposals that are now closed or ended // The contract should garbage-collect the closed proposal during the check
+│               └── When Calling unlock 9
+│                   ├── It Should not attempt to clear votes for the closed proposal
+│                   ├── It Should remove the closed proposal from knownProposalIds
+│                   └── It Should succeed and transfer the locked balance back to the user
+├── Given The plugin has been set
+│   ├── Given The caller is not the registered plugin
+│   │   ├── When Calling proposalCreated
+│   │   │   └── It Should revert with InvalidPluginAddress
+│   │   └── When Calling proposalEnded
+│   │       └── It Should revert with InvalidPluginAddress
+│   └── Given The caller is the registered plugin
+│       ├── When Calling proposalCreated with a new proposal ID
+│       │   └── It Should add the proposal ID to knownProposalIds
+│       ├── Given A proposal ID is already known
+│       │   ├── When Calling proposalCreated with that same ID
+│       │   │   └── It Should not change the set of known proposals
+│       │   └── When Calling proposalEnded with that proposal ID
+│       │       ├── It Should remove the proposal ID from knownProposalIds
+│       │       └── It Should emit a ProposalEnded event
+│       └── When Calling proposalEnded with a nonexistent proposal ID
 │           └── It Should revert
-├── Given Locked tokens
-│   ├── Given No token allowance some locked
-│   │   ├── When Calling lock 3
-│   │   │   └── It Should revert
-│   │   ├── When Calling lockAndApprove 3
-│   │   │   └── It Should revert
-│   │   ├── When Calling approve same balance 3
-│   │   │   └── It Should revert
-│   │   ├── When Calling approve more locked balance 3
-│   │   │   ├── It Should approve with the full token balance
-│   │   │   └── It Should emit an event
-│   │   ├── When Calling lockAndVote 3
-│   │   │   └── It Should revert
-│   │   ├── When Calling vote same balance 3
-│   │   │   └── It Should revert
-│   │   └── When Calling vote more locked balance 3
-│   │       ├── It Should vote with the full token balance
-│   │       └── It Should emit an event
-│   └── Given With token allowance some locked
-│       ├── When Calling lock 4
-│       │   ├── It Should allow any token holder to lock
-│       │   ├── It Should approve with the full token balance
-│       │   ├── It Should increase the locked amount
-│       │   └── It Should emit an event
-│       ├── When Calling lockAndApprove no prior power 4
-│       │   ├── It Should allow any token holder to lock
-│       │   ├── It Should approve with the full token balance
-│       │   ├── It Should increase the locked amount
-│       │   ├── It The allocated token balance should have the full new balance
-│       │   └── It Should emit an event
-│       ├── When Calling lockAndApprove with prior power 4
-│       │   ├── It Should allow any token holder to lock
-│       │   ├── It Should approve with the full token balance
-│       │   ├── It Should increase the locked amount
-│       │   ├── It The allocated token balance should have the full new balance
-│       │   └── It Should emit an event
-│       ├── When Calling approve same balance 4
-│       │   └── It Should revert
-│       ├── When Calling approve more locked balance 4
-│       │   ├── It Should approve with the full token balance
-│       │   └── It Should emit an event
-│       ├── When Calling lockAndVote no prior power 4
-│       │   ├── It Should allow any token holder to lock
-│       │   ├── It Should vote with the full token balance
-│       │   ├── It Should increase the locked amount
-│       │   ├── It The allocated token balance should have the full new balance
-│       │   └── It Should emit an event
-│       ├── When Calling lockAndVote with prior power 4
-│       │   ├── It Should allow any token holder to lock
-│       │   ├── It Should vote with the full token balance
-│       │   ├── It Should increase the locked amount
-│       │   ├── It The allocated token balance should have the full new balance
-│       │   └── It Should emit an event
-│       ├── When Calling vote same balance 4
-│       │   └── It Should revert
-│       └── When Calling vote more locked balance 4
-│           ├── It Should vote with the full token balance
-│           └── It Should emit an event
-├── Given Calling lock lockAndApprove or lockAndVote
-│   ├── Given Empty plugin
-│   │   └── It Locking and voting should revert
-│   └── Given Invalid token
-│       ├── It Locking should revert
-│       ├── It Locking and voting should revert
-│       └── It Voting should revert
-├── Given ProposalCreated is called
-│   ├── When The caller is not the plugin proposalCreated
-│   │   └── It Should revert
-│   └── When The caller is the plugin proposalCreated
-│       └── It Adds the proposal ID to the list of known proposals
-├── Given ProposalEnded is called
-│   ├── When The caller is not the plugin ProposalEnded
-│   │   └── It Should revert
-│   └── When The caller is the plugin ProposalEnded
-│       └── It Removes the proposal ID from the list of known proposals
-├── Given Strict mode is set
-│   ├── Given Didnt lock anything strict
-│   │   └── When Trying to unlock 1 strict
-│   │       └── It Should revert
-│   ├── Given Locked but didnt approve anywhere strict
-│   │   └── When Trying to unlock 2 approval strict
-│   │       ├── It Should unlock and refund the full amount right away
-│   │       └── It Should emit an event
-│   ├── Given Locked but didnt vote anywhere strict
-│   │   └── When Trying to unlock 2 voting strict
-│   │       ├── It Should unlock and refund the full amount right away
-│   │       └── It Should emit an event
-│   ├── Given Locked but approved ended or executed proposals strict
-│   │   └── When Trying to unlock 3 approved strict
-│   │       ├── It Should unlock and refund the full amount right away
-│   │       └── It Should emit an event
-│   ├── Given Locked but voted on ended or executed proposals strict
-│   │   └── When Trying to unlock 3 voted strict
-│   │       ├── It Should unlock and refund the full amount right away
-│   │       └── It Should emit an event
-│   ├── Given Locked and approved currently active proposals strict
-│   │   └── When Trying to unlock 4 voted strict
-│   │       └── It Should revert
-│   └── Given Locked and voted on currently active proposals strict
-│       └── When Trying to unlock 4 voted strict 2
-│           └── It Should revert
-├── Given Flexible mode is set
-│   ├── Given Didnt lock anything flexible
-│   │   └── When Trying to unlock 1 flexible
-│   │       └── It Should revert
-│   ├── Given Locked but didnt approve anywhere flexible
-│   │   └── When Trying to unlock 2 approval flexible
-│   │       ├── It Should unlock and refund the full amount right away
-│   │       └── It Should emit an event
-│   ├── Given Locked but didnt vote anywhere flexible
-│   │   └── When Trying to unlock 2 voting flexible
-│   │       ├── It Should unlock and refund the full amount right away
-│   │       └── It Should emit an event
-│   ├── Given Locked but approved on ended or executed proposals flexible
-│   │   └── When Trying to unlock 3 approved flexible
-│   │       ├── It Should unlock and refund the full amount right away
-│   │       └── It Should emit an event
-│   ├── Given Locked but voted on ended or executed proposals flexible
-│   │   └── When Trying to unlock 3 flexible
-│   │       ├── It Should unlock and refund the full amount right away
-│   │       └── It Should emit an event
-│   ├── Given Locked and approved currently active proposals flexible
-│   │   └── When Trying to unlock 4 approved flexible
-│   │       ├── It Should deallocate the existing voting power from active proposals
-│   │       ├── It Should unlock and refund the full amount
-│   │       └── It Should emit an event
-│   └── Given Locked and voted on currently active proposals flexible
-│       └── When Trying to unlock 4 voted flexible
-│           ├── It Should deallocate the existing voting power from active proposals
-│           ├── It Should unlock and refund the full amount
-│           └── It Should emit an event
-├── When Calling plugin
-│   └── It Should return the right address
-├── When Calling token
-│   └── It Should return the right address
-├── Given No underlying token
-│   └── When Calling underlyingToken empty
-│       └── It Should return the token address
-└── Given Underlying token defined
-    └── When Calling underlyingToken set
-        └── It Should return the right address
+└── Given The contract is initialized
+    ├── Given A nonzero underlying token was provided in the constructor
+    │   └── When Calling underlyingToken
+    │       └── It Should return the address of the underlying token
+    ├── Given A zeroaddress underlying token was provided in the constructor
+    │   └── When Calling underlyingToken 2
+    │       └── It Should return the address of the main token
+    ├── Given A plugin is set and a proposal exists
+    │   ├── Given pluginMode is Voting 2
+    │   │   └── When Calling canVote
+    │   │       └── It Should proxy the call to the plugin's canVote() and return its result
+    │   └── Given pluginMode is Approval 2
+    │       └── When Calling canVote 2
+    │           └── It Should proxy the call to the plugin's canApprove() and return its result
+    └── Given The contract has several known proposal IDs
+        ├── When Calling knownProposalIdAt with a valid index
+        │   └── It Should return the correct proposal ID at that index
+        └── When Calling knownProposalIdAt with an outofbounds index
+            └── It Should revert
 ```
 
 ```

@@ -25,7 +25,7 @@ contract DaoBuilder is Test {
         uint256 amount;
     }
 
-    address owner = ALICE_ADDRESS;
+    address owner;
 
     address[] proposers;
     MintEntry[] tokenHolders;
@@ -33,6 +33,7 @@ contract DaoBuilder is Test {
     // Lock Manager
     UnlockMode unlockMode = UnlockMode.Strict;
     PluginMode pluginMode = PluginMode.Approval;
+    IERC20 underlyingTokenAddr;
 
     // Voting
     MajorityVotingBase.VotingMode votingMode = MajorityVotingBase.VotingMode.Standard;
@@ -113,6 +114,11 @@ contract DaoBuilder is Test {
         return this;
     }
 
+    function withUnderlyingToken(IERC20 underlyingToken) public returns (DaoBuilder) {
+        underlyingTokenAddr = underlyingToken;
+        return this;
+    }
+
     /// @dev Creates a DAO with the given orchestration settings.
     /// @dev The setup is done on block/timestamp 0 and tests should be made on block/timestamp 1 or later.
     function build()
@@ -126,19 +132,24 @@ contract DaoBuilder is Test {
             IERC20 underlyingToken
         )
     {
+        if (owner == address(0)) owner = msg.sender;
+
         // Deploy the DAO with `this` as root
         dao = DAO(
             payable(
                 createProxyAndCall(
-                    address(DAO_BASE),
-                    abi.encodeCall(DAO.initialize, ("", address(this), address(0x0), ""))
+                    address(DAO_BASE), abi.encodeCall(DAO.initialize, ("", address(this), address(0x0), ""))
                 )
             )
         );
 
         // Deploy ERC20 token
         lockableToken = new TestToken();
-        underlyingToken = new TestToken();
+        if (address(underlyingTokenAddr) == address(0)) {
+            underlyingToken = new TestToken();
+        } else {
+            underlyingToken = underlyingTokenAddr;
+        }
 
         if (tokenHolders.length > 0) {
             for (uint256 i = 0; i < tokenHolders.length; i++) {
@@ -153,18 +164,12 @@ contract DaoBuilder is Test {
         {
             // Plugin and helper
 
-            lockManager = new LockManager(
-                dao,
-                LockManagerSettings(unlockMode, pluginMode),
-                lockableToken,
-                underlyingToken
-            );
+            lockManager =
+                new LockManager(dao, LockManagerSettings(unlockMode, pluginMode), lockableToken, underlyingToken);
 
             bytes memory pluginMetadata = "";
-            IPlugin.TargetConfig memory targetConfig = IPlugin.TargetConfig({
-                target: address(dao),
-                operation: IPlugin.Operation.Call
-            });
+            IPlugin.TargetConfig memory targetConfig =
+                IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call});
 
             if (pluginMode == PluginMode.Approval) {
                 LockToApprovePlugin.ApprovalSettings memory approvalSettings = LockToApprovePlugin.ApprovalSettings({
@@ -229,9 +234,7 @@ contract DaoBuilder is Test {
         } else {
             // Ensure that at least the owner can propose
             dao.grant(
-                address(targetPlugin),
-                owner,
-                LockToApprovePlugin(address(targetPlugin)).CREATE_PROPOSAL_PERMISSION_ID()
+                address(targetPlugin), owner, LockToApprovePlugin(address(targetPlugin)).CREATE_PROPOSAL_PERMISSION_ID()
             );
         }
 
@@ -242,7 +245,7 @@ contract DaoBuilder is Test {
         // Labels
         vm.label(address(dao), "DAO");
         vm.label(address(ltaPlugin), "LockToApprove");
-        vm.label(address(ltaPlugin), "LockToVote");
+        vm.label(address(ltvPlugin), "LockToVote");
         vm.label(address(lockManager), "LockManager");
         vm.label(address(lockableToken), "VotingToken");
         vm.label(address(underlyingToken), "UnderlyingToken");
