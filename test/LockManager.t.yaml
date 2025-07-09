@@ -239,7 +239,7 @@ LockManagerTest:
                   - it: Should emit a ProposalEnded event
           - when: Calling proposalEnded() with a non-existent proposal ID
             then:
-              - it: Should revert
+              - it: Should do nothing
 
   - given: The contract is initialized
     and:

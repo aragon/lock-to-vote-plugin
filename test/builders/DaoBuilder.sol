@@ -145,11 +145,7 @@ contract DaoBuilder is Test {
 
         // Deploy ERC20 token
         lockableToken = new TestToken();
-        if (address(underlyingTokenAddr) == address(0)) {
-            underlyingToken = new TestToken();
-        } else {
-            underlyingToken = underlyingTokenAddr;
-        }
+        underlyingToken = underlyingTokenAddr;
 
         if (tokenHolders.length > 0) {
             for (uint256 i = 0; i < tokenHolders.length; i++) {

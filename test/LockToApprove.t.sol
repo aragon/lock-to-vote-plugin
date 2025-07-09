@@ -258,7 +258,7 @@ contract LockToApproveTest is AragonTest {
 
         vm.expectEmit();
         emit ProposalCreated(
-            4925969046647307679243058902756532866152674924513261495288599221022020359470,
+            13876840710005004095411466095926402277614448292371379428030366522978619098280,
             alice,
             block.timestamp.toUint64(),
             (block.timestamp + 10 days).toUint64(),
@@ -313,7 +313,7 @@ contract LockToApproveTest is AragonTest {
 
         vm.expectEmit();
         emit ProposalCreated(
-            31465089583227639009379940193872144868935931775341506474759055387416263087238,
+            77014594595155826630278684923227134408666612923500769942032796858285014477046,
             alice,
             startDate,
             endDate,
@@ -334,7 +334,7 @@ contract LockToApproveTest is AragonTest {
             IPlugin.TargetConfig memory targetConfig
         ) = plugin.getProposal(proposalId);
 
-        assertEq(proposalId, 31465089583227639009379940193872144868935931775341506474759055387416263087238);
+        assertEq(proposalId, 77014594595155826630278684923227134408666612923500769942032796858285014477046);
         assertFalse(open);
         assertFalse(executed);
         assertEq(approvalTally, 0);
