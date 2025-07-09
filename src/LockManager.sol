@@ -27,8 +27,9 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice The address of the token contract
     IERC20 public immutable token;
 
-    /// @notice The address of the underlying token from which "token" originates, if applicable
-    IERC20 immutable underlyingTokenAddress;
+    /// @notice If applicable, the address of the underlying token from which "token" originates. Zero otherwise.
+    /// @dev This is relevant in cases where the main token can experience swift deviations in supply, whereas the underlying token is much more stable
+    IERC20 private immutable underlyingTokenAddr;
 
     /// @notice Keeps track of the amount of tokens locked by address
     mapping(address => uint256) public lockedBalances;
@@ -68,13 +69,17 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Thrown when trying to define the address of the plugin after it already was
     error SetPluginAddressForbidden();
 
+    /// @param _dao The address of the DAO where permissions should be checked by this contract
+    /// @param _settings The operation mode of the contract (plugin mode and unlock mode)
+    /// @param _token The address of the token contract that users can lock
+    /// @param _underlyingToken If applicable, the address of the contract from which `token` originates. This is relevant for LP tokens whose supply may experiment swift changes.
     constructor(IDAO _dao, LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken)
         DaoAuthorizable(_dao)
     {
         settings.unlockMode = _settings.unlockMode;
         settings.pluginMode = _settings.pluginMode;
         token = _token;
-        underlyingTokenAddress = _underlyingToken;
+        underlyingTokenAddr = _underlyingToken;
     }
 
     /// @notice Returns the known proposalID at the given index
@@ -185,11 +190,11 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function underlyingToken() external view virtual returns (IERC20) {
-        if (address(underlyingTokenAddress) == address(0)) {
+    function underlyingToken() public view virtual returns (IERC20) {
+        if (address(underlyingTokenAddr) == address(0)) {
             return token;
         }
-        return underlyingTokenAddress;
+        return underlyingTokenAddr;
     }
 
     /// @inheritdoc ILockManager
