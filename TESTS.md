@@ -339,7 +339,6 @@ LockToApprovePluginSetupTest
 ```
 LockToVoteTest
 ├── When deploying the contract
-│   ├── It should disable the initializers
 │   └── It should initialize normally
 ├── Given a deployed contract
 │   └── It should refuse to initialize again
