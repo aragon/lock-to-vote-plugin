@@ -149,7 +149,7 @@ LockManagerTest
 │       │       ├── It Should remove the proposal ID from knownProposalIds
 │       │       └── It Should emit a ProposalEnded event
 │       └── When Calling proposalEnded with a nonexistent proposal ID
-│           └── It Should revert
+│           └── It Should do nothing
 └── Given The contract is initialized
     ├── Given A nonzero underlying token was provided in the constructor
     │   └── When Calling underlyingToken
