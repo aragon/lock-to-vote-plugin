@@ -627,8 +627,6 @@ contract LockToVoteTest is AragonTest {
 
         // It should increase the right total voting power
         assertEq(tally.yes + tally.no + tally.abstain, aliceBalance + 0.5 ether);
-
-        vm.skip(true);
     }
 
     modifier givenVotingAnotherOption() {
@@ -641,8 +639,22 @@ contract LockToVoteTest is AragonTest {
         givenStandardVotingMode2
         givenVotingAnotherOption
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(NoBalance.selector);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_RevertGiven_VotingWithMoreLockedBalance2()
@@ -651,11 +663,29 @@ contract LockToVoteTest is AragonTest {
         givenStandardVotingMode2
         givenVotingAnotherOption
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        _lock(alice, 0.5 ether);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(NoBalance.selector);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     modifier givenVoteReplacementMode2() {
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            builder.withVoteReplacement().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
+
         _;
     }
 
@@ -669,11 +699,29 @@ contract LockToVoteTest is AragonTest {
         givenVoteReplacementMode2
         givenVotingTheFirstTime2
     {
-        // It should set the right voter's usedVotingPower
-        // It should set the right tally of the voted option
-        // It should set the right total voting power
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _lock(alice, 1 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
         // It should emit an event
-        vm.skip(true);
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance);
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should set the right voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        // It should set the right tally of the voted option
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+
+        // It should set the right total voting power
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_RevertGiven_NoLockedBalance2()
@@ -682,8 +730,19 @@ contract LockToVoteTest is AragonTest {
         givenVoteReplacementMode2
         givenVotingTheFirstTime2
     {
-        // It should revert
-        vm.skip(true);
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        vm.prank(bob);
+        vm.expectRevert();
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should keep the right voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0);
+
+        // It should set the right tally
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes + tally.no + tally.abstain, 0);
     }
 
     modifier givenVotingTheSameOption2() {
@@ -696,8 +755,26 @@ contract LockToVoteTest is AragonTest {
         givenVoteReplacementMode2
         givenVotingTheSameOption2
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _lock(alice, 1 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(NoBalance.selector);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        //
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_GivenVotingWithMoreLockedBalance3()
@@ -706,11 +783,29 @@ contract LockToVoteTest is AragonTest {
         givenVoteReplacementMode2
         givenVotingTheSameOption2
     {
-        // It should increase the voter's usedVotingPower
-        // It should increase the tally of the voted option
-        // It should increase the total voting power
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
+        _lock(alice, 0.5 ether);
         // It should emit an event
-        vm.skip(true);
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance + 0.5 ether);
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should increase the voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance + 0.5 ether);
+
+        // It should increase the right tally of the voted option
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance + 0.5 ether);
+
+        // It should increase the right total voting power
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance + 0.5 ether);
     }
 
     modifier givenVotingAnotherOption2() {
@@ -743,6 +838,9 @@ contract LockToVoteTest is AragonTest {
     }
 
     modifier givenEarlyExecutionMode2() {
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            builder.withEarlyExecution().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
+
         _;
     }
 
@@ -754,8 +852,30 @@ contract LockToVoteTest is AragonTest {
         // It should set the right voter's usedVotingPower
         // It should set the right tally of the voted option
         // It should set the right total voting power
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _lock(alice, 1 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
         // It should emit an event
-        vm.skip(true);
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance);
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should set the right voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        // It should set the right tally of the voted option
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+
+        // It should set the right total voting power
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_RevertGiven_NoLockedBalance3()
@@ -764,8 +884,19 @@ contract LockToVoteTest is AragonTest {
         givenEarlyExecutionMode2
         givenVotingTheFirstTime3
     {
-        // It should revert
-        vm.skip(true);
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        vm.prank(bob);
+        vm.expectRevert();
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should keep the right voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0);
+
+        // It should set the right tally
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes + tally.no + tally.abstain, 0);
     }
 
     modifier givenVotingTheSameOption3() {
@@ -778,8 +909,26 @@ contract LockToVoteTest is AragonTest {
         givenEarlyExecutionMode2
         givenVotingTheSameOption3
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _lock(alice, 1 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(NoBalance.selector);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        //
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_GivenVotingWithMoreLockedBalance5()
@@ -788,11 +937,29 @@ contract LockToVoteTest is AragonTest {
         givenEarlyExecutionMode2
         givenVotingTheSameOption3
     {
-        // It should increase the voter's usedVotingPower
-        // It should increase the tally of the voted option
-        // It should increase the total voting power
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
+        _lock(alice, 0.5 ether);
         // It should emit an event
-        vm.skip(true);
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance + 0.5 ether);
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should increase the voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance + 0.5 ether);
+
+        // It should increase the right tally of the voted option
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance + 0.5 ether);
+
+        // It should increase the right total voting power
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance + 0.5 ether);
     }
 
     modifier givenVotingAnotherOption3() {
