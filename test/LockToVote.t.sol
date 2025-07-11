@@ -500,7 +500,7 @@ contract LockToVoteTest is AragonTest {
         // It should revert
         // Case: No locked balance
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(NoBalance.selector));
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, bob));
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
         // OK
@@ -586,7 +586,8 @@ contract LockToVoteTest is AragonTest {
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
         // It should revert
-        vm.expectRevert(NoBalance.selector);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
         //
@@ -647,7 +648,8 @@ contract LockToVoteTest is AragonTest {
         uint256 aliceBalance = lockManager.lockedBalances(alice);
 
         // It should revert
-        vm.expectRevert(NoBalance.selector);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
 
         assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
@@ -672,7 +674,8 @@ contract LockToVoteTest is AragonTest {
         _lock(alice, 0.5 ether);
 
         // It should revert
-        vm.expectRevert(NoBalance.selector);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
 
         assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
@@ -765,7 +768,8 @@ contract LockToVoteTest is AragonTest {
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
         // It should revert
-        vm.expectRevert(NoBalance.selector);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
         //
@@ -818,9 +822,45 @@ contract LockToVoteTest is AragonTest {
         givenVoteReplacementMode2
         givenVotingAnotherOption2
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, 0);
+
         // It should deallocate the current voting power
         // It should allocate that voting power into the new vote option
-        vm.skip(true);
+
+        // It should emit an event
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.No, aliceBalance);
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 0);
+        assertEq(tally.no, aliceBalance);
+        assertEq(tally.abstain, 0);
+
+        // It should deallocate the current voting power
+        // It should allocate that voting power into the new vote option
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Abstain);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 0);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, aliceBalance);
     }
 
     function test_GivenVotingWithMoreLockedBalance4()
@@ -829,12 +869,50 @@ contract LockToVoteTest is AragonTest {
         givenVoteReplacementMode2
         givenVotingAnotherOption2
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, 0);
+
         // It should deallocate the current voting power
         // It the voter's usedVotingPower should reflect the new balance
-        // It should allocate to the tally of the voted option
-        // It should update the total voting power
+        // It should allocate that voting power into the new vote option
+
+        _lock(alice, 0.2 ether);
+
         // It should emit an event
-        vm.skip(true);
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.No, aliceBalance + 0.2 ether);
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance + 0.2 ether);
+
+        (,,, tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 0);
+        assertEq(tally.no, aliceBalance + 0.2 ether);
+        assertEq(tally.abstain, 0);
+
+        // It should deallocate the current voting power
+        // It should allocate that voting power into the new vote option
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Abstain);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance + 0.2 ether);
+
+        // It should update the total voting power
+
+        (,,, tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 0);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, aliceBalance + 0.2 ether);
     }
 
     modifier givenEarlyExecutionMode2() {
@@ -919,7 +997,8 @@ contract LockToVoteTest is AragonTest {
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
         // It should revert
-        vm.expectRevert(NoBalance.selector);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
         //
@@ -972,8 +1051,24 @@ contract LockToVoteTest is AragonTest {
         givenEarlyExecutionMode2
         givenVotingAnotherOption3
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        _lock(alice, 0.5 ether);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_RevertGiven_VotingWithMoreLockedBalance6()
@@ -982,8 +1077,24 @@ contract LockToVoteTest is AragonTest {
         givenEarlyExecutionMode2
         givenVotingAnotherOption3
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        _lock(alice, 0.5 ether);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     modifier givenTheVoteMakesTheProposalPass() {

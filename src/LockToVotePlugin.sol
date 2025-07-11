@@ -201,7 +201,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         emit VoteCast(_proposalId, _voter, _voteOption, _currentVotingPower);
 
         if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
-            _checkEarlyExecution(_proposalId, _msgSender());
+            _attemptEarlyExecution(_proposalId, _msgSender());
         }
     }
 
@@ -260,29 +260,44 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         view
         returns (bool)
     {
+        uint256 _currentVotingPower = proposal_.votes[_voter].votingPower;
+
         // The proposal vote hasn't started or has already ended.
         if (!_isProposalOpen(proposal_)) {
             return false;
         } else if (_voteOption == VoteOption.None) {
             return false;
         }
-        // Lowering the existing voting power (or the same) is not allowed
-        else if (_newVotingPower <= proposal_.votes[_voter].votingPower) {
-            return false;
+        // Standard voting + early execution
+        else if (proposal_.parameters.votingMode != VotingMode.VoteReplacement) {
+            // Lowering the existing voting power (or the same) is not allowed
+            if (_newVotingPower <= _currentVotingPower) {
+                return false;
+            }
+            // The voter already voted a different option but vote replacment is not allowed.
+            else if (
+                proposal_.votes[_voter].voteOption != VoteOption.None
+                    && _voteOption != proposal_.votes[_voter].voteOption
+            ) {
+                return false;
+            }
         }
-        // The voter already voted a different option but vote replacment is not allowed.
-        else if (
-            proposal_.parameters.votingMode != VotingMode.VoteReplacement
-                && proposal_.votes[_voter].voteOption != VoteOption.None
-                && _voteOption != proposal_.votes[_voter].voteOption
-        ) {
-            return false;
+        // Vote replacement mode
+        else {
+            // Lowering the existing voting power is not allowed
+            if (_newVotingPower == 0 || _newVotingPower < _currentVotingPower) {
+                return false;
+            }
+            // Voting the same option with the same balance is not allowed
+            else if (_newVotingPower == _currentVotingPower && _voteOption == proposal_.votes[_voter].voteOption) {
+                return false;
+            }
         }
 
         return true;
     }
 
-    function _checkEarlyExecution(uint256 _proposalId, address _voteCaller) internal {
+    function _attemptEarlyExecution(uint256 _proposalId, address _voteCaller) internal {
         if (!dao().hasPermission(address(this), _voteCaller, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
             return;
         } else if (!_canExecute(_proposalId)) {

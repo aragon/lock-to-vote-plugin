@@ -60,7 +60,7 @@ LockManagerTest
 │           │   └── It Should call vote() on the plugin with the user's full locked balance
 │           ├── Given The user has already voted on the proposal with their current balance
 │           │   └── When Calling vote again with the same parameters
-│           │       └── It Should revert with NoNewBalance
+│           │       └── It Should revert with VoteCastForbidden
 │           └── Given The user locks more tokens
 │               └── When Calling vote again
 │                   └── It Should call vote() on the plugin with the new, larger balance
@@ -85,7 +85,7 @@ LockManagerTest
 │           │   └── It Should call approve() on the plugin with the user's full locked balance
 │           ├── Given The user has already approved the proposal with their current balance
 │           │   └── When Calling approve again
-│           │       └── It Should revert with NoNewBalance
+│           │       └── It Should revert with ApprovalForbidden
 │           └── Given The user locks more tokens 2
 │               └── When Calling approve again 2
 │                   └── It Should call approve() on the plugin with the new, larger balance
@@ -687,4 +687,3 @@ MinVotingPowerConditionTest
         ├── It should return true when 'who' holds the minimum voting power
         └── It should return false when 'who' holds less than the minimum voting power
 ```
-

@@ -630,7 +630,7 @@ contract LockToApproveTest is AragonTest {
         lockManager.lock();
         lockManager.approve(proposalId);
 
-        vm.expectRevert(abi.encodeWithSelector(LockManager.NoNewBalance.selector));
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ApprovalForbidden.selector, proposalId, alice));
         lockManager.approve(proposalId);
 
         vm.startPrank(address(lockManager));

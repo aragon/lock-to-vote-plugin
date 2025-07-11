@@ -94,7 +94,7 @@ LockManagerTest:
                 and:
                   - when: Calling vote() again with the same parameters
                     then:
-                      - it: Should revert with NoNewBalance
+                      - it: Should revert with VoteCastForbidden
               - given: The user locks more tokens
                 and:
                   - when: Calling vote() again
@@ -136,7 +136,7 @@ LockManagerTest:
                 and:
                   - when: Calling approve() again
                     then:
-                      - it: Should revert with NoNewBalance
+                      - it: Should revert with ApprovalForbidden
               - given: The user locks more tokens
                 and:
                   - when: Calling approve() again

@@ -31,7 +31,8 @@ contract LockManagerTest is AragonTest {
     event ProposalEnded(uint256 proposalId);
 
     error NoBalance();
-    error NoNewBalance();
+    error ApprovalForbidden(uint256 proposalId, address voter);
+    error VoteCastForbidden(uint256 proposalId, address account);
     error SetPluginAddressForbidden();
     error InvalidPluginMode();
     error InvalidPluginAddress();
@@ -256,7 +257,8 @@ contract LockManagerTest is AragonTest {
 
     function test_WhenCallingVote() external givenVotingPluginIsActive givenTheUserHasNoLockedBalance {
         // It Should revert with NoBalance
-        vm.expectRevert(NoBalance.selector);
+        vm.prank(david);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, david));
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
     }
 
@@ -351,10 +353,10 @@ contract LockManagerTest is AragonTest {
         givenTheUserHasALockedBalance
         givenTheUserHasAlreadyVotedOnTheProposalWithTheirCurrentBalance
     {
-        // It Should revert with NoNewBalance
+        // It Should revert with VoteCastForbidden
 
         vm.prank(alice);
-        vm.expectRevert(NoNewBalance.selector);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
     }
 
@@ -436,7 +438,7 @@ contract LockManagerTest is AragonTest {
     function test_WhenCallingApprove2() external givenApprovalPluginIsActive givenTheUserHasNoLockedBalance {
         // It Should revert with NoBalance
         vm.prank(david);
-        vm.expectRevert(NoBalance.selector);
+        vm.expectRevert(abi.encodeWithSelector(ApprovalForbidden.selector, proposalId, david));
         lockManager.approve(proposalId);
     }
 
@@ -502,9 +504,9 @@ contract LockManagerTest is AragonTest {
         givenTheUserHasALockedBalance
         givenTheUserHasAlreadyApprovedTheProposalWithTheirCurrentBalance
     {
-        // It Should revert with NoNewBalance
+        // It Should revert with ApprovalForbidden
         vm.prank(alice);
-        vm.expectRevert(NoNewBalance.selector);
+        vm.expectRevert(abi.encodeWithSelector(ApprovalForbidden.selector, proposalId, alice));
         lockManager.approve(proposalId);
     }
 

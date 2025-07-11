@@ -54,9 +54,6 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Raised when the caller holds no tokens or didn't lock any tokens
     error NoBalance();
 
-    /// @notice Raised when trying to vote on a proposal with the same balance as the last time
-    error NoNewBalance();
-
     /// @notice Raised when attempting to unlock while active votes are cast in strict mode
     error LocksStillActive();
 
@@ -240,22 +237,16 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     function _approve(uint256 _proposalId) internal virtual {
         uint256 _currentVotingPower = lockedBalances[msg.sender];
-        if (_currentVotingPower == 0) {
-            revert NoBalance();
-        } else if (_currentVotingPower == plugin.usedVotingPower(_proposalId, msg.sender)) {
-            revert NoNewBalance();
-        }
+
+        /// @dev The voting power value is checked within plugin.approve()
 
         ILockToApprove(address(plugin)).approve(_proposalId, msg.sender, _currentVotingPower);
     }
 
     function _vote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) internal virtual {
         uint256 _currentVotingPower = lockedBalances[msg.sender];
-        if (_currentVotingPower == 0) {
-            revert NoBalance();
-        } else if (_currentVotingPower == plugin.usedVotingPower(_proposalId, msg.sender)) {
-            revert NoNewBalance();
-        }
+
+        /// @dev The voting power value is checked within plugin.vote()
 
         ILockToVote(address(plugin)).vote(_proposalId, msg.sender, _voteOption, _currentVotingPower);
     }
