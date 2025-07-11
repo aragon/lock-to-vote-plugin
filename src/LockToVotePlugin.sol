@@ -28,6 +28,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     bytes32 public constant LOCK_MANAGER_PERMISSION_ID = keccak256("LOCK_MANAGER_PERMISSION");
 
     event VoteCleared(uint256 proposalId, address voter);
+
     error VoteRemovalForbidden(uint256 proposalId, address voter);
 
     /// @notice Initializes the component.
@@ -55,13 +56,15 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
     /// @return Returns `true` if the interface is supported.
-    function supportsInterface(
-        bytes4 _interfaceId
-    ) public view virtual override(MajorityVotingBase, LockToVoteBase) returns (bool) {
-        return
-            _interfaceId == LOCK_TO_VOTE_INTERFACE_ID ||
-            _interfaceId == type(ILockToVote).interfaceId ||
-            super.supportsInterface(_interfaceId);
+    function supportsInterface(bytes4 _interfaceId)
+        public
+        view
+        virtual
+        override(MajorityVotingBase, LockToVoteBase)
+        returns (bool)
+    {
+        return _interfaceId == LOCK_TO_VOTE_INTERFACE_ID || _interfaceId == type(ILockToVote).interfaceId
+            || super.supportsInterface(_interfaceId);
     }
 
     /// @inheritdoc IProposal
@@ -116,7 +119,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
             proposal_.allowFailureMap = _allowFailureMap;
         }
 
-        for (uint256 i; i < _actions.length; ) {
+        for (uint256 i; i < _actions.length;) {
             proposal_.actions.push(_actions[i]);
             unchecked {
                 ++i;
@@ -140,12 +143,11 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     }
 
     /// @inheritdoc ILockToVote
-    function vote(
-        uint256 _proposalId,
-        address _voter,
-        VoteOption _voteOption,
-        uint256 _currentVotingPower
-    ) public override auth(LOCK_MANAGER_PERMISSION_ID) {
+    function vote(uint256 _proposalId, address _voter, VoteOption _voteOption, uint256 _currentVotingPower)
+        public
+        override
+        auth(LOCK_MANAGER_PERMISSION_ID)
+    {
         Proposal storage proposal_ = proposals[_proposalId];
 
         if (!_canVote(proposal_, _voter, _voteOption, _currentVotingPower)) {
@@ -199,7 +201,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         emit VoteCast(_proposalId, _voter, _voteOption, _currentVotingPower);
 
         if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
-            _checkEarlyExecution(_proposalId, _msgSender());
+            _attemptEarlyExecution(_proposalId, _msgSender());
         }
     }
 
@@ -253,34 +255,49 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
 
     // Internal helpers
 
-    function _canVote(
-        Proposal storage proposal_,
-        address _voter,
-        VoteOption _voteOption,
-        uint256 _newVotingPower
-    ) internal view returns (bool) {
+    function _canVote(Proposal storage proposal_, address _voter, VoteOption _voteOption, uint256 _newVotingPower)
+        internal
+        view
+        returns (bool)
+    {
+        uint256 _currentVotingPower = proposal_.votes[_voter].votingPower;
+
         // The proposal vote hasn't started or has already ended.
         if (!_isProposalOpen(proposal_)) {
             return false;
         } else if (_voteOption == VoteOption.None) {
             return false;
         }
-        // No voting power or lowering the existing one is not allowed
-        else if (_newVotingPower == 0 || _newVotingPower <= proposal_.votes[_voter].votingPower) {
-            return false;
+        // Standard voting + early execution
+        else if (proposal_.parameters.votingMode != VotingMode.VoteReplacement) {
+            // Lowering the existing voting power (or the same) is not allowed
+            if (_newVotingPower <= _currentVotingPower) {
+                return false;
+            }
+            // The voter already voted a different option but vote replacment is not allowed.
+            else if (
+                proposal_.votes[_voter].voteOption != VoteOption.None
+                    && _voteOption != proposal_.votes[_voter].voteOption
+            ) {
+                return false;
+            }
         }
-        // The voter has already voted but vote replacment is not allowed.
-        else if (
-            proposal_.votes[_voter].voteOption != VoteOption.None &&
-            proposal_.parameters.votingMode != VotingMode.VoteReplacement
-        ) {
-            return false;
+        // Vote replacement mode
+        else {
+            // Lowering the existing voting power is not allowed
+            if (_newVotingPower == 0 || _newVotingPower < _currentVotingPower) {
+                return false;
+            }
+            // Voting the same option with the same balance is not allowed
+            else if (_newVotingPower == _currentVotingPower && _voteOption == proposal_.votes[_voter].voteOption) {
+                return false;
+            }
         }
 
         return true;
     }
 
-    function _checkEarlyExecution(uint256 _proposalId, address _voteCaller) internal {
+    function _attemptEarlyExecution(uint256 _proposalId, address _voteCaller) internal {
         if (!dao().hasPermission(address(this), _voteCaller, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
             return;
         } else if (!_canExecute(_proposalId)) {

@@ -1,31 +1,153 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import {Test} from "forge-std/Test.sol";
+import {AragonTest} from "./lib/TestBase.sol";
+import {DaoBuilder} from "./builders/DaoBuilder.sol";
+import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
+import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
+import {createProxyAndCall} from "../src/util/proxy.sol";
+import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
+import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
+import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
+import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
+import {LockManager} from "../src/LockManager.sol";
+import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {TestToken} from "./mocks/TestToken.sol";
+import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
+import {ILockToVoteBase} from "../src/interfaces/ILockToVoteBase.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
+import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
+import {IERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {RATIO_BASE} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 
-contract LockToVoteTest is Test {
+contract LockToVoteTest is AragonTest {
+    DaoBuilder builder;
+    DAO dao;
+    LockToVotePlugin ltvPlugin;
+    LockManager lockManager;
+    IERC20 lockableToken;
+    IERC20 underlyingToken;
+    uint256 proposalId;
+
+    // Default actions for proposal creation
+    Action[] internal actions;
+
+    error DateOutOfBounds(uint256 limit, uint256 actual);
+    error ProposalAlreadyExists(uint256 proposalId);
+    error VoteCastForbidden(uint256 proposalId, address account);
+    error NonexistentProposal(uint256 proposalId);
+    error AlreadyInitialized();
+    error NoBalance();
+
+    event ProposalCreated(
+        uint256 indexed proposalId,
+        address indexed creator,
+        uint64 startDate,
+        uint64 endDate,
+        bytes metadata,
+        Action[] actions,
+        uint256 allowFailureMap
+    );
+    event ProposalExecuted(uint256 indexed proposalId);
+
+    function setUp() public {
+        vm.warp(1 days);
+        vm.roll(100);
+
+        builder = new DaoBuilder();
+        (dao,, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
+            .withStrictUnlock().withVotingPlugin().withProposer(alice).build();
+
+        // Grant alice permission for simplicity in some tests
+        dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
+    }
+
     function test_WhenDeployingTheContract() external {
-        // It should disable the initializers
+        ltvPlugin = LockToVotePlugin(createProxyAndCall(address(new LockToVotePlugin()), bytes("")));
+
+        MajorityVotingBase.VotingSettings memory votingSettings = MajorityVotingBase.VotingSettings({
+            votingMode: MajorityVotingBase.VotingMode.Standard,
+            supportThresholdRatio: 500_000, // 50%
+            minParticipationRatio: 100_000, // 10%
+            minApprovalRatio: 0,
+            proposalDuration: 7 days,
+            minProposerVotingPower: 1 ether
+        });
+        IPlugin.TargetConfig memory targetConfig =
+            IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call});
+        bytes memory pluginMetadata = "ipfs://1234";
+
         // It should initialize normally
-        vm.skip(true);
+        ltvPlugin.initialize(dao, lockManager, votingSettings, targetConfig, pluginMetadata);
     }
 
     function test_GivenADeployedContract() external {
         // It should refuse to initialize again
-        vm.skip(true);
+        MajorityVotingBase.VotingSettings memory votingSettings = ltvPlugin.getVotingSettings();
+        IPlugin.TargetConfig memory targetConfig = ltvPlugin.getTargetConfig();
+
+        vm.expectRevert(AlreadyInitialized.selector);
+        ltvPlugin.initialize(dao, lockManager, votingSettings, targetConfig, "");
     }
 
     modifier givenANewProxy() {
+        (dao,,,, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(
+            bob, 10 ether
+        ).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).build();
+
+        lockManager = new LockManager(
+            dao,
+            LockManagerSettings({unlockMode: UnlockMode.Strict, pluginMode: PluginMode.Voting}),
+            lockableToken,
+            underlyingToken
+        );
+
+        ltvPlugin = LockToVotePlugin(createProxyAndCall(address(new LockToVotePlugin()), bytes("")));
+
+        lockManager.setPluginAddress(ILockToVoteBase(address(ltvPlugin)));
+
+        dao.grant(address(ltvPlugin), address(lockManager), ltvPlugin.LOCK_MANAGER_PERMISSION_ID());
+
         _;
     }
 
     function test_GivenCallingInitialize() external givenANewProxy {
+        MajorityVotingBase.VotingSettings memory votingSettings = MajorityVotingBase.VotingSettings({
+            votingMode: MajorityVotingBase.VotingMode.Standard,
+            supportThresholdRatio: 500_000, // 50%
+            minParticipationRatio: 100_000, // 10%
+            minApprovalRatio: 0,
+            proposalDuration: 7 days,
+            minProposerVotingPower: 1 ether
+        });
+        IPlugin.TargetConfig memory targetConfig =
+            IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call});
+        bytes memory pluginMetadata = "ipfs://1234";
+
+        ltvPlugin.initialize(dao, lockManager, votingSettings, targetConfig, pluginMetadata);
+
         // It should set the DAO address
+        assertEq(address(ltvPlugin.dao()), address(dao));
         // It should define the voting settings
+        MajorityVotingBase.VotingSettings memory votingSettings2 = ltvPlugin.getVotingSettings();
+        assertEq(uint8(votingSettings2.votingMode), uint8(votingSettings.votingMode));
+        assertEq(votingSettings2.supportThresholdRatio, votingSettings.supportThresholdRatio);
+        assertEq(votingSettings2.minParticipationRatio, votingSettings.minParticipationRatio);
+        assertEq(votingSettings2.minApprovalRatio, votingSettings.minApprovalRatio);
+        assertEq(votingSettings2.proposalDuration, votingSettings.proposalDuration);
+        assertEq(votingSettings2.minProposerVotingPower, votingSettings.minProposerVotingPower);
         // It should define the target config
+        IPlugin.TargetConfig memory cfg = ltvPlugin.getTargetConfig();
+        assertEq(cfg.target, targetConfig.target);
+        assertEq(uint8(cfg.operation), uint8(targetConfig.operation));
         // It should define the plugin metadata
+        assertEq(ltvPlugin.getMetadata(), pluginMetadata);
         // It should define the lock manager
-        vm.skip(true);
+        assertEq(address(ltvPlugin.lockManager()), address(lockManager));
     }
 
     modifier whenCallingUpdateVotingSettings() {
@@ -33,9 +155,30 @@ contract LockToVoteTest is Test {
     }
 
     function test_GivenTheCallerHasPermissionToCallUpdateVotingSettings() external whenCallingUpdateVotingSettings {
+        dao.grant(address(ltvPlugin), alice, ltvPlugin.UPDATE_SETTINGS_PERMISSION_ID());
+
+        MajorityVotingBase.VotingSettings memory newSettings = MajorityVotingBase.VotingSettings({
+            votingMode: MajorityVotingBase.VotingMode.VoteReplacement,
+            supportThresholdRatio: 600_000, // 60%
+            minParticipationRatio: 200_000, // 20%
+            minApprovalRatio: 100_000, // 10%
+            proposalDuration: 14 days,
+            minProposerVotingPower: 2 ether
+        });
+
+        vm.prank(alice);
+        ltvPlugin.updateVotingSettings(newSettings);
+
         // It Should set the new values
-        // It Settings() should return the right values
-        vm.skip(true);
+        // It getVotingSettings() should return the right values
+
+        MajorityVotingBase.VotingSettings memory actualVotingSettings = ltvPlugin.getVotingSettings();
+        assertEq(uint8(actualVotingSettings.votingMode), uint8(newSettings.votingMode));
+        assertEq(actualVotingSettings.supportThresholdRatio, newSettings.supportThresholdRatio);
+        assertEq(actualVotingSettings.minParticipationRatio, newSettings.minParticipationRatio);
+        assertEq(actualVotingSettings.minApprovalRatio, newSettings.minApprovalRatio);
+        assertEq(actualVotingSettings.proposalDuration, newSettings.proposalDuration);
+        assertEq(actualVotingSettings.minProposerVotingPower, newSettings.minProposerVotingPower);
     }
 
     function test_RevertGiven_TheCallerHasNoPermissionToCallUpdateVotingSettings()
@@ -43,15 +186,30 @@ contract LockToVoteTest is Test {
         whenCallingUpdateVotingSettings
     {
         // It Should revert
-        vm.skip(true);
+        MajorityVotingBase.VotingSettings memory someSettings = ltvPlugin.getVotingSettings();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DaoUnauthorized.selector,
+                address(dao),
+                address(ltvPlugin),
+                randomWallet,
+                ltvPlugin.UPDATE_SETTINGS_PERMISSION_ID()
+            )
+        );
+        vm.prank(randomWallet);
+        ltvPlugin.updateVotingSettings(someSettings);
     }
 
-    function test_WhenCallingSupportsInterface() external {
+    function test_WhenCallingSupportsInterface() external view {
         // It does not support the empty interface
+        assertFalse(ltvPlugin.supportsInterface(0xffffffff));
         // It supports IERC165Upgradeable
+        assertTrue(ltvPlugin.supportsInterface(type(IERC165Upgradeable).interfaceId));
         // It supports IMembership
+        assertTrue(ltvPlugin.supportsInterface(type(IMembership).interfaceId));
         // It supports ILockToVote
-        vm.skip(true);
+        assertTrue(ltvPlugin.supportsInterface(type(ILockToVote).interfaceId));
     }
 
     modifier whenCallingCreateProposal() {
@@ -63,6 +221,7 @@ contract LockToVoteTest is Test {
     }
 
     modifier givenNoMinimumVotingPower() {
+        // Default setup has minProposerVotingPower = 0
         _;
     }
 
@@ -73,11 +232,47 @@ contract LockToVoteTest is Test {
         givenNoMinimumVotingPower
     {
         // It sets the given failuremap, if any
+        bytes memory metadata = "ipfs://test";
+        uint256 failureMap = 127;
+        bytes memory customParams = abi.encode(failureMap);
+
+        // It sets the given failuremap, if any
+        vm.prank(alice);
+        uint256 propId1 = ltvPlugin.createProposal(metadata, actions, 0, 0, customParams);
+        (, bool executed,,, Action[] memory pActions, uint256 pFailureMap,) = ltvPlugin.getProposal(propId1);
+        assertFalse(executed);
+        assertEq(pFailureMap, failureMap);
+        assertEq(pActions.length, actions.length);
+
         // It proposalIds are predictable and reproducible
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(ProposalAlreadyExists.selector, propId1));
+        ltvPlugin.createProposal(metadata, actions, 0, 0, customParams);
+
         // It sets the given voting mode, target, params and actions
+        (,, MajorityVotingBase.ProposalParameters memory params,,,,) = ltvPlugin.getProposal(propId1);
+        assertEq(uint8(params.votingMode), uint8(ltvPlugin.votingMode()));
+
+        failureMap = 0;
+        customParams = bytes("");
+        metadata = "ipfs://different-metadata";
+
         // It emits an event
+        vm.expectEmit(true, true, true, true);
+        emit ProposalCreated(
+            51703031024600542814281184006963496482512851097809162320591821604992295899344,
+            alice,
+            uint64(block.timestamp),
+            uint64(block.timestamp + 10 days),
+            metadata,
+            actions,
+            failureMap
+        );
+        vm.prank(alice);
+        ltvPlugin.createProposal(metadata, actions, 0, 0, customParams);
+
         // It reports proposalCreated() on the lockManager
-        vm.skip(true);
+        assertEq(lockManager.knownProposalIdAt(0), propId1);
     }
 
     function test_GivenMinimumVotingPowerAboveZero() external whenCallingCreateProposal givenCreatePermission {
@@ -88,17 +283,36 @@ contract LockToVoteTest is Test {
 
     function test_RevertGiven_InvalidDates() external whenCallingCreateProposal givenCreatePermission {
         // It should revert
-        vm.skip(true);
+        uint64 start = uint64(block.timestamp + 1 days);
+        uint64 end = start + 1 hours; // Less than default 10 days duration
+
+        vm.expectRevert(abi.encodeWithSelector(DateOutOfBounds.selector, start + ltvPlugin.proposalDuration(), end));
+        vm.prank(alice);
+        ltvPlugin.createProposal("", actions, start, end, bytes(""));
     }
 
     function test_RevertGiven_DuplicateProposalID() external whenCallingCreateProposal givenCreatePermission {
         // It should revert
-        vm.skip(true);
+        vm.prank(alice);
+        uint256 propId = ltvPlugin.createProposal("", actions, 0, 0, bytes(""));
+
+        vm.expectRevert(abi.encodeWithSelector(ProposalAlreadyExists.selector, propId));
+        vm.prank(alice);
+        ltvPlugin.createProposal("", actions, 0, 0, bytes(""));
     }
 
     function test_RevertGiven_NoCreatePermission() external whenCallingCreateProposal {
-        // It should revert
-        vm.skip(true);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DaoUnauthorized.selector,
+                address(dao),
+                address(ltvPlugin),
+                randomWallet,
+                ltvPlugin.CREATE_PROPOSAL_PERMISSION_ID()
+            )
+        );
+        vm.prank(randomWallet);
+        ltvPlugin.createProposal("", actions, 0, 0, bytes(""));
     }
 
     modifier whenCallingCanVote() {
@@ -114,10 +328,35 @@ contract LockToVoteTest is Test {
     }
 
     function test_GivenSubmittingTheFirstVote() external whenCallingCanVote givenTheProposalIsOpen givenNonEmptyVote {
-        // It should return true when the voter locked balance is positive
-        // It should return false when the voter has no locked balance
         // It should happen in all voting modes
-        vm.skip(true);
+        _testCanVoteFirstTime(MajorityVotingBase.VotingMode.Standard);
+        _testCanVoteFirstTime(MajorityVotingBase.VotingMode.VoteReplacement);
+        _testCanVoteFirstTime(MajorityVotingBase.VotingMode.EarlyExecution);
+    }
+
+    function _testCanVoteFirstTime(MajorityVotingBase.VotingMode mode) internal {
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            new DaoBuilder().withVotingPlugin().withTokenHolder(alice, 1 ether).withProposer(alice).build();
+        MajorityVotingBase.VotingSettings memory settings = ltvPlugin.getVotingSettings();
+        settings.votingMode = mode;
+
+        dao.grant(address(ltvPlugin), address(dao), ltvPlugin.UPDATE_SETTINGS_PERMISSION_ID());
+
+        vm.prank(address(dao));
+        ltvPlugin.updateVotingSettings(settings);
+
+        vm.prank(alice);
+        uint256 propId = ltvPlugin.createProposal("", actions, 0, 0, bytes(""));
+
+        vm.prank(alice);
+        lockableToken.approve(address(lockManager), 1 ether);
+        vm.prank(alice);
+        lockManager.lock();
+
+        // It should return true when the voter locked balance is positive
+        assertTrue(ltvPlugin.canVote(propId, alice, IMajorityVoting.VoteOption.Yes));
+        // It should return false when the voter has no locked balance
+        assertFalse(ltvPlugin.canVote(propId, bob, IMajorityVoting.VoteOption.Yes));
     }
 
     modifier givenVotingAgain() {
@@ -131,9 +370,20 @@ contract LockToVoteTest is Test {
         givenNonEmptyVote
         givenVotingAgain
     {
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            builder.withStandardVoting().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
         // It should return true when voting the same with more balance
+        _lock(alice, 0.5 ether);
+        assertTrue(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes));
+
         // It should return false otherwise
-        vm.skip(true);
+        assertFalse(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.No)); // different option
     }
 
     function test_GivenVoteReplacementMode()
@@ -143,9 +393,20 @@ contract LockToVoteTest is Test {
         givenNonEmptyVote
         givenVotingAgain
     {
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            builder.withVoteReplacement().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
         // It should return true when the locked balance is higher
+        _lock(alice, 0.5 ether);
+        assertTrue(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.No));
+
         // It should return false otherwise
-        vm.skip(true);
+        assertTrue(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.No));
     }
 
     function test_GivenEarlyExecutionMode()
@@ -155,25 +416,77 @@ contract LockToVoteTest is Test {
         givenNonEmptyVote
         givenVotingAgain
     {
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            builder.withEarlyExecution().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
         // It should return false
-        vm.skip(true);
+        assertFalse(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes));
     }
 
     function test_GivenEmptyVote() external whenCallingCanVote givenTheProposalIsOpen {
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            builder.withVoteReplacement().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
         // It should return false
-        vm.skip(true);
+        assertFalse(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.None));
     }
 
     function test_GivenTheProposalEnded() external whenCallingCanVote {
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            builder.withStandardVoting().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+        _lock(alice, 1 ether);
+        assertTrue(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes));
+
+        vm.warp(block.timestamp + ltvPlugin.proposalDuration() + 1);
         // It should return false, regardless of prior votes
         // It should return false, regardless of the locked balance
+        assertFalse(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes));
+        assertFalse(ltvPlugin.canVote(proposalId, bob, IMajorityVoting.VoteOption.Yes));
+
         // It should return false, regardless of the voting mode
-        vm.skip(true);
+
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            builder.withVoteReplacement().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+        _lock(alice, 1 ether);
+        assertTrue(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes));
+
+        vm.warp(block.timestamp + ltvPlugin.proposalDuration() + 1);
+        assertFalse(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes));
+        assertFalse(ltvPlugin.canVote(proposalId, bob, IMajorityVoting.VoteOption.Yes));
+
+        // 2
+
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            builder.withEarlyExecution().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+        _lock(alice, 1 ether);
+        assertTrue(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes));
+
+        vm.warp(block.timestamp + ltvPlugin.proposalDuration() + 1);
+        assertFalse(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes));
+        assertFalse(ltvPlugin.canVote(proposalId, bob, IMajorityVoting.VoteOption.Yes));
     }
 
     function test_RevertGiven_TheProposalIsNotCreated() external whenCallingCanVote {
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(abi.encodeWithSelector(NonexistentProposal.selector, 999));
+        ltvPlugin.canVote(999, alice, IMajorityVoting.VoteOption.Yes);
     }
 
     modifier whenCallingVote() {
@@ -181,11 +494,25 @@ contract LockToVoteTest is Test {
     }
 
     function test_RevertGiven_CanVoteReturnsFalse() external whenCallingVote {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
         // It should revert
-        vm.skip(true);
+        // Case: No locked balance
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, bob));
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // OK
+        _lock(alice, 1 ether);
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
     }
 
     modifier givenStandardVotingMode2() {
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            builder.withStandardVoting().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
+
         _;
     }
 
@@ -194,11 +521,28 @@ contract LockToVoteTest is Test {
     }
 
     function test_GivenHasLockedBalance() external whenCallingVote givenStandardVotingMode2 givenVotingTheFirstTime {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _lock(alice, 1 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance);
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
         // It should set the right voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
         // It should set the right tally of the voted option
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+
         // It should set the right total voting power
-        // It should emit an event
-        vm.skip(true);
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_RevertGiven_NoLockedBalance()
@@ -207,8 +551,19 @@ contract LockToVoteTest is Test {
         givenStandardVotingMode2
         givenVotingTheFirstTime
     {
-        // It should revert
-        vm.skip(true);
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        vm.prank(bob);
+        vm.expectRevert();
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should keep the right voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0);
+
+        // It should set the right tally
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes + tally.no + tally.abstain, 0);
     }
 
     modifier givenVotingTheSameOption() {
@@ -221,8 +576,27 @@ contract LockToVoteTest is Test {
         givenStandardVotingMode2
         givenVotingTheSameOption
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _lock(alice, 1 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        //
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_GivenVotingWithMoreLockedBalance()
@@ -231,11 +605,29 @@ contract LockToVoteTest is Test {
         givenStandardVotingMode2
         givenVotingTheSameOption
     {
-        // It should increase the voter's usedVotingPower
-        // It should increase the tally of the voted option
-        // It should increase the total voting power
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
+        _lock(alice, 0.5 ether);
         // It should emit an event
-        vm.skip(true);
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance + 0.5 ether);
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should increase the voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance + 0.5 ether);
+
+        // It should increase the right tally of the voted option
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance + 0.5 ether);
+
+        // It should increase the right total voting power
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance + 0.5 ether);
     }
 
     modifier givenVotingAnotherOption() {
@@ -248,8 +640,23 @@ contract LockToVoteTest is Test {
         givenStandardVotingMode2
         givenVotingAnotherOption
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_RevertGiven_VotingWithMoreLockedBalance2()
@@ -258,11 +665,30 @@ contract LockToVoteTest is Test {
         givenStandardVotingMode2
         givenVotingAnotherOption
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        _lock(alice, 0.5 ether);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     modifier givenVoteReplacementMode2() {
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            builder.withVoteReplacement().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
+
         _;
     }
 
@@ -276,11 +702,29 @@ contract LockToVoteTest is Test {
         givenVoteReplacementMode2
         givenVotingTheFirstTime2
     {
-        // It should set the right voter's usedVotingPower
-        // It should set the right tally of the voted option
-        // It should set the right total voting power
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _lock(alice, 1 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
         // It should emit an event
-        vm.skip(true);
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance);
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should set the right voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        // It should set the right tally of the voted option
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+
+        // It should set the right total voting power
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_RevertGiven_NoLockedBalance2()
@@ -289,8 +733,19 @@ contract LockToVoteTest is Test {
         givenVoteReplacementMode2
         givenVotingTheFirstTime2
     {
-        // It should revert
-        vm.skip(true);
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        vm.prank(bob);
+        vm.expectRevert();
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should keep the right voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0);
+
+        // It should set the right tally
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes + tally.no + tally.abstain, 0);
     }
 
     modifier givenVotingTheSameOption2() {
@@ -303,8 +758,27 @@ contract LockToVoteTest is Test {
         givenVoteReplacementMode2
         givenVotingTheSameOption2
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _lock(alice, 1 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        //
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_GivenVotingWithMoreLockedBalance3()
@@ -313,11 +787,29 @@ contract LockToVoteTest is Test {
         givenVoteReplacementMode2
         givenVotingTheSameOption2
     {
-        // It should increase the voter's usedVotingPower
-        // It should increase the tally of the voted option
-        // It should increase the total voting power
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
+        _lock(alice, 0.5 ether);
         // It should emit an event
-        vm.skip(true);
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance + 0.5 ether);
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should increase the voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance + 0.5 ether);
+
+        // It should increase the right tally of the voted option
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance + 0.5 ether);
+
+        // It should increase the right total voting power
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance + 0.5 ether);
     }
 
     modifier givenVotingAnotherOption2() {
@@ -330,9 +822,45 @@ contract LockToVoteTest is Test {
         givenVoteReplacementMode2
         givenVotingAnotherOption2
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, 0);
+
         // It should deallocate the current voting power
         // It should allocate that voting power into the new vote option
-        vm.skip(true);
+
+        // It should emit an event
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.No, aliceBalance);
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 0);
+        assertEq(tally.no, aliceBalance);
+        assertEq(tally.abstain, 0);
+
+        // It should deallocate the current voting power
+        // It should allocate that voting power into the new vote option
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Abstain);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 0);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, aliceBalance);
     }
 
     function test_GivenVotingWithMoreLockedBalance4()
@@ -341,15 +869,56 @@ contract LockToVoteTest is Test {
         givenVoteReplacementMode2
         givenVotingAnotherOption2
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, 0);
+
         // It should deallocate the current voting power
         // It the voter's usedVotingPower should reflect the new balance
-        // It should allocate to the tally of the voted option
-        // It should update the total voting power
+        // It should allocate that voting power into the new vote option
+
+        _lock(alice, 0.2 ether);
+
         // It should emit an event
-        vm.skip(true);
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.No, aliceBalance + 0.2 ether);
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance + 0.2 ether);
+
+        (,,, tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 0);
+        assertEq(tally.no, aliceBalance + 0.2 ether);
+        assertEq(tally.abstain, 0);
+
+        // It should deallocate the current voting power
+        // It should allocate that voting power into the new vote option
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Abstain);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance + 0.2 ether);
+
+        // It should update the total voting power
+
+        (,,, tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 0);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, aliceBalance + 0.2 ether);
     }
 
     modifier givenEarlyExecutionMode2() {
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            builder.withEarlyExecution().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
+
         _;
     }
 
@@ -361,8 +930,30 @@ contract LockToVoteTest is Test {
         // It should set the right voter's usedVotingPower
         // It should set the right tally of the voted option
         // It should set the right total voting power
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _lock(alice, 1 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
         // It should emit an event
-        vm.skip(true);
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance);
+
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should set the right voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        // It should set the right tally of the voted option
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+
+        // It should set the right total voting power
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_RevertGiven_NoLockedBalance3()
@@ -371,8 +962,19 @@ contract LockToVoteTest is Test {
         givenEarlyExecutionMode2
         givenVotingTheFirstTime3
     {
-        // It should revert
-        vm.skip(true);
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        vm.prank(bob);
+        vm.expectRevert();
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should keep the right voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0);
+
+        // It should set the right tally
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes + tally.no + tally.abstain, 0);
     }
 
     modifier givenVotingTheSameOption3() {
@@ -385,8 +987,27 @@ contract LockToVoteTest is Test {
         givenEarlyExecutionMode2
         givenVotingTheSameOption3
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _lock(alice, 1 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        //
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_GivenVotingWithMoreLockedBalance5()
@@ -395,11 +1016,29 @@ contract LockToVoteTest is Test {
         givenEarlyExecutionMode2
         givenVotingTheSameOption3
     {
-        // It should increase the voter's usedVotingPower
-        // It should increase the tally of the voted option
-        // It should increase the total voting power
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+
+        _lock(alice, 0.5 ether);
         // It should emit an event
-        vm.skip(true);
+        vm.expectEmit(true, true, true, true);
+        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance + 0.5 ether);
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        // It should increase the voter's usedVotingPower
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance + 0.5 ether);
+
+        // It should increase the right tally of the voted option
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance + 0.5 ether);
+
+        // It should increase the right total voting power
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance + 0.5 ether);
     }
 
     modifier givenVotingAnotherOption3() {
@@ -412,8 +1051,24 @@ contract LockToVoteTest is Test {
         givenEarlyExecutionMode2
         givenVotingAnotherOption3
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        _lock(alice, 0.5 ether);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     function test_RevertGiven_VotingWithMoreLockedBalance6()
@@ -422,8 +1077,24 @@ contract LockToVoteTest is Test {
         givenEarlyExecutionMode2
         givenVotingAnotherOption3
     {
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
+
+        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        _lock(alice, 0.5 ether);
+
         // It should revert
-        vm.skip(true);
+        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
+        vm.prank(alice);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, aliceBalance);
+        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
     }
 
     modifier givenTheVoteMakesTheProposalPass() {
@@ -885,5 +1556,20 @@ contract LockToVoteTest is Test {
     function test_GivenUnderlyingTokenIsDefined() external whenCallingUnderlyingToken {
         // It Should use the underlying token's balance to compute the approval ratio
         vm.skip(true);
+    }
+
+    // HELPERS
+
+    function _lock(address who, uint256 amount) internal {
+        vm.startPrank(who);
+        lockableToken.approve(address(lockManager), amount);
+        lockManager.lock();
+        vm.stopPrank();
+    }
+
+    function _vote(address who, IMajorityVoting.VoteOption option, uint256 amount) internal {
+        _lock(who, amount);
+        vm.prank(who);
+        lockManager.vote(proposalId, option);
     }
 }
