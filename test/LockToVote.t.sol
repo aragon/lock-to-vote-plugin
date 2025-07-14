@@ -1708,7 +1708,10 @@ contract LockToVoteTest is AragonTest {
 
     function test_WhenCallingCurrentTokenSupply() external {
         // It Should return the right value
-        vm.skip(true);
+        assertEq(ltvPlugin.currentTokenSupply(), lockableToken.totalSupply());
+
+        TestToken(address(lockableToken)).mint(alice, 50 ether);
+        assertEq(ltvPlugin.currentTokenSupply(), lockableToken.totalSupply());
     }
 
     function test_WhenCallingSupportThresholdRatio() external {
@@ -1748,12 +1751,12 @@ contract LockToVoteTest is AragonTest {
 
     function test_WhenCallingLockManager() external {
         // It Should return the right address
-        vm.skip(true);
+        assertEq(address(ltvPlugin.lockManager()), address(lockManager));
     }
 
     function test_WhenCallingToken() external {
         // It Should return the right address
-        vm.skip(true);
+        assertEq(address(ltvPlugin.token()), address(lockableToken));
     }
 
     modifier whenCallingUnderlyingToken() {
