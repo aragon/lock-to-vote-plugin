@@ -52,6 +52,7 @@ contract LockToVoteTest is AragonTest {
         uint256 allowFailureMap
     );
     event ProposalExecuted(uint256 indexed proposalId);
+    event ProposalEnded(uint256 indexed proposalId);
 
     function setUp() public {
         vm.warp(1 days);
@@ -1115,7 +1116,50 @@ contract LockToVoteTest is AragonTest {
         // It should execute the proposal
         // It the proposal should be marked as executed
         // It should emit an event
-        vm.skip(true);
+
+        builder = new DaoBuilder();
+        (dao,, ltvPlugin, lockManager, lockableToken,) = builder.withEarlyExecution().withVotingPlugin().withProposer(
+            alice
+        ).withTokenHolder(alice, 50 ether).withTokenHolder(bob, 50 ether).withSupportThresholdRatio(500_000).build();
+        dao.grant(address(ltvPlugin), address(lockManager), ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
+
+        assertEq(lockableToken.balanceOf(alice), 50 ether);
+        assertEq(lockableToken.balanceOf(bob), 50 ether);
+        assertEq(lockableToken.totalSupply(), 100 ether);
+
+        vm.deal(address(dao), 1 ether);
+        actions.push(Action({to: david, value: 1 ether, data: bytes("")}));
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 50 ether);
+        _lock(bob, 0.01 ether);
+
+        vm.prank(bob);
+        vm.expectEmit();
+        emit ProposalExecuted(proposalId);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 50 ether);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0.01 ether);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 50.01 ether);
+        assertEq(tally.yes + tally.no + tally.abstain, 50.01 ether);
+
+        assertTrue(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
+        assertTrue(ltvPlugin.isMinVotingPowerReached(proposalId));
+        assertTrue(ltvPlugin.isMinApprovalReached(proposalId));
+        assertTrue(ltvPlugin.hasSucceeded(proposalId));
+        assertFalse(ltvPlugin.canExecute(proposalId));
+
+        (bool open, bool executed,,,,,) = ltvPlugin.getProposal(proposalId);
+        assertFalse(open);
+        assertTrue(executed);
+
+        assertEq(address(dao).balance, 0);
+        assertEq(david.balance, 1 ether);
     }
 
     modifier whenCallingClearvote() {
