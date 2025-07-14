@@ -1660,13 +1660,45 @@ contract LockToVoteTest is AragonTest {
         // It should make the target execute the proposal actions
         // It should emit an event
         // It should call proposalEnded on the LockManager
-        vm.skip(true);
+
+        dao.grant(address(ltvPlugin), address(lockManager), ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+        assertEq(lockManager.knownProposalIdAt(0), proposalId);
+
+        assertFalse(ltvPlugin.canExecute(proposalId));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 1 ether);
+        _vote(bob, IMajorityVoting.VoteOption.Yes, 10 ether);
+        _vote(carol, IMajorityVoting.VoteOption.Yes, 10 ether);
+
+        vm.warp(block.timestamp + 10 days);
+        vm.expectEmit(true, false, false, true);
+        emit ProposalExecuted(proposalId);
+
+        vm.prank(address(lockManager));
+        ltvPlugin.execute(proposalId);
+
+        // It should mark the proposal as executed
+        (, bool executed,,,,,) = ltvPlugin.getProposal(proposalId);
+        assertTrue(executed);
+        // It should make the target execute the proposal actions
+        // (Assuming actions change DAO state, which is default)
+
+        // It should call proposalEnded on the LockManager
+        assertEq(lockManager.knownProposalIdsLength(), 0);
     }
 
     function test_WhenCallingIsMember() external {
         // It Should return true when the sender has positive balance or locked tokens
+
+        assertTrue(ltvPlugin.isMember(alice)); // has balance
+        _lock(bob, 1 ether);
+        assertTrue(ltvPlugin.isMember(bob)); // has locked tokens
+
         // It Should return false otherwise
-        vm.skip(true);
+        assertFalse(ltvPlugin.isMember(randomWallet));
     }
 
     function test_WhenCallingCustomProposalParamsABI() external {
