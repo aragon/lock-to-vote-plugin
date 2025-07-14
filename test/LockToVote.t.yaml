@@ -268,8 +268,8 @@ LockToVoteTest:
           - it: canExecute() should return false
           - it: isSupportThresholdReachedEarly() should return false
           - it: isSupportThresholdReached() should return false
-          - it: isMinVotingPowerReached() should return false
-          - it: isMinApprovalReached() should return false
+          - it: isMinVotingPowerReached() should return true
+          - it: isMinApprovalReached() should return true
           - it: usedVotingPower() should return 0 for all voters
       - given: it has not started
         then:
@@ -289,7 +289,7 @@ LockToVoteTest:
           - it: hasSucceeded() should return false
           - it: canExecute() should return false
           - it: isSupportThresholdReachedEarly() should return false
-          - it: isSupportThresholdReached() should return false
+          - it: isSupportThresholdReached() should return true
           - it: isMinVotingPowerReached() should return false
           - it: isMinApprovalReached() should return false
           - it: usedVotingPower() should return the appropriate values

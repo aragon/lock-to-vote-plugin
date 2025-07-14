@@ -1348,42 +1348,199 @@ contract LockToVoteTest is AragonTest {
     }
 
     function test_GivenItDoesNotExist() external whenCallingTheProposalGetters {
+        (dao,, ltvPlugin, lockManager, lockableToken,) = new DaoBuilder().withVotingPlugin().withProposer(alice).build();
+
         // It getProposal() returns empty values
+        (
+            bool open,
+            bool executed,
+            MajorityVotingBase.ProposalParameters memory parameters,
+            MajorityVotingBase.Tally memory tally,
+            Action[] memory actions,
+            uint256 allowFailureMap,
+            IPlugin.TargetConfig memory targetConfig
+        ) = ltvPlugin.getProposal(proposalId + 54321);
+
+        assertFalse(open);
+        assertFalse(executed);
+        assertEq(uint8(parameters.votingMode), uint8(0));
+        assertEq(uint32(parameters.supportThresholdRatio), uint32(0));
+        assertEq(uint64(parameters.startDate), uint64(0));
+        assertEq(uint64(parameters.endDate), uint64(0));
+        assertEq(parameters.minParticipationRatio, 0);
+        assertEq(parameters.minApprovalRatio, 0);
+
+        assertEq(tally.yes, 0);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, 0);
+
+        assertEq(actions.length, 0);
+
+        assertEq(allowFailureMap, 0);
+
+        assertEq(targetConfig.target, address(0));
+        assertEq(uint8(targetConfig.operation), uint8(0));
+
         // It isProposalOpen() returns false
+        assertFalse(ltvPlugin.isProposalOpen(proposalId + 54321));
+
         // It hasSucceeded() should return false
+        vm.expectRevert(abi.encodeWithSelector(NonexistentProposal.selector, proposalId + 54321));
+        ltvPlugin.hasSucceeded(proposalId + 54321);
+
         // It canExecute() should return false
+        vm.expectRevert(abi.encodeWithSelector(NonexistentProposal.selector, proposalId + 54321));
+        ltvPlugin.canExecute(proposalId + 54321);
+
         // It isSupportThresholdReachedEarly() should return false
+        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId + 54321));
+
         // It isSupportThresholdReached() should return false
-        // It isMinVotingPowerReached() should return false
-        // It isMinApprovalReached() should return false
+        assertFalse(ltvPlugin.isSupportThresholdReached(proposalId + 54321));
+
+        // It isMinVotingPowerReached() should return true
+        assertTrue(ltvPlugin.isMinVotingPowerReached(proposalId + 54321));
+
+        // It isMinApprovalReached() should return true
+        assertTrue(ltvPlugin.isMinApprovalReached(proposalId + 54321));
+
         // It usedVotingPower() should return 0 for all voters
-        vm.skip(true);
+        assertEq(ltvPlugin.usedVotingPower(proposalId + 54321, alice), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId + 54321, bob), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId + 54321, carol), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId + 54321, david), 0);
     }
 
     function test_GivenItHasNotStarted() external whenCallingTheProposalGetters {
+        vm.deal(address(dao), 1 ether);
+        actions.push(Action({to: david, value: 1 ether, data: bytes("")}));
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, uint64(block.timestamp + 1), 0, bytes(""));
+
         // It getProposal() returns the right values
+        (
+            bool open,
+            bool executed,
+            MajorityVotingBase.ProposalParameters memory parameters,
+            MajorityVotingBase.Tally memory tally,
+            Action[] memory actions,
+            uint256 allowFailureMap,
+            IPlugin.TargetConfig memory targetConfig
+        ) = ltvPlugin.getProposal(proposalId);
+
+        assertFalse(open);
+        assertFalse(executed);
+        assertEq(uint8(parameters.votingMode), uint8(MajorityVotingBase.VotingMode.Standard));
+        assertEq(uint32(parameters.supportThresholdRatio), uint32(100_000));
+        assertEq(uint64(parameters.startDate), uint64(block.timestamp + 1));
+        assertEq(uint64(parameters.endDate), uint64(block.timestamp + 1 + 10 days));
+        assertEq(parameters.minParticipationRatio, 100_000);
+        assertEq(parameters.minApprovalRatio, 100_000);
+
+        assertEq(tally.yes, 0);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, 0);
+
+        assertEq(actions.length, 1);
+
+        assertEq(allowFailureMap, 0);
+
+        assertEq(targetConfig.target, address(dao));
+        assertEq(uint8(targetConfig.operation), uint8(IPlugin.Operation.Call));
+
         // It isProposalOpen() returns false
+        assertFalse(ltvPlugin.isProposalOpen(proposalId));
+
         // It hasSucceeded() should return false
+        assertFalse(ltvPlugin.hasSucceeded(proposalId));
+
         // It canExecute() should return false
+        assertFalse(ltvPlugin.canExecute(proposalId));
+
         // It isSupportThresholdReachedEarly() should return false
+        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
+
         // It isSupportThresholdReached() should return false
+        assertFalse(ltvPlugin.isSupportThresholdReached(proposalId));
+
         // It isMinVotingPowerReached() should return false
+        assertFalse(ltvPlugin.isMinVotingPowerReached(proposalId));
+
         // It isMinApprovalReached() should return false
+        assertFalse(ltvPlugin.isMinApprovalReached(proposalId));
+
         // It usedVotingPower() should return 0 for all voters
-        vm.skip(true);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, carol), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, david), 0);
     }
 
     function test_GivenItHasNotPassedYet() external whenCallingTheProposalGetters {
+        vm.deal(address(dao), 1 ether);
+        actions.push(Action({to: david, value: 1 ether, data: bytes("")}));
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 1 ether);
+
         // It getProposal() returns the right values
+        (
+            bool open,
+            bool executed,
+            MajorityVotingBase.ProposalParameters memory parameters,
+            MajorityVotingBase.Tally memory tally,
+            Action[] memory actions,
+            uint256 allowFailureMap,
+            IPlugin.TargetConfig memory targetConfig
+        ) = ltvPlugin.getProposal(proposalId);
+
+        assertTrue(open);
+        assertFalse(executed);
+        assertEq(uint8(parameters.votingMode), uint8(MajorityVotingBase.VotingMode.Standard));
+        assertEq(uint32(parameters.supportThresholdRatio), uint32(100_000));
+        assertEq(uint64(parameters.startDate), uint64(block.timestamp));
+        assertEq(uint64(parameters.endDate), uint64(block.timestamp + 10 days));
+        assertEq(parameters.minParticipationRatio, 100_000);
+        assertEq(parameters.minApprovalRatio, 100_000);
+
+        assertEq(tally.yes, 1 ether);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, 0);
+
+        assertEq(actions.length, 1);
+
+        assertEq(allowFailureMap, 0);
+
+        assertEq(targetConfig.target, address(dao));
+        assertEq(uint8(targetConfig.operation), uint8(IPlugin.Operation.Call));
+
         // It isProposalOpen() returns true
+        assertTrue(ltvPlugin.isProposalOpen(proposalId));
+
         // It hasSucceeded() should return false
+        assertFalse(ltvPlugin.hasSucceeded(proposalId));
+
         // It canExecute() should return false
+        assertFalse(ltvPlugin.canExecute(proposalId));
+
         // It isSupportThresholdReachedEarly() should return false
-        // It isSupportThresholdReached() should return false
+        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
+
+        // It isSupportThresholdReached() should return true
+        assertTrue(ltvPlugin.isSupportThresholdReached(proposalId));
+
         // It isMinVotingPowerReached() should return false
+        assertFalse(ltvPlugin.isMinVotingPowerReached(proposalId));
+
         // It isMinApprovalReached() should return false
-        // It usedVotingPower() should return the appropriate values
-        vm.skip(true);
+        assertFalse(ltvPlugin.isMinApprovalReached(proposalId));
+
+        // It usedVotingPower() should return 0 for all voters
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 1 ether);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, carol), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, david), 0);
     }
 
     modifier givenItDidNotPassAfterEndDate() {
@@ -1395,13 +1552,71 @@ contract LockToVoteTest is AragonTest {
         whenCallingTheProposalGetters
         givenItDidNotPassAfterEndDate
     {
+        vm.deal(address(dao), 1 ether);
+        actions.push(Action({to: david, value: 1 ether, data: bytes("")}));
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 1 ether);
+        vm.warp(block.timestamp + 10 days + 1);
+
         // It getProposal() returns the right values
+        (
+            bool open,
+            bool executed,
+            MajorityVotingBase.ProposalParameters memory parameters,
+            MajorityVotingBase.Tally memory tally,
+            Action[] memory actions,
+            uint256 allowFailureMap,
+            IPlugin.TargetConfig memory targetConfig
+        ) = ltvPlugin.getProposal(proposalId);
+
+        assertFalse(open);
+        assertFalse(executed);
+        assertEq(uint8(parameters.votingMode), uint8(MajorityVotingBase.VotingMode.Standard));
+        assertEq(uint32(parameters.supportThresholdRatio), uint32(100_000));
+        assertEq(uint64(parameters.startDate), uint64(block.timestamp - 10 days - 1));
+        assertEq(uint64(parameters.endDate), uint64(block.timestamp - 1));
+        assertEq(parameters.minParticipationRatio, 100_000);
+        assertEq(parameters.minApprovalRatio, 100_000);
+
+        assertEq(tally.yes, 1 ether);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, 0);
+
+        assertEq(actions.length, 1);
+
+        assertEq(allowFailureMap, 0);
+
+        assertEq(targetConfig.target, address(dao));
+        assertEq(uint8(targetConfig.operation), uint8(IPlugin.Operation.Call));
+
         // It isProposalOpen() returns false
+        assertFalse(ltvPlugin.isProposalOpen(proposalId));
+
         // It hasSucceeded() should return false
+        assertFalse(ltvPlugin.hasSucceeded(proposalId));
+
         // It canExecute() should return false
+        assertFalse(ltvPlugin.canExecute(proposalId));
+
         // It isSupportThresholdReachedEarly() should return false
-        // It usedVotingPower() should return the appropriate values
-        vm.skip(true);
+        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
+
+        // It isSupportThresholdReached() should return true
+        assertTrue(ltvPlugin.isSupportThresholdReached(proposalId));
+
+        // It isMinVotingPowerReached() should return false
+        assertFalse(ltvPlugin.isMinVotingPowerReached(proposalId));
+
+        // It isMinApprovalReached() should return false
+        assertFalse(ltvPlugin.isMinApprovalReached(proposalId));
+
+        // It usedVotingPower() should return 0 for all voters
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 1 ether);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, carol), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, david), 0);
     }
 
     function test_GivenTheSupportThresholdWasNotAchieved()
@@ -1409,8 +1624,71 @@ contract LockToVoteTest is AragonTest {
         whenCallingTheProposalGetters
         givenItDidNotPassAfterEndDate
     {
+        vm.deal(address(dao), 1 ether);
+        actions.push(Action({to: david, value: 1 ether, data: bytes("")}));
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.No, 1 ether);
+        vm.warp(block.timestamp + 10 days + 1);
+
+        // It getProposal() returns the right values
+        (
+            bool open,
+            bool executed,
+            MajorityVotingBase.ProposalParameters memory parameters,
+            MajorityVotingBase.Tally memory tally,
+            Action[] memory actions,
+            uint256 allowFailureMap,
+            IPlugin.TargetConfig memory targetConfig
+        ) = ltvPlugin.getProposal(proposalId);
+
+        assertFalse(open);
+        assertFalse(executed);
+        assertEq(uint8(parameters.votingMode), uint8(MajorityVotingBase.VotingMode.Standard));
+        assertEq(uint32(parameters.supportThresholdRatio), uint32(100_000));
+        assertEq(uint64(parameters.startDate), uint64(block.timestamp - 10 days - 1));
+        assertEq(uint64(parameters.endDate), uint64(block.timestamp - 1));
+        assertEq(parameters.minParticipationRatio, 100_000);
+        assertEq(parameters.minApprovalRatio, 100_000);
+
+        assertEq(tally.yes, 0);
+        assertEq(tally.no, 1 ether);
+        assertEq(tally.abstain, 0);
+
+        assertEq(actions.length, 1);
+
+        assertEq(allowFailureMap, 0);
+
+        assertEq(targetConfig.target, address(dao));
+        assertEq(uint8(targetConfig.operation), uint8(IPlugin.Operation.Call));
+
+        // It isProposalOpen() returns false
+        assertFalse(ltvPlugin.isProposalOpen(proposalId));
+
+        // It hasSucceeded() should return false
+        assertFalse(ltvPlugin.hasSucceeded(proposalId));
+
+        // It canExecute() should return false
+        assertFalse(ltvPlugin.canExecute(proposalId));
+
+        // It isSupportThresholdReachedEarly() should return false
+        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
+
         // It isSupportThresholdReached() should return false
-        vm.skip(true);
+        assertFalse(ltvPlugin.isSupportThresholdReached(proposalId));
+
+        // It isMinVotingPowerReached() should return false
+        assertFalse(ltvPlugin.isMinVotingPowerReached(proposalId));
+
+        // It isMinApprovalReached() should return false
+        assertFalse(ltvPlugin.isMinApprovalReached(proposalId));
+
+        // It usedVotingPower() should return 0 for all voters
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 1 ether);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, carol), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, david), 0);
     }
 
     function test_GivenTheSupportThresholdWasAchieved()
@@ -1418,8 +1696,71 @@ contract LockToVoteTest is AragonTest {
         whenCallingTheProposalGetters
         givenItDidNotPassAfterEndDate
     {
+        vm.deal(address(dao), 1 ether);
+        actions.push(Action({to: david, value: 1 ether, data: bytes("")}));
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 1 ether);
+        vm.warp(block.timestamp + 10 days + 1);
+
+        // It getProposal() returns the right values
+        (
+            bool open,
+            bool executed,
+            MajorityVotingBase.ProposalParameters memory parameters,
+            MajorityVotingBase.Tally memory tally,
+            Action[] memory actions,
+            uint256 allowFailureMap,
+            IPlugin.TargetConfig memory targetConfig
+        ) = ltvPlugin.getProposal(proposalId);
+
+        assertFalse(open);
+        assertFalse(executed);
+        assertEq(uint8(parameters.votingMode), uint8(MajorityVotingBase.VotingMode.Standard));
+        assertEq(uint32(parameters.supportThresholdRatio), uint32(100_000));
+        assertEq(uint64(parameters.startDate), uint64(block.timestamp - 10 days - 1));
+        assertEq(uint64(parameters.endDate), uint64(block.timestamp - 1));
+        assertEq(parameters.minParticipationRatio, 100_000);
+        assertEq(parameters.minApprovalRatio, 100_000);
+
+        assertEq(tally.yes, 1 ether);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, 0);
+
+        assertEq(actions.length, 1);
+
+        assertEq(allowFailureMap, 0);
+
+        assertEq(targetConfig.target, address(dao));
+        assertEq(uint8(targetConfig.operation), uint8(IPlugin.Operation.Call));
+
+        // It isProposalOpen() returns false
+        assertFalse(ltvPlugin.isProposalOpen(proposalId));
+
+        // It hasSucceeded() should return false
+        assertFalse(ltvPlugin.hasSucceeded(proposalId));
+
+        // It canExecute() should return false
+        assertFalse(ltvPlugin.canExecute(proposalId));
+
+        // It isSupportThresholdReachedEarly() should return false
+        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
+
         // It isSupportThresholdReached() should return true
-        vm.skip(true);
+        assertTrue(ltvPlugin.isSupportThresholdReached(proposalId));
+
+        // It isMinVotingPowerReached() should return false
+        assertFalse(ltvPlugin.isMinVotingPowerReached(proposalId));
+
+        // It isMinApprovalReached() should return false
+        assertFalse(ltvPlugin.isMinApprovalReached(proposalId));
+
+        // It usedVotingPower() should return 0 for all voters
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 1 ether);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, carol), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, david), 0);
     }
 
     function test_GivenTheMinimumVotingPowerWasNotReached()
@@ -1427,8 +1768,71 @@ contract LockToVoteTest is AragonTest {
         whenCallingTheProposalGetters
         givenItDidNotPassAfterEndDate
     {
+        vm.deal(address(dao), 1 ether);
+        actions.push(Action({to: david, value: 1 ether, data: bytes("")}));
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(bob, IMajorityVoting.VoteOption.Yes, 2 ether);
+        vm.warp(block.timestamp + 10 days + 1);
+
+        // It getProposal() returns the right values
+        (
+            bool open,
+            bool executed,
+            MajorityVotingBase.ProposalParameters memory parameters,
+            MajorityVotingBase.Tally memory tally,
+            Action[] memory actions,
+            uint256 allowFailureMap,
+            IPlugin.TargetConfig memory targetConfig
+        ) = ltvPlugin.getProposal(proposalId);
+
+        assertFalse(open);
+        assertFalse(executed);
+        assertEq(uint8(parameters.votingMode), uint8(MajorityVotingBase.VotingMode.Standard));
+        assertEq(uint32(parameters.supportThresholdRatio), uint32(100_000));
+        assertEq(uint64(parameters.startDate), uint64(block.timestamp - 10 days - 1));
+        assertEq(uint64(parameters.endDate), uint64(block.timestamp - 1));
+        assertEq(parameters.minParticipationRatio, 100_000);
+        assertEq(parameters.minApprovalRatio, 100_000);
+
+        assertEq(tally.yes, 2 ether);
+        assertEq(tally.no, 0);
+        assertEq(tally.abstain, 0);
+
+        assertEq(actions.length, 1);
+
+        assertEq(allowFailureMap, 0);
+
+        assertEq(targetConfig.target, address(dao));
+        assertEq(uint8(targetConfig.operation), uint8(IPlugin.Operation.Call));
+
+        // It isProposalOpen() returns false
+        assertFalse(ltvPlugin.isProposalOpen(proposalId));
+
+        // It hasSucceeded() should return false
+        assertFalse(ltvPlugin.hasSucceeded(proposalId));
+
+        // It canExecute() should return false
+        assertFalse(ltvPlugin.canExecute(proposalId));
+
+        // It isSupportThresholdReachedEarly() should return false
+        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
+
+        // It isSupportThresholdReached() should return true
+        assertTrue(ltvPlugin.isSupportThresholdReached(proposalId));
+
         // It isMinVotingPowerReached() should return false
-        vm.skip(true);
+        assertFalse(ltvPlugin.isMinVotingPowerReached(proposalId));
+
+        // It isMinApprovalReached() should return false
+        assertFalse(ltvPlugin.isMinApprovalReached(proposalId));
+
+        // It usedVotingPower() should return 0 for all voters
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 2 ether);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, carol), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, david), 0);
     }
 
     function test_GivenTheMinimumVotingPowerWasReached()
@@ -1436,8 +1840,76 @@ contract LockToVoteTest is AragonTest {
         whenCallingTheProposalGetters
         givenItDidNotPassAfterEndDate
     {
+        (dao,, ltvPlugin, lockManager, lockableToken,) = new DaoBuilder().withVotingPlugin().withSupportThresholdRatio(
+            500_000
+        ).withProposer(alice).withTokenHolder(alice, 5 ether).withTokenHolder(bob, 10 ether).build();
+
+        vm.deal(address(dao), 1 ether);
+        actions.push(Action({to: david, value: 1 ether, data: bytes("")}));
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 2 ether);
+        _vote(bob, IMajorityVoting.VoteOption.No, 3 ether);
+        vm.warp(block.timestamp + 10 days + 1);
+
+        // It getProposal() returns the right values
+        (
+            bool open,
+            bool executed,
+            MajorityVotingBase.ProposalParameters memory parameters,
+            MajorityVotingBase.Tally memory tally,
+            Action[] memory actions,
+            uint256 allowFailureMap,
+            IPlugin.TargetConfig memory targetConfig
+        ) = ltvPlugin.getProposal(proposalId);
+
+        assertFalse(open);
+        assertFalse(executed);
+        assertEq(uint8(parameters.votingMode), uint8(MajorityVotingBase.VotingMode.Standard));
+        assertEq(uint32(parameters.supportThresholdRatio), uint32(500_000));
+        assertEq(uint64(parameters.startDate), uint64(block.timestamp - 10 days - 1));
+        assertEq(uint64(parameters.endDate), uint64(block.timestamp - 1));
+        assertEq(parameters.minParticipationRatio, 100_000);
+        assertEq(parameters.minApprovalRatio, 100_000);
+
+        assertEq(tally.yes, 2 ether);
+        assertEq(tally.no, 3 ether);
+        assertEq(tally.abstain, 0);
+
+        assertEq(actions.length, 1);
+
+        assertEq(allowFailureMap, 0);
+
+        assertEq(targetConfig.target, address(dao));
+        assertEq(uint8(targetConfig.operation), uint8(IPlugin.Operation.Call));
+
+        // It isProposalOpen() returns false
+        assertFalse(ltvPlugin.isProposalOpen(proposalId));
+
+        // It hasSucceeded() should return false
+        assertFalse(ltvPlugin.hasSucceeded(proposalId));
+
+        // It canExecute() should return false
+        assertFalse(ltvPlugin.canExecute(proposalId));
+
+        // It isSupportThresholdReachedEarly() should return false
+        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
+
+        // It isSupportThresholdReached() should return false
+        assertFalse(ltvPlugin.isSupportThresholdReached(proposalId));
+
         // It isMinVotingPowerReached() should return true
-        vm.skip(true);
+        assertTrue(ltvPlugin.isMinVotingPowerReached(proposalId));
+
+        // It isMinApprovalReached() should return true
+        assertTrue(ltvPlugin.isMinApprovalReached(proposalId));
+
+        // It usedVotingPower() should return 0 for all voters
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 2 ether);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 3 ether);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, carol), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, david), 0);
     }
 
     function test_GivenTheMinimumApprovalTallyWasNotAchieved()
