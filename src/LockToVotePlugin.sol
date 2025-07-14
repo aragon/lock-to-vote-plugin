@@ -208,13 +208,13 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     /// @inheritdoc ILockToVote
     function clearVote(uint256 _proposalId, address _voter) external auth(LOCK_MANAGER_PERMISSION_ID) {
         Proposal storage proposal_ = proposals[_proposalId];
-        if (proposal_.votes[_voter].votingPower == 0) {
+        if (!_isProposalOpen(proposal_)) {
+            revert VoteRemovalForbidden(_proposalId, _voter);
+        } else if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
+            revert VoteRemovalForbidden(_proposalId, _voter);
+        } else if (proposal_.votes[_voter].votingPower == 0) {
             // Nothing to do
             return;
-        } else if (!_isProposalOpen(proposal_)) {
-            revert VoteRemovalForbidden(_proposalId, _voter);
-        } else if (proposal_.parameters.votingMode != VotingMode.VoteReplacement) {
-            revert VoteRemovalForbidden(_proposalId, _voter);
         }
 
         // Undo that vote

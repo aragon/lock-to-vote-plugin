@@ -41,6 +41,7 @@ contract LockToVoteTest is AragonTest {
     error NonexistentProposal(uint256 proposalId);
     error AlreadyInitialized();
     error NoBalance();
+    error VoteRemovalForbidden(uint256 proposalId, address voter);
 
     event ProposalCreated(
         uint256 indexed proposalId,
@@ -62,6 +63,10 @@ contract LockToVoteTest is AragonTest {
         (dao,, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
             .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
             .withStrictUnlock().withVotingPlugin().withProposer(alice).build();
+
+        for (uint256 i = 0; i < actions.length; i++) {
+            actions.pop();
+        }
 
         // Grant alice permission for simplicity in some tests
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
@@ -1117,10 +1122,10 @@ contract LockToVoteTest is AragonTest {
         // It the proposal should be marked as executed
         // It should emit an event
 
-        builder = new DaoBuilder();
-        (dao,, ltvPlugin, lockManager, lockableToken,) = builder.withEarlyExecution().withVotingPlugin().withProposer(
-            alice
-        ).withTokenHolder(alice, 50 ether).withTokenHolder(bob, 50 ether).withSupportThresholdRatio(500_000).build();
+        (dao,, ltvPlugin, lockManager, lockableToken,) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
+            .withProposer(alice).withTokenHolder(alice, 50 ether).withTokenHolder(bob, 50 ether).withSupportThresholdRatio(
+            500_000
+        ).build();
         dao.grant(address(ltvPlugin), address(lockManager), ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
 
         assertEq(lockableToken.balanceOf(alice), 50 ether);
@@ -1168,29 +1173,122 @@ contract LockToVoteTest is AragonTest {
 
     function test_GivenTheVoterHasNoPriorVotingPower() external whenCallingClearvote {
         // It should do nothing
-        vm.skip(true);
+
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            new DaoBuilder().withStandardVoting().withVotingPlugin().withProposer(alice).build();
+
+        assertEq(lockableToken.balanceOf(alice), 0);
+        assertEq(lockableToken.totalSupply(), 10 ether);
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0);
+
+        vm.prank(address(lockManager));
+        ltvPlugin.clearVote(proposalId, alice);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 0);
+        assertEq(tally.yes + tally.no + tally.abstain, 0);
     }
 
     function test_RevertGiven_TheProposalIsNotOpen() external whenCallingClearvote {
         // It should revert
-        vm.skip(true);
+
+        (dao,, ltvPlugin, lockManager, lockableToken,) =
+            new DaoBuilder().withStandardVoting().withVotingPlugin().withProposer(alice).build();
+
+        assertEq(lockableToken.balanceOf(alice), 0);
+        assertEq(lockableToken.totalSupply(), 10 ether);
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        vm.prank(address(lockManager));
+        vm.expectRevert();
+        ltvPlugin.clearVote(proposalId + 1, alice);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId + 1, alice), 0);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId + 1);
+        assertEq(tally.yes, 0);
+        assertEq(tally.yes + tally.no + tally.abstain, 0);
     }
 
     function test_RevertGiven_EarlyExecutionMode3() external whenCallingClearvote {
         // It should revert
-        vm.skip(true);
+
+        (dao,, ltvPlugin, lockManager, lockableToken,) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
+            .withProposer(alice).withTokenHolder(alice, 50 ether).build();
+
+        assertEq(lockableToken.balanceOf(alice), 50 ether);
+        assertEq(lockableToken.totalSupply(), 50 ether);
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 50 ether);
+
+        vm.prank(address(lockManager));
+        vm.expectRevert(abi.encodeWithSelector(VoteRemovalForbidden.selector, proposalId, alice));
+        ltvPlugin.clearVote(proposalId, alice);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 50 ether);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 50 ether);
+        assertEq(tally.yes + tally.no + tally.abstain, 50 ether);
     }
 
     function test_GivenStandardVotingMode3() external whenCallingClearvote {
         // It should deallocate the current voting power
-        // It should allocate that voting power into the new vote option
-        vm.skip(true);
+
+        (dao,, ltvPlugin, lockManager, lockableToken,) = new DaoBuilder().withStandardVoting().withVotingPlugin()
+            .withProposer(alice).withTokenHolder(alice, 50 ether).build();
+
+        assertEq(lockableToken.balanceOf(alice), 50 ether);
+        assertEq(lockableToken.totalSupply(), 50 ether);
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 50 ether);
+
+        vm.prank(address(lockManager));
+        ltvPlugin.clearVote(proposalId, alice);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 0);
+        assertEq(tally.yes + tally.no + tally.abstain, 0);
     }
 
     function test_GivenVoteReplacementMode3() external whenCallingClearvote {
         // It should deallocate the current voting power
-        // It should allocate that voting power into the new vote option
-        vm.skip(true);
+
+        (dao,, ltvPlugin, lockManager, lockableToken,) = new DaoBuilder().withVoteReplacement().withVotingPlugin()
+            .withProposer(alice).withTokenHolder(alice, 50 ether).build();
+
+        assertEq(lockableToken.balanceOf(alice), 50 ether);
+        assertEq(lockableToken.totalSupply(), 50 ether);
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 50 ether);
+
+        vm.prank(address(lockManager));
+        ltvPlugin.clearVote(proposalId, alice);
+
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0);
+
+        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
+        assertEq(tally.yes, 0);
+        assertEq(tally.yes + tally.no + tally.abstain, 0);
     }
 
     modifier whenCallingGetVote() {

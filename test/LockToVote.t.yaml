@@ -243,11 +243,9 @@ LockToVoteTest:
       - given: standard voting mode
         then:
           - it: should deallocate the current voting power
-          - it: should allocate that voting power into the new vote option
       - given: vote replacement mode
         then:
           - it: should deallocate the current voting power
-          - it: should allocate that voting power into the new vote option
 
   # Getting a vote
   - when: calling getVote()

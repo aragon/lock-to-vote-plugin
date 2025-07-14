@@ -13,7 +13,8 @@ import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol"
 import {RATIO_BASE, RatioOutOfBounds} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
-import {MetadataExtensionUpgradeable} from "@aragon/osx-commons-contracts/src/utils/metadata/MetadataExtensionUpgradeable.sol";
+import {MetadataExtensionUpgradeable} from
+    "@aragon/osx-commons-contracts/src/utils/metadata/MetadataExtensionUpgradeable.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {_applyRatioCeiled} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
@@ -86,14 +87,9 @@ contract LockToApprovePlugin is
     bytes32 public constant UPDATE_SETTINGS_PERMISSION_ID = keccak256("UPDATE_SETTINGS_PERMISSION");
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
-    bytes4 internal constant LOCK_TO_APPROVE_INTERFACE_ID =
-        this.minProposerVotingPower.selector ^
-            this.currentTokenSupply.selector ^
-            this.proposalDuration.selector ^
-            this.minApprovalRatio.selector ^
-            this.getProposal.selector ^
-            this.updateApprovalSettings.selector ^
-            this.createProposal.selector;
+    bytes4 internal constant LOCK_TO_APPROVE_INTERFACE_ID = this.minProposerVotingPower.selector
+        ^ this.currentTokenSupply.selector ^ this.proposalDuration.selector ^ this.minApprovalRatio.selector
+        ^ this.getProposal.selector ^ this.updateApprovalSettings.selector ^ this.createProposal.selector;
 
     ApprovalSettings public settings;
 
@@ -103,7 +99,19 @@ contract LockToApprovePlugin is
     event ApprovalCleared(uint256 proposalId, address voter);
     event ApprovalSettingsUpdated(uint32 minApprovalRatio, uint64 proposalDuration, uint256 minProposerVotingPower);
 
+    /// @notice Thrown when the voter cannot approve.
+    /// @param proposalId The ID of the proposal.
+    /// @param voter The address of the voter.
     error ApprovalForbidden(uint256 proposalId, address voter);
+
+    /// @notice Thrown when the voter cannot clean an approval.
+    /// @param proposalId The ID of the proposal.
+    /// @param voter The address of the voter.
+    error ApprovalRemovalForbidden(uint256 proposalId, address voter);
+
+    /// @notice Thrown when a date is out of a valid range.
+    /// @param limit The limit date.
+    /// @param actual The actual date.
     error DateOutOfBounds(uint256 limit, uint256 actual);
 
     /// @notice Thrown if the proposal duration value is out of bounds (less than one hour or greater than 1 year).
@@ -151,25 +159,17 @@ contract LockToApprovePlugin is
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
     /// @return Returns `true` if the interface is supported.
-    function supportsInterface(
-        bytes4 _interfaceId
-    )
+    function supportsInterface(bytes4 _interfaceId)
         public
         view
         virtual
         override(
-            ERC165Upgradeable,
-            MetadataExtensionUpgradeable,
-            PluginUUPSUpgradeable,
-            ProposalUpgradeable,
-            LockToVoteBase
+            ERC165Upgradeable, MetadataExtensionUpgradeable, PluginUUPSUpgradeable, ProposalUpgradeable, LockToVoteBase
         )
         returns (bool)
     {
-        return
-            _interfaceId == LOCK_TO_APPROVE_INTERFACE_ID ||
-            _interfaceId == type(ILockToApprove).interfaceId ||
-            super.supportsInterface(_interfaceId);
+        return _interfaceId == LOCK_TO_APPROVE_INTERFACE_ID || _interfaceId == type(ILockToApprove).interfaceId
+            || super.supportsInterface(_interfaceId);
     }
 
     /// @inheritdoc IProposal
@@ -220,7 +220,7 @@ contract LockToApprovePlugin is
             proposal_.allowFailureMap = _allowFailureMap;
         }
 
-        for (uint256 i; i < _actions.length; ) {
+        for (uint256 i; i < _actions.length;) {
             proposal_.actions.push(_actions[i]);
             unchecked {
                 ++i;
@@ -241,9 +241,7 @@ contract LockToApprovePlugin is
     /// @return actions The actions to be executed to the `target` contract address.
     /// @return allowFailureMap The bit map representations of which actions are allowed to revert so tx still succeeds.
     /// @return targetConfig Execution configuration, applied to the proposal when it was created. Added in build 3.
-    function getProposal(
-        uint256 _proposalId
-    )
+    function getProposal(uint256 _proposalId)
         public
         view
         virtual
@@ -276,11 +274,10 @@ contract LockToApprovePlugin is
     }
 
     /// @inheritdoc ILockToApprove
-    function approve(
-        uint256 _proposalId,
-        address _voter,
-        uint256 _currentVotingPower
-    ) external auth(LOCK_MANAGER_PERMISSION_ID) {
+    function approve(uint256 _proposalId, address _voter, uint256 _currentVotingPower)
+        external
+        auth(LOCK_MANAGER_PERMISSION_ID)
+    {
         Proposal storage proposal_ = proposals[_proposalId];
 
         if (!_canApprove(proposal_, _voter, _currentVotingPower)) {
@@ -296,11 +293,11 @@ contract LockToApprovePlugin is
         emit ApprovalCast(_proposalId, _voter, _currentVotingPower);
 
         // Check if we may execute early
-        (UnlockMode unlockMode, ) = lockManager.settings();
+        (UnlockMode unlockMode,) = lockManager.settings();
         if (unlockMode == UnlockMode.Strict) {
             if (
-                _canExecute(proposal_) &&
-                dao().hasPermission(address(this), _msgSender(), EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())
+                _canExecute(proposal_)
+                    && dao().hasPermission(address(this), _msgSender(), EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())
             ) {
                 _execute(_proposalId, proposal_);
             }
@@ -311,7 +308,11 @@ contract LockToApprovePlugin is
     function clearApproval(uint256 _proposalId, address _voter) external auth(LOCK_MANAGER_PERMISSION_ID) {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        if (proposal_.approvals[_voter] == 0 || !_isProposalOpen(proposal_)) return;
+        if (!_isProposalOpen(proposal_)) {
+            revert ApprovalRemovalForbidden(_proposalId, _voter);
+        } else if (proposal_.approvals[_voter] == 0) {
+            return;
+        }
 
         // Subtract the old votes from the global tally
         proposal_.approvalTally -= proposal_.approvals[_voter];
@@ -387,9 +388,10 @@ contract LockToApprovePlugin is
     }
 
     /// @notice Updates the LockManager approval settings to the given new values.
-    function updateApprovalSettings(
-        ApprovalSettings calldata _newSettings
-    ) external auth(UPDATE_SETTINGS_PERMISSION_ID) {
+    function updateApprovalSettings(ApprovalSettings calldata _newSettings)
+        external
+        auth(UPDATE_SETTINGS_PERMISSION_ID)
+    {
         _updateApprovalSettings(_newSettings);
     }
 
@@ -398,10 +400,8 @@ contract LockToApprovePlugin is
     function _isProposalOpen(Proposal storage proposal_) internal view returns (bool) {
         uint64 currentTime = block.timestamp.toUint64();
 
-        return
-            proposal_.parameters.startDate <= currentTime &&
-            currentTime < proposal_.parameters.endDate &&
-            !proposal_.executed;
+        return proposal_.parameters.startDate <= currentTime && currentTime < proposal_.parameters.endDate
+            && !proposal_.executed;
     }
 
     /// @notice Checks if proposal exists or not.
@@ -411,11 +411,11 @@ contract LockToApprovePlugin is
         return proposals[_proposalId].parameters.startDate != 0;
     }
 
-    function _canApprove(
-        Proposal storage proposal_,
-        address _voter,
-        uint256 _newVotingBalance
-    ) internal view returns (bool) {
+    function _canApprove(Proposal storage proposal_, address _voter, uint256 _newVotingBalance)
+        internal
+        view
+        returns (bool)
+    {
         // The proposal vote hasn't started or has already ended.
         if (!_isProposalOpen(proposal_)) {
             return false;
@@ -452,10 +452,8 @@ contract LockToApprovePlugin is
 
         // NOTE: Assuming a 1:1 correlation between token() and underlyingToken()
 
-        _minTally = _applyRatioCeiled(
-            lockManager.underlyingToken().totalSupply(),
-            proposal_.parameters.minApprovalRatio
-        );
+        _minTally =
+            _applyRatioCeiled(lockManager.underlyingToken().totalSupply(), proposal_.parameters.minApprovalRatio);
     }
 
     /// @notice Validates and returns the proposal dates.
@@ -464,10 +462,12 @@ contract LockToApprovePlugin is
     /// @param _end The end date of the proposal. If 0, `_start + proposalDuration` is used.
     /// @return startDate The validated start date of the proposal.
     /// @return endDate The validated end date of the proposal.
-    function _validateProposalDates(
-        uint64 _start,
-        uint64 _end
-    ) internal view virtual returns (uint64 startDate, uint64 endDate) {
+    function _validateProposalDates(uint64 _start, uint64 _end)
+        internal
+        view
+        virtual
+        returns (uint64 startDate, uint64 endDate)
+    {
         uint64 currentTimestamp = block.timestamp.toUint64();
 
         if (_start == 0) {
@@ -528,9 +528,7 @@ contract LockToApprovePlugin is
         settings.minProposerVotingPower = _newSettings.minProposerVotingPower;
 
         emit ApprovalSettingsUpdated(
-            _newSettings.minApprovalRatio,
-            _newSettings.proposalDuration,
-            _newSettings.minProposerVotingPower
+            _newSettings.minApprovalRatio, _newSettings.proposalDuration, _newSettings.minProposerVotingPower
         );
     }
 
