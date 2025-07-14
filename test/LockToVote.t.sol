@@ -1292,17 +1292,55 @@ contract LockToVoteTest is AragonTest {
     }
 
     modifier whenCallingGetVote() {
+        (dao,, ltvPlugin, lockManager, lockableToken,) = new DaoBuilder().withVoteReplacement().withVotingPlugin()
+            .withProposer(alice).withTokenHolder(alice, 50 ether).build();
+
         _;
     }
 
     function test_GivenTheVoteExists() external whenCallingGetVote {
         // It should return the right data
-        vm.skip(true);
+
+        assertEq(lockableToken.balanceOf(alice), 50 ether);
+        assertEq(lockableToken.totalSupply(), 50 ether);
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 25 ether);
+        assertEq(uint8(ltvPlugin.getVote(proposalId, alice).voteOption), uint8(IMajorityVoting.VoteOption.Yes));
+        assertEq(ltvPlugin.getVote(proposalId, alice).votingPower, 25 ether);
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 10 ether);
+        assertEq(uint8(ltvPlugin.getVote(proposalId, alice).voteOption), uint8(IMajorityVoting.VoteOption.Yes));
+        assertEq(ltvPlugin.getVote(proposalId, alice).votingPower, 35 ether);
+
+        _vote(alice, IMajorityVoting.VoteOption.No, 5 ether);
+        assertEq(uint8(ltvPlugin.getVote(proposalId, alice).voteOption), uint8(IMajorityVoting.VoteOption.No));
+        assertEq(ltvPlugin.getVote(proposalId, alice).votingPower, 40 ether);
+
+        _vote(alice, IMajorityVoting.VoteOption.Abstain, 5 ether);
+        assertEq(uint8(ltvPlugin.getVote(proposalId, alice).voteOption), uint8(IMajorityVoting.VoteOption.Abstain));
+        assertEq(ltvPlugin.getVote(proposalId, alice).votingPower, 45 ether);
     }
 
     function test_GivenTheVoteDoesNotExist() external whenCallingGetVote {
         // It should return empty values
-        vm.skip(true);
+
+        assertEq(lockableToken.balanceOf(alice), 50 ether);
+        assertEq(lockableToken.totalSupply(), 50 ether);
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        assertEq(uint8(ltvPlugin.getVote(proposalId, alice).voteOption), uint8(IMajorityVoting.VoteOption.None));
+        assertEq(ltvPlugin.getVote(proposalId, alice).votingPower, 0);
+
+        assertEq(uint8(ltvPlugin.getVote(proposalId, bob).voteOption), uint8(IMajorityVoting.VoteOption.None));
+        assertEq(ltvPlugin.getVote(proposalId, bob).votingPower, 0);
+
+        assertEq(uint8(ltvPlugin.getVote(proposalId, carol).voteOption), uint8(IMajorityVoting.VoteOption.None));
+        assertEq(ltvPlugin.getVote(proposalId, carol).votingPower, 0);
     }
 
     modifier whenCallingTheProposalGetters() {
