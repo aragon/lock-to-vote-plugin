@@ -372,7 +372,7 @@ LockToVoteTest:
                           - given: the proposal does not allow early execution
                             then:
                               - it: canExecute() should return false
-                              - it: hasSucceeded() should return false
+                              - it: hasSucceeded() should return true
                       - given: isSupportThresholdReached() is reached
                         and:
                           - it: canExecute() should return false before endDate
