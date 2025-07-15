@@ -58,8 +58,8 @@ contract DaoBuilder is Test {
         return this;
     }
 
-    function withEarlyUnlock() public returns (DaoBuilder) {
-        unlockMode = UnlockMode.Early;
+    function withStandardUnlock() public returns (DaoBuilder) {
+        unlockMode = UnlockMode.Standard;
         return this;
     }
 

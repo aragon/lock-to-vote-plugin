@@ -649,7 +649,7 @@ contract LockManagerTest is AragonTest {
 
     modifier givenUnlockModeIsDefault() {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
-            builder.withEarlyUnlock().withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
+            builder.withStandardUnlock().withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
         _;
     }
 
@@ -677,8 +677,8 @@ contract LockManagerTest is AragonTest {
     }
 
     modifier givenTheUserHasVotesOnOpenProposals() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
-            builder.withEarlyUnlock().withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withStandardUnlock()
+            .withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
         vm.prank(address(ltvPlugin));
@@ -717,7 +717,7 @@ contract LockManagerTest is AragonTest {
 
     modifier givenTheUserHasApprovalsOnOpenProposals() {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
-            builder.withEarlyUnlock().withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
+            builder.withStandardUnlock().withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
 
         Action[] memory _actions = new Action[](0);
         proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -750,8 +750,8 @@ contract LockManagerTest is AragonTest {
     }
 
     modifier givenTheUserOnlyHasVotesOnProposalsThatAreNowClosedOrEnded() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
-            builder.withEarlyUnlock().withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withStandardUnlock()
+            .withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
         vm.prank(address(ltvPlugin));
@@ -791,7 +791,7 @@ contract LockManagerTest is AragonTest {
 
     modifier givenTheUserOnlyHasApprovalsOnProposalsThatAreNowClosedOrEnded() {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
-            builder.withEarlyUnlock().withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
+            builder.withStandardUnlock().withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
 
         Action[] memory _actions = new Action[](0);
         proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
