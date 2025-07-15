@@ -1356,7 +1356,7 @@ contract LockToVoteTest is AragonTest {
             bool executed,
             MajorityVotingBase.ProposalParameters memory parameters,
             MajorityVotingBase.Tally memory tally,
-            Action[] memory actions,
+            Action[] memory actions_,
             uint256 allowFailureMap,
             IPlugin.TargetConfig memory targetConfig
         ) = ltvPlugin.getProposal(proposalId + 54321);
@@ -1374,7 +1374,7 @@ contract LockToVoteTest is AragonTest {
         assertEq(tally.no, 0);
         assertEq(tally.abstain, 0);
 
-        assertEq(actions.length, 0);
+        assertEq(actions_.length, 0);
 
         assertEq(allowFailureMap, 0);
 
@@ -1423,7 +1423,7 @@ contract LockToVoteTest is AragonTest {
             bool executed,
             MajorityVotingBase.ProposalParameters memory parameters,
             MajorityVotingBase.Tally memory tally,
-            Action[] memory actions,
+            Action[] memory actions_,
             uint256 allowFailureMap,
             IPlugin.TargetConfig memory targetConfig
         ) = ltvPlugin.getProposal(proposalId);
@@ -1441,7 +1441,7 @@ contract LockToVoteTest is AragonTest {
         assertEq(tally.no, 0);
         assertEq(tally.abstain, 0);
 
-        assertEq(actions.length, 1);
+        assertEq(actions_.length, 1);
 
         assertEq(allowFailureMap, 0);
 
@@ -1490,7 +1490,7 @@ contract LockToVoteTest is AragonTest {
             bool executed,
             MajorityVotingBase.ProposalParameters memory parameters,
             MajorityVotingBase.Tally memory tally,
-            Action[] memory actions,
+            Action[] memory actions_,
             uint256 allowFailureMap,
             IPlugin.TargetConfig memory targetConfig
         ) = ltvPlugin.getProposal(proposalId);
@@ -1508,7 +1508,7 @@ contract LockToVoteTest is AragonTest {
         assertEq(tally.no, 0);
         assertEq(tally.abstain, 0);
 
-        assertEq(actions.length, 1);
+        assertEq(actions_.length, 1);
 
         assertEq(allowFailureMap, 0);
 
@@ -1566,7 +1566,7 @@ contract LockToVoteTest is AragonTest {
             bool executed,
             MajorityVotingBase.ProposalParameters memory parameters,
             MajorityVotingBase.Tally memory tally,
-            Action[] memory actions,
+            Action[] memory actions_,
             uint256 allowFailureMap,
             IPlugin.TargetConfig memory targetConfig
         ) = ltvPlugin.getProposal(proposalId);
@@ -1584,7 +1584,7 @@ contract LockToVoteTest is AragonTest {
         assertEq(tally.no, 0);
         assertEq(tally.abstain, 0);
 
-        assertEq(actions.length, 1);
+        assertEq(actions_.length, 1);
 
         assertEq(allowFailureMap, 0);
 
@@ -1638,7 +1638,7 @@ contract LockToVoteTest is AragonTest {
             bool executed,
             MajorityVotingBase.ProposalParameters memory parameters,
             MajorityVotingBase.Tally memory tally,
-            Action[] memory actions,
+            Action[] memory actions_,
             uint256 allowFailureMap,
             IPlugin.TargetConfig memory targetConfig
         ) = ltvPlugin.getProposal(proposalId);
@@ -1656,7 +1656,7 @@ contract LockToVoteTest is AragonTest {
         assertEq(tally.no, 1 ether);
         assertEq(tally.abstain, 0);
 
-        assertEq(actions.length, 1);
+        assertEq(actions_.length, 1);
 
         assertEq(allowFailureMap, 0);
 
@@ -1710,7 +1710,7 @@ contract LockToVoteTest is AragonTest {
             bool executed,
             MajorityVotingBase.ProposalParameters memory parameters,
             MajorityVotingBase.Tally memory tally,
-            Action[] memory actions,
+            Action[] memory actions_,
             uint256 allowFailureMap,
             IPlugin.TargetConfig memory targetConfig
         ) = ltvPlugin.getProposal(proposalId);
@@ -1728,7 +1728,7 @@ contract LockToVoteTest is AragonTest {
         assertEq(tally.no, 0);
         assertEq(tally.abstain, 0);
 
-        assertEq(actions.length, 1);
+        assertEq(actions_.length, 1);
 
         assertEq(allowFailureMap, 0);
 
@@ -1782,7 +1782,7 @@ contract LockToVoteTest is AragonTest {
             bool executed,
             MajorityVotingBase.ProposalParameters memory parameters,
             MajorityVotingBase.Tally memory tally,
-            Action[] memory actions,
+            Action[] memory actions_,
             uint256 allowFailureMap,
             IPlugin.TargetConfig memory targetConfig
         ) = ltvPlugin.getProposal(proposalId);
@@ -1800,7 +1800,7 @@ contract LockToVoteTest is AragonTest {
         assertEq(tally.no, 0);
         assertEq(tally.abstain, 0);
 
-        assertEq(actions.length, 1);
+        assertEq(actions_.length, 1);
 
         assertEq(allowFailureMap, 0);
 
@@ -1859,7 +1859,7 @@ contract LockToVoteTest is AragonTest {
             bool executed,
             MajorityVotingBase.ProposalParameters memory parameters,
             MajorityVotingBase.Tally memory tally,
-            Action[] memory actions,
+            Action[] memory actions_,
             uint256 allowFailureMap,
             IPlugin.TargetConfig memory targetConfig
         ) = ltvPlugin.getProposal(proposalId);
@@ -1877,7 +1877,7 @@ contract LockToVoteTest is AragonTest {
         assertEq(tally.no, 3 ether);
         assertEq(tally.abstain, 0);
 
-        assertEq(actions.length, 1);
+        assertEq(actions_.length, 1);
 
         assertEq(allowFailureMap, 0);
 
@@ -2221,12 +2221,12 @@ contract LockToVoteTest is AragonTest {
         vm.skip(true);
     }
 
-    function test_WhenCallingLockManager() external {
+    function test_WhenCallingLockManager() external view {
         // It Should return the right address
         assertEq(address(ltvPlugin.lockManager()), address(lockManager));
     }
 
-    function test_WhenCallingToken() external {
+    function test_WhenCallingToken() external view {
         // It Should return the right address
         assertEq(address(ltvPlugin.token()), address(lockableToken));
     }
