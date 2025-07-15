@@ -803,14 +803,16 @@ contract LockToApproveTest is AragonTest {
 
     function test_WhenCallingApproveOrClearApprovalDefeated() public givenProposalDefeated {
         // It Should revert for vote, despite having the permission
-        // It Should do nothing for clearApprove
+        // It clearApprove should revert
 
         vm.startPrank(address(lockManager));
 
         vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ApprovalForbidden.selector, proposalId, alice));
         plugin.approve(proposalId, alice, 1);
 
-        // Nop
+        vm.expectRevert(
+            abi.encodeWithSelector(LockToApprovePlugin.ApprovalRemovalForbidden.selector, proposalId, alice)
+        );
         plugin.clearApproval(proposalId, alice);
     }
 
@@ -915,6 +917,9 @@ contract LockToApproveTest is AragonTest {
         assertEq(approvalTally, 25.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
+        vm.expectRevert(
+            abi.encodeWithSelector(LockToApprovePlugin.ApprovalRemovalForbidden.selector, proposalId, alice)
+        );
         plugin.clearApproval(proposalId, alice);
 
         (,,, approvalTally,,,) = plugin.getProposal(proposalId);
@@ -1054,6 +1059,9 @@ contract LockToApproveTest is AragonTest {
         assertEq(approvalTally, 25.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
+        vm.expectRevert(
+            abi.encodeWithSelector(LockToApprovePlugin.ApprovalRemovalForbidden.selector, proposalId, alice)
+        );
         plugin.clearApproval(proposalId, alice);
 
         (,,, approvalTally,,,) = plugin.getProposal(proposalId);
