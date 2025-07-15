@@ -1209,7 +1209,7 @@ contract LockToVoteTest is AragonTest {
         // It should do nothing
 
         (dao,, ltvPlugin, lockManager, lockableToken,) =
-            new DaoBuilder().withStandardVoting().withVotingPlugin().withProposer(alice).build();
+            new DaoBuilder().withVoteReplacement().withVotingPlugin().withProposer(alice).build();
 
         assertEq(lockableToken.balanceOf(alice), 0);
         assertEq(lockableToken.totalSupply(), 10 ether);
@@ -1278,7 +1278,7 @@ contract LockToVoteTest is AragonTest {
     }
 
     function test_GivenStandardVotingMode3() external whenCallingClearvote {
-        // It should deallocate the current voting power
+        // It should revert
 
         (dao,, ltvPlugin, lockManager, lockableToken,) = new DaoBuilder().withStandardVoting().withVotingPlugin()
             .withProposer(alice).withTokenHolder(alice, 50 ether).build();
@@ -1292,13 +1292,14 @@ contract LockToVoteTest is AragonTest {
         _vote(alice, IMajorityVoting.VoteOption.Yes, 50 ether);
 
         vm.prank(address(lockManager));
+        vm.expectRevert(abi.encodeWithSelector(VoteRemovalForbidden.selector, proposalId, alice));
         ltvPlugin.clearVote(proposalId, alice);
 
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 0);
+        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 50 ether);
 
         (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
-        assertEq(tally.yes, 0);
-        assertEq(tally.yes + tally.no + tally.abstain, 0);
+        assertEq(tally.yes, 50 ether);
+        assertEq(tally.yes + tally.no + tally.abstain, 50 ether);
     }
 
     function test_GivenVoteReplacementMode3() external whenCallingClearvote {

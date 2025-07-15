@@ -242,7 +242,7 @@ LockToVoteTest:
           - it: should revert
       - given: standard voting mode
         then:
-          - it: should deallocate the current voting power
+          - it: should revert
       - given: vote replacement mode
         then:
           - it: should deallocate the current voting power

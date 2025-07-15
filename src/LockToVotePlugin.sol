@@ -210,7 +210,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         Proposal storage proposal_ = proposals[_proposalId];
         if (!_isProposalOpen(proposal_)) {
             revert VoteRemovalForbidden(_proposalId, _voter);
-        } else if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
+        } else if (proposal_.parameters.votingMode != VotingMode.VoteReplacement) {
             revert VoteRemovalForbidden(_proposalId, _voter);
         } else if (proposal_.votes[_voter].votingPower == 0) {
             // Nothing to do
