@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {ILockManager, LockManagerSettings, UnlockMode, PluginMode} from "./interfaces/ILockManager.sol";
+import {ILockManager, LockManagerSettings, PluginMode} from "./interfaces/ILockManager.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
 import {ILockToApprove} from "./interfaces/ILockToApprove.sol";
@@ -69,7 +69,6 @@ contract LockManager is ILockManager {
     /// @param _token The address of the token contract that users can lock
     /// @param _underlyingToken If applicable, the address of the contract from which `token` originates. This is relevant for LP tokens whose supply may experiment swift changes.
     constructor(LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken) {
-        settings.unlockMode = _settings.unlockMode;
         settings.pluginMode = _settings.pluginMode;
         token = _token;
         underlyingTokenAddr = _underlyingToken;
@@ -149,11 +148,8 @@ contract LockManager is ILockManager {
             revert NoBalance();
         }
 
-        if (settings.unlockMode == UnlockMode.Strict) {
-            if (_hasActiveLocks()) revert LocksStillActive();
-        } else {
-            _withdrawActiveVotingPower();
-        }
+        /// @dev The plugin may decide to revert if its voting mode doesn't allow for it
+        _withdrawActiveVotingPower();
 
         // All votes clear
 
