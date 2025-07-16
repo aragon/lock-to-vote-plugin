@@ -66,9 +66,8 @@ contract LockToVotePluginSetup is PluginSetup {
 
     /// @notice The contract constructor deploying the implementation contracts to use.
     constructor() PluginSetup(address(new LockToVotePlugin())) {
-        lockManagerImpl = new LockManager(
-            IDAO(address(0)), LockManagerSettings(UnlockMode(0), PluginMode(0)), IERC20(address(0)), IERC20(address(0))
-        );
+        lockManagerImpl =
+            new LockManager(LockManagerSettings(UnlockMode(0), PluginMode(0)), IERC20(address(0)), IERC20(address(0)));
     }
 
     /// @inheritdoc IPluginSetup
@@ -86,7 +85,6 @@ contract LockToVotePluginSetup is PluginSetup {
         // Lock Manager
         helpers[0] = address(
             new LockManager(
-                IDAO(_dao),
                 LockManagerSettings(installationParams.unlockMode, PluginMode.Voting),
                 installationParams.token,
                 installationParams.underlyingToken
