@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import {AragonTest} from "./lib/TestBase.sol";
+import {TestBase} from "./lib/TestBase.sol";
 import {DaoBuilder} from "./builders/DaoBuilder.sol";
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
@@ -24,7 +24,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {RATIO_BASE} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {MinVotingPowerCondition} from "../src/conditions/MinVotingPowerCondition.sol";
 
-contract LockToVoteTest is AragonTest {
+contract LockToVoteTest is TestBase {
     DaoBuilder builder;
     DAO dao;
     LockToVotePlugin ltvPlugin;

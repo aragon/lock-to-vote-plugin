@@ -143,32 +143,33 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     }
 
     /// @inheritdoc ILockToVote
-    function vote(uint256 _proposalId, address _voter, VoteOption _voteOption, uint256 _currentVotingPower)
+    function vote(uint256 _proposalId, address _voter, VoteOption _voteOption, uint256 _newVotingPower)
         public
         override
         auth(LOCK_MANAGER_PERMISSION_ID)
     {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        if (!_canVote(proposal_, _voter, _voteOption, _currentVotingPower)) {
+        if (!_canVote(proposal_, _voter, _voteOption, _newVotingPower)) {
             revert VoteCastForbidden(_proposalId, _voter);
         }
 
         // Same vote
         if (_voteOption == proposal_.votes[_voter].voteOption) {
-            // Same balance, nothing to do
-            if (_currentVotingPower == proposal_.votes[_voter].votingPower) return;
+            // Same value, nothing to do
+            if (_newVotingPower == proposal_.votes[_voter].votingPower) return;
 
             // More balance
-            /// @dev Positive diff is guaranteed, as _canVote() above will return false and revert otherwise
-            uint256 diff = _currentVotingPower - proposal_.votes[_voter].votingPower;
-            proposal_.votes[_voter].votingPower = _currentVotingPower;
+            /// @dev diff > 0 is guaranteed, as _canVote() above will return false and revert otherwise
+            uint256 diff = _newVotingPower - proposal_.votes[_voter].votingPower;
+            proposal_.votes[_voter].votingPower = _newVotingPower;
 
             if (proposal_.votes[_voter].voteOption == VoteOption.Yes) {
                 proposal_.tally.yes += diff;
             } else if (proposal_.votes[_voter].voteOption == VoteOption.No) {
                 proposal_.tally.no += diff;
             } else {
+                /// @dev Voting none is not possible, as _canVote() above will return false and revert if so
                 proposal_.tally.abstain += diff;
             }
         } else {
@@ -182,23 +183,25 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
                 } else if (proposal_.votes[_voter].voteOption == VoteOption.No) {
                     proposal_.tally.no -= proposal_.votes[_voter].votingPower;
                 } else {
+                    /// @dev Voting none is not possible, only abstain is left
                     proposal_.tally.abstain -= proposal_.votes[_voter].votingPower;
                 }
             }
 
             // Register the new vote
             if (_voteOption == VoteOption.Yes) {
-                proposal_.tally.yes += _currentVotingPower;
+                proposal_.tally.yes += _newVotingPower;
             } else if (_voteOption == VoteOption.No) {
-                proposal_.tally.no += _currentVotingPower;
+                proposal_.tally.no += _newVotingPower;
             } else {
-                proposal_.tally.abstain += _currentVotingPower;
+                /// @dev Voting none is not possible, only abstain is left
+                proposal_.tally.abstain += _newVotingPower;
             }
             proposal_.votes[_voter].voteOption = _voteOption;
-            proposal_.votes[_voter].votingPower = _currentVotingPower;
+            proposal_.votes[_voter].votingPower = _newVotingPower;
         }
 
-        emit VoteCast(_proposalId, _voter, _voteOption, _currentVotingPower);
+        emit VoteCast(_proposalId, _voter, _voteOption, _newVotingPower);
 
         if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
             _attemptEarlyExecution(_proposalId, _msgSender());
