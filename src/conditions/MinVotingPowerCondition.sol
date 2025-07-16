@@ -14,10 +14,10 @@ import {PermissionCondition} from "@aragon/osx-commons-contracts/src/permission/
 /// @custom:security-contact sirt@aragon.org
 contract MinVotingPowerCondition is PermissionCondition {
     /// @notice The address of the `ILockToGovernBase` plugin used to fetch the settings from.
-    ILockToGovernBase internal immutable plugin;
+    ILockToGovernBase public immutable plugin;
 
     /// @notice The `IERC20` token interface used to check token balance.
-    IERC20 internal immutable token;
+    IERC20 public immutable token;
 
     /// @notice Initializes the contract with the `ILockToGovernBase` plugin address and caches the associated token.
     /// @param _plugin The address of the `ILockToGovernBase` plugin.
