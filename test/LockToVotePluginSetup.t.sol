@@ -25,7 +25,7 @@ contract LockToVotePluginSetupTest is TestBase {
     TestToken internal underlyingToken;
 
     // Parameters for installation
-    LockToVotePluginSetup.InstallationParameters internal params;
+    LockToVotePluginSetup.InstallationParameters internal installParams;
     bytes internal encodedParams;
 
     // Results from prepareInstallation
@@ -47,7 +47,7 @@ contract LockToVotePluginSetupTest is TestBase {
     }
 
     modifier whenPreparingAnInstallation() {
-        params = LockToVotePluginSetup.InstallationParameters({
+        installParams = LockToVotePluginSetup.InstallationParameters({
             unlockMode: UnlockMode.Standard,
             token: token,
             underlyingToken: underlyingToken,
@@ -64,7 +64,7 @@ contract LockToVotePluginSetupTest is TestBase {
             executeCaller: bob,
             targetConfig: IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call})
         });
-        encodedParams = setup.encodeInstallationParams(params);
+        encodedParams = setup.encodeInstallationParams(installParams);
         _;
     }
 
@@ -83,8 +83,8 @@ contract LockToVotePluginSetupTest is TestBase {
         address executeCaller = preparedSetupData.helpers[2];
 
         assertTrue(lockManagerAddr.code.length > 0, "lock manager should be deployed");
-        assertEq(createProposalCaller, params.createProposalCaller, "create proposal caller mismatch");
-        assertEq(executeCaller, params.executeCaller, "execute caller mismatch");
+        assertEq(createProposalCaller, installParams.createProposalCaller, "create proposal caller mismatch");
+        assertEq(executeCaller, installParams.executeCaller, "execute caller mismatch");
 
         // It all plugins use the same implementation
         address pluginImplementation = _getImplementation(pluginAddr);
@@ -99,12 +99,12 @@ contract LockToVotePluginSetupTest is TestBase {
         // It the plugin has the given settings
         LockToVotePlugin plugin = LockToVotePlugin(pluginAddr);
         MajorityVotingBase.VotingSettings memory settings = plugin.getVotingSettings();
-        assertEq(uint8(settings.votingMode), uint8(params.votingSettings.votingMode));
-        assertEq(settings.supportThresholdRatio, params.votingSettings.supportThresholdRatio);
-        assertEq(settings.minParticipationRatio, params.votingSettings.minParticipationRatio);
-        assertEq(settings.minApprovalRatio, params.votingSettings.minApprovalRatio);
-        assertEq(settings.proposalDuration, params.votingSettings.proposalDuration);
-        assertEq(settings.minProposerVotingPower, params.votingSettings.minProposerVotingPower);
+        assertEq(uint8(settings.votingMode), uint8(installParams.votingSettings.votingMode));
+        assertEq(settings.supportThresholdRatio, installParams.votingSettings.supportThresholdRatio);
+        assertEq(settings.minParticipationRatio, installParams.votingSettings.minParticipationRatio);
+        assertEq(settings.minApprovalRatio, installParams.votingSettings.minApprovalRatio);
+        assertEq(settings.proposalDuration, installParams.votingSettings.proposalDuration);
+        assertEq(settings.minProposerVotingPower, installParams.votingSettings.minProposerVotingPower);
 
         // It should set the address of the lockManager on the plugin
         assertEq(address(LockManager(lockManagerAddr).plugin()), pluginAddr, "plugin address not set on lockManager");
@@ -167,10 +167,16 @@ contract LockToVotePluginSetupTest is TestBase {
             preparedSetupData.permissions[5],
             PermissionLib.Operation.Grant,
             pluginAddr,
-            params.createProposalCaller,
+            installParams.createProposalCaller,
             minVotingPowerConditionAddr,
             impl.CREATE_PROPOSAL_PERMISSION_ID()
         );
+        address conditionAddr = address(preparedSetupData.permissions[5].condition);
+        assertNotEq(conditionAddr, PermissionLib.NO_CONDITION, "Condition should exist for CREATE_PROPOSAL");
+        assertTrue(conditionAddr.code.length > 0, "condition is not a contract");
+        assertEq(address(MinVotingPowerCondition(conditionAddr).plugin()), address(plugin), "condition plugin mismatch");
+        assertEq(address(MinVotingPowerCondition(conditionAddr).token()), address(token), "condition token mismatch");
+
         // 6. LockManager can manage plugin
         _assertPermission(
             preparedSetupData.permissions[6],
@@ -185,7 +191,7 @@ contract LockToVotePluginSetupTest is TestBase {
             preparedSetupData.permissions[7],
             PermissionLib.Operation.Grant,
             pluginAddr,
-            params.executeCaller,
+            installParams.executeCaller,
             PermissionLib.NO_CONDITION,
             impl.EXECUTE_PROPOSAL_PERMISSION_ID()
         );
@@ -195,20 +201,20 @@ contract LockToVotePluginSetupTest is TestBase {
         // It should revert
 
         // Case 1: Token is not a contract
-        params.token = IERC20(alice);
-        encodedParams = setup.encodeInstallationParams(params);
+        installParams.token = IERC20(alice);
+        encodedParams = setup.encodeInstallationParams(installParams);
         vm.expectRevert(abi.encodeWithSelector(LockToVotePluginSetup.TokenNotContract.selector, alice));
         setup.prepareInstallation(address(dao), encodedParams);
 
         // Case 2: Token is not ERC20 compliant
-        params.token = IERC20(address(setup));
-        encodedParams = setup.encodeInstallationParams(params);
+        installParams.token = IERC20(address(setup));
+        encodedParams = setup.encodeInstallationParams(installParams);
         vm.expectRevert(abi.encodeWithSelector(LockToVotePluginSetup.TokenNotERC20.selector, address(setup)));
         setup.prepareInstallation(address(dao), encodedParams);
     }
 
     modifier whenPreparingAnUninstallation() {
-        params = LockToVotePluginSetup.InstallationParameters({
+        installParams = LockToVotePluginSetup.InstallationParameters({
             unlockMode: UnlockMode.Standard,
             token: token,
             underlyingToken: underlyingToken,
@@ -225,7 +231,7 @@ contract LockToVotePluginSetupTest is TestBase {
             executeCaller: bob,
             targetConfig: IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call})
         });
-        encodedParams = setup.encodeInstallationParams(params);
+        encodedParams = setup.encodeInstallationParams(installParams);
         _;
     }
 
@@ -295,7 +301,7 @@ contract LockToVotePluginSetupTest is TestBase {
             revokePermissions[5],
             PermissionLib.Operation.Revoke,
             pluginAddr,
-            params.createProposalCaller,
+            installParams.createProposalCaller,
             PermissionLib.NO_CONDITION,
             impl.CREATE_PROPOSAL_PERMISSION_ID()
         );
@@ -313,7 +319,7 @@ contract LockToVotePluginSetupTest is TestBase {
             revokePermissions[7],
             PermissionLib.Operation.Revoke,
             pluginAddr,
-            params.executeCaller,
+            installParams.executeCaller,
             PermissionLib.NO_CONDITION,
             impl.EXECUTE_PROPOSAL_PERMISSION_ID()
         );
@@ -348,7 +354,7 @@ contract LockToVotePluginSetupTest is TestBase {
         address condition,
         bytes32 permissionId
     ) internal pure {
-        assertEq(uint8(actual.operation), uint8(op), "permission op");
+        assertEq(uint8(actual.operation), uint8(op), "operation mismatch");
         assertEq(actual.where, where, "permission where");
         assertEq(actual.who, who, "permission who");
         assertEq(actual.condition, condition, "permission condition");
