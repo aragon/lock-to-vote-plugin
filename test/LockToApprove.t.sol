@@ -12,7 +12,6 @@ import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth
 import {TestToken} from "./mocks/TestToken.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
-import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
 import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
@@ -30,15 +29,8 @@ contract LockToApproveTest is TestBase {
     IERC20 underlyingToken;
     uint256 proposalId;
 
-    address immutable LOCK_TO_APPROVE_BASE = address(new LockToApprovePlugin());
-    address immutable LOCK_MANAGER_BASE = address(
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-            IERC20(address(0)),
-            IERC20(address(0))
-        )
-    );
+    address LOCK_TO_APPROVE_BASE;
+    address LOCK_MANAGER_BASE;
 
     bytes32 constant CREATE_PROPOSAL_PERMISSION_ID = keccak256("CREATE_PROPOSAL_PERMISSION");
     bytes32 constant EXECUTE_PROPOSAL_PERMISSION_ID = keccak256("EXECUTE_PROPOSAL_PERMISSION");
@@ -63,6 +55,16 @@ contract LockToApproveTest is TestBase {
     error AlreadyInitialized();
 
     function setUp() public {
+        LOCK_TO_APPROVE_BASE = address(new LockToApprovePlugin());
+        LOCK_MANAGER_BASE = address(
+            new LockManager(
+                IDAO(address(0)),
+                LockManagerSettings(UnlockMode.Standard, PluginMode.Approval),
+                IERC20(address(0)),
+                IERC20(address(0))
+            )
+        );
+
         vm.startPrank(alice);
         vm.warp(10 days);
         vm.roll(100);
