@@ -6,14 +6,6 @@ import {ILockToGovernBase} from "./ILockToGovernBase.sol";
 import {IMajorityVoting} from "./IMajorityVoting.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/// @notice Defines whether locked funds can be unlocked at any time or not
-enum UnlockMode {
-    /// @notice It allows token holders to unlock their tokens early, as long as the voting plugin allows clearing the active votes.
-    Standard,
-    /// @notice It allows to unlock if the token holder has no tokens allocated in open proposals.
-    Strict
-}
-
 /// @notice Defines wether the voting plugin expects approvals or votes
 enum PluginMode {
     Approval,
@@ -22,8 +14,6 @@ enum PluginMode {
 
 /// @notice The struct containing the LockManager helper settings. They are immutable after deployed.
 struct LockManagerSettings {
-    /// @notice The mode defining whether funds can be unlocked at any time or not
-    UnlockMode unlockMode;
     /// @notice Wether the plugins expects approvals or votes
     PluginMode pluginMode;
 }
@@ -33,7 +23,7 @@ struct LockManagerSettings {
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 interface ILockManager {
     /// @notice Returns the current settings of the LockManager.
-    function settings() external view returns (UnlockMode unlockMode, PluginMode pluginMode);
+    function settings() external view returns (PluginMode pluginMode);
 
     /// @notice Returns the address of the voting plugin.
     /// @return The LockToVote plugin address.

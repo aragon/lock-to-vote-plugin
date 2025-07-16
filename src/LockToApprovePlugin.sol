@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {ILockManager, UnlockMode} from "./interfaces/ILockManager.sol";
+import {ILockManager} from "./interfaces/ILockManager.sol";
 import {ILockToGovernBase} from "./interfaces/ILockToVote.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {LockToGovernBase} from "./base/LockToGovernBase.sol";
@@ -293,14 +293,11 @@ contract LockToApprovePlugin is
         emit ApprovalCast(_proposalId, _voter, _currentVotingPower);
 
         // Check if we may execute early
-        (UnlockMode unlockMode,) = lockManager.settings();
-        if (unlockMode == UnlockMode.Strict) {
-            if (
-                _canExecute(proposal_)
-                    && dao().hasPermission(address(this), _msgSender(), EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())
-            ) {
-                _execute(_proposalId, proposal_);
-            }
+        if (
+            _canExecute(proposal_)
+                && dao().hasPermission(address(this), _msgSender(), EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())
+        ) {
+            _execute(_proposalId, proposal_);
         }
     }
 

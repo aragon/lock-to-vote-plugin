@@ -301,9 +301,9 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     }
 
     function _attemptEarlyExecution(uint256 _proposalId, address _voteCaller) internal {
-        if (!dao().hasPermission(address(this), _voteCaller, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
+        if (!_canExecute(_proposalId)) {
             return;
-        } else if (!_canExecute(_proposalId)) {
+        } else if (!dao().hasPermission(address(this), _voteCaller, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
             return;
         }
 
