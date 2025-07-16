@@ -39,13 +39,13 @@ contract MinVotingPowerConditionTest is TestBase {
 
     function test_WhenDeployingTheContract() external {
         // Deploys a testable version of the condition contract
-        TestMinVotingPowerCondition condition = new TestMinVotingPowerCondition(ILockToGovernBase(address(ltaPlugin)));
+        MinVotingPowerCondition condition = new MinVotingPowerCondition(ILockToGovernBase(address(ltaPlugin)));
 
         // It records the given plugin address
-        assertEq(address(condition.getPlugin()), address(ltaPlugin), "Should record plugin address");
+        assertEq(address(condition.plugin()), address(ltaPlugin), "Should record plugin address");
 
         // It records the plugin's token address
-        assertEq(address(condition.getToken()), address(token), "Should record plugin's token address");
+        assertEq(address(condition.token()), address(token), "Should record plugin's token address");
     }
 
     modifier whenCallingIsGranted() {
@@ -101,18 +101,5 @@ contract MinVotingPowerConditionTest is TestBase {
             condition.isGranted(address(0x0), david, bytes32(0x0), ""), // David has 15 ether
             "Should return true for user with more than min power"
         );
-    }
-}
-
-/// @dev Helper contract to test internal state of MinVotingPowerCondition
-contract TestMinVotingPowerCondition is MinVotingPowerCondition {
-    constructor(ILockToGovernBase _plugin) MinVotingPowerCondition(_plugin) {}
-
-    function getPlugin() external view returns (ILockToGovernBase) {
-        return plugin;
-    }
-
-    function getToken() external view returns (IERC20) {
-        return token;
     }
 }
