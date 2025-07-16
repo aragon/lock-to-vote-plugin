@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title LockManager
-/// @author Aragon X 2024
+/// @author Aragon X 2025
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 contract LockManager is ILockManager, DaoAuthorizable {
     using EnumerableSet for EnumerableSet.UintSet;
