@@ -9,9 +9,9 @@ import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/Pl
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {ILockManager} from "./ILockManager.sol";
 
-/// @title ILockToVoteBase
+/// @title ILockToGovernBase
 /// @author Aragon X 2024-2025
-interface ILockToVoteBase {
+interface ILockToGovernBase {
     /// @notice Returns the address of the manager contract, which holds the locked balances and the allocated vote balances.
     function lockManager() external view returns (ILockManager);
 

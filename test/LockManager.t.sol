@@ -14,7 +14,7 @@ import {LockManager} from "../src/LockManager.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TestToken} from "./mocks/TestToken.sol";
-import {ILockToVoteBase} from "../src/interfaces/ILockToVoteBase.sol";
+import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
 
 contract LockManagerTest is TestBase {
     DaoBuilder builder;
@@ -95,13 +95,13 @@ contract LockManagerTest is TestBase {
         _;
     }
 
-    function test_WhenCallingSetPluginAddressWithAnAddressThatDoesNotSupportILockToVoteBase()
+    function test_WhenCallingSetPluginAddressWithAnAddressThatDoesNotSupportILockToGovernBase()
         external
         givenThePluginAddressHasNotBeenSetYet
     {
         // It Should revert with InvalidPlugin
         vm.expectRevert(LockManager.InvalidPlugin.selector);
-        lockManager.setPluginAddress(ILockToVoteBase(address(dao)));
+        lockManager.setPluginAddress(ILockToGovernBase(address(dao)));
     }
 
     modifier givenThePluginModeIsApproval() {
@@ -109,7 +109,7 @@ contract LockManagerTest is TestBase {
         _;
     }
 
-    function test_WhenCallingSetPluginAddressWithAPluginThatSupportsILockToVoteBaseButNotILockToApprove()
+    function test_WhenCallingSetPluginAddressWithAPluginThatSupportsILockToGovernBaseButNotILockToApprove()
         external
         givenThePluginAddressHasNotBeenSetYet
         givenThePluginModeIsApproval
@@ -139,7 +139,7 @@ contract LockManagerTest is TestBase {
         _;
     }
 
-    function test_WhenCallingSetPluginAddressWithAPluginThatSupportsILockToVoteBaseButNotILockToVote()
+    function test_WhenCallingSetPluginAddressWithAPluginThatSupportsILockToGovernBaseButNotILockToVote()
         external
         givenThePluginAddressHasNotBeenSetYet
         givenThePluginModeIsVoting

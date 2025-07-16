@@ -15,7 +15,7 @@ import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TestToken} from "./mocks/TestToken.sol";
 import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
-import {ILockToVoteBase} from "../src/interfaces/ILockToVoteBase.sol";
+import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
@@ -115,7 +115,7 @@ contract LockToVoteTest is TestBase {
 
         ltvPlugin = LockToVotePlugin(createProxyAndCall(address(new LockToVotePlugin()), bytes("")));
 
-        lockManager.setPluginAddress(ILockToVoteBase(address(ltvPlugin)));
+        lockManager.setPluginAddress(ILockToGovernBase(address(ltvPlugin)));
 
         dao.grant(address(ltvPlugin), address(lockManager), ltvPlugin.LOCK_MANAGER_PERMISSION_ID());
 
@@ -298,7 +298,7 @@ contract LockToVoteTest is TestBase {
         ltvPlugin.updateVotingSettings(settings);
 
         // Create and grant permission with condition
-        MinVotingPowerCondition condition = new MinVotingPowerCondition(ILockToVoteBase(address(ltvPlugin)));
+        MinVotingPowerCondition condition = new MinVotingPowerCondition(ILockToGovernBase(address(ltvPlugin)));
         dao.grantWithCondition(address(ltvPlugin), alice, ltvPlugin.CREATE_PROPOSAL_PERMISSION_ID(), condition);
 
         // It should revert when the creator has not enough balance

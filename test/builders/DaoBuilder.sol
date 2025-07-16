@@ -9,7 +9,7 @@ import {LockToApprovePlugin} from "../../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../../src/LockToVotePlugin.sol";
 import {LockManager} from "../../src/LockManager.sol";
 import {LockManagerSettings, UnlockMode, PluginMode} from "../../src/interfaces/ILockManager.sol";
-import {ILockToVoteBase} from "../../src/interfaces/ILockToVoteBase.sol";
+import {ILockToGovernBase} from "../../src/interfaces/ILockToGovernBase.sol";
 import {RATIO_BASE} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -155,7 +155,7 @@ contract DaoBuilder is Test {
             TestToken(address(lockableToken)).mint(owner, 10 ether);
         }
 
-        ILockToVoteBase targetPlugin;
+        ILockToGovernBase targetPlugin;
 
         {
             // Plugin and helper
@@ -183,7 +183,7 @@ contract DaoBuilder is Test {
                         )
                     )
                 );
-                targetPlugin = ILockToVoteBase(address(ltaPlugin));
+                targetPlugin = ILockToGovernBase(address(ltaPlugin));
             } else {
                 MajorityVotingBase.VotingSettings memory votingSettings = MajorityVotingBase.VotingSettings({
                     votingMode: votingMode,
@@ -203,7 +203,7 @@ contract DaoBuilder is Test {
                         )
                     )
                 );
-                targetPlugin = ILockToVoteBase(address(ltvPlugin));
+                targetPlugin = ILockToGovernBase(address(ltvPlugin));
             }
 
             lockManager.setPluginAddress(targetPlugin);

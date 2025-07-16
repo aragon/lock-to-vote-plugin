@@ -2,13 +2,13 @@
 
 pragma solidity ^0.8.17;
 
-import {ILockToVoteBase} from "./ILockToVoteBase.sol";
+import {ILockToGovernBase} from "./ILockToGovernBase.sol";
 import {IMajorityVoting} from "./IMajorityVoting.sol";
 
 /// @title ILockToVote
 /// @author Aragon X
 /// @notice Governance plugin allowing token holders to use tokens locked without a snapshot requirement and engage in proposals immediately
-interface ILockToVote is ILockToVoteBase {
+interface ILockToVote is ILockToGovernBase {
     /// @notice Checks if an account can participate on a proposal. This can be because the vote
     /// - has not started,
     /// - has ended,
@@ -20,11 +20,10 @@ interface ILockToVote is ILockToVoteBase {
     /// @dev `voteOption`, 1 -> abstain, 2 -> yes, 3 -> no
     /// @param voteOption The value of the new vote to register. If an existing vote existed, it will be replaced.
     /// @return Returns true if the account is allowed to vote.
-    function canVote(
-        uint256 proposalId,
-        address voter,
-        IMajorityVoting.VoteOption voteOption
-    ) external view returns (bool);
+    function canVote(uint256 proposalId, address voter, IMajorityVoting.VoteOption voteOption)
+        external
+        view
+        returns (bool);
 
     /// @notice Votes on a proposal and, depending on the mode, executes it.
     /// @dev `voteOption`, 1 -> abstain, 2 -> yes, 3 -> no
@@ -33,12 +32,8 @@ interface ILockToVote is ILockToVoteBase {
     /// @param voteOption The value of the new vote to register. If an existing vote existed, it will be replaced.
     /// @param votingPower The new balance that should be allocated to the voter. It can only be bigger.
     /// @dev votingPower updates any prior voting power, it does not add to the existing amount.
-    function vote(
-        uint256 proposalId,
-        address voter,
-        IMajorityVoting.VoteOption voteOption,
-        uint256 votingPower
-    ) external;
+    function vote(uint256 proposalId, address voter, IMajorityVoting.VoteOption voteOption, uint256 votingPower)
+        external;
 
     /// @notice Reverts the existing voter's vote, if existing.
     /// @param proposalId The ID of the proposal.

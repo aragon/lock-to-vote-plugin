@@ -15,15 +15,15 @@ LockManagerTest
 │   └── When Deploying with a zeroaddress for the underlying token
 │       └── It Should set the underlying token address to address(0)
 ├── Given The plugin address has not been set yet
-│   ├── When Calling setPluginAddress with an address that does not support ILockToVoteBase
+│   ├── When Calling setPluginAddress with an address that does not support ILockToGovernBase
 │   │   └── It Should revert with InvalidPlugin
 │   ├── Given The pluginMode is Approval
-│   │   ├── When Calling setPluginAddress with a plugin that supports ILockToVoteBase but not ILockToApprove
+│   │   ├── When Calling setPluginAddress with a plugin that supports ILockToGovernBase but not ILockToApprove
 │   │   │   └── It Should revert with InvalidPlugin
 │   │   └── When Calling setPluginAddress with a valid Approval plugin
 │   │       └── It Should set the plugin address
 │   └── Given The pluginMode is Voting
-│       ├── When Calling setPluginAddress with a plugin that supports ILockToVoteBase but not ILockToVote
+│       ├── When Calling setPluginAddress with a plugin that supports ILockToGovernBase but not ILockToVote
 │       │   └── It Should revert with InvalidPlugin
 │       └── When Calling setPluginAddress with a valid Voting plugin
 │           └── It Should set the plugin address

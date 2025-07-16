@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {ILockManager} from "./interfaces/ILockManager.sol";
-import {LockToVoteBase} from "./base/LockToVoteBase.sol";
+import {LockToGovernBase} from "./base/LockToGovernBase.sol";
 import {ILockToVote} from "./interfaces/ILockToVote.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
@@ -12,9 +12,9 @@ import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/pro
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {MajorityVotingBase} from "./base/MajorityVotingBase.sol";
-import {ILockToVoteBase} from "./interfaces/ILockToVoteBase.sol";
+import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
 
-contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
+contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     using SafeCastUpgradeable for uint256;
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
@@ -48,7 +48,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         bytes calldata _pluginMetadata
     ) external onlyCallAtInitialization reinitializer(1) {
         __MajorityVotingBase_init(_dao, _votingSettings, _targetConfig, _pluginMetadata);
-        __LockToVoteBase_init(_lockManager);
+        __LockToGovernBase_init(_lockManager);
 
         emit MembershipContractAnnounced({definingContract: address(_lockManager.token())});
     }
@@ -60,7 +60,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         public
         view
         virtual
-        override(MajorityVotingBase, LockToVoteBase)
+        override(MajorityVotingBase, LockToGovernBase)
         returns (bool)
     {
         return _interfaceId == LOCK_TO_VOTE_INTERFACE_ID || _interfaceId == type(ILockToVote).interfaceId
@@ -235,14 +235,14 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         emit VoteCleared(_proposalId, _voter);
     }
 
-    /// @inheritdoc ILockToVoteBase
+    /// @inheritdoc ILockToGovernBase
     function isProposalOpen(uint256 _proposalId) external view returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
         return _isProposalOpen(proposal_);
     }
 
     /// @inheritdoc MajorityVotingBase
-    function minProposerVotingPower() public view override(ILockToVoteBase, MajorityVotingBase) returns (uint256) {
+    function minProposerVotingPower() public view override(ILockToGovernBase, MajorityVotingBase) returns (uint256) {
         return MajorityVotingBase.minProposerVotingPower();
     }
 
@@ -251,7 +251,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         return lockManager.token().totalSupply();
     }
 
-    /// @inheritdoc ILockToVoteBase
+    /// @inheritdoc ILockToGovernBase
     function usedVotingPower(uint256 _proposalId, address _voter) public view returns (uint256) {
         return proposals[_proposalId].votes[_voter].votingPower;
     }

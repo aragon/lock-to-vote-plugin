@@ -15,12 +15,12 @@ LockManagerTest:
 
   - given: The plugin address has not been set yet
     and:
-      - when: Calling setPluginAddress() with an address that does not support ILockToVoteBase
+      - when: Calling setPluginAddress() with an address that does not support ILockToGovernBase
         then:
           - it: Should revert with InvalidPlugin
       - given: The pluginMode is Approval
         and:
-          - when: Calling setPluginAddress() with a plugin that supports ILockToVoteBase but not ILockToApprove
+          - when: Calling setPluginAddress() with a plugin that supports ILockToGovernBase but not ILockToApprove
             then:
               - it: Should revert with InvalidPlugin
           - when: Calling setPluginAddress() with a valid Approval plugin
@@ -28,7 +28,7 @@ LockManagerTest:
               - it: Should set the plugin address
       - given: The pluginMode is Voting
         and:
-          - when: Calling setPluginAddress() with a plugin that supports ILockToVoteBase but not ILockToVote
+          - when: Calling setPluginAddress() with a plugin that supports ILockToGovernBase but not ILockToVote
             then:
               - it: Should revert with InvalidPlugin
           - when: Calling setPluginAddress() with a valid Voting plugin

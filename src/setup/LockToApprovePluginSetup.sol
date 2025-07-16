@@ -16,7 +16,7 @@ import {PluginSetup, IPluginSetup} from "@aragon/osx-commons-contracts/src/plugi
 import {LockToApprovePlugin} from "../LockToApprovePlugin.sol";
 import {LockManager} from "../LockManager.sol";
 import {LockManagerSettings, UnlockMode, PluginMode} from "../../src/interfaces/ILockManager.sol";
-import {ILockToVoteBase} from "../../src/interfaces/ILockToVoteBase.sol";
+import {ILockToGovernBase} from "../../src/interfaces/ILockToGovernBase.sol";
 import {MinVotingPowerCondition} from "../../src/conditions/MinVotingPowerCondition.sol";
 import {createProxyAndCall} from "../util/proxy.sol";
 
@@ -67,18 +67,15 @@ contract LockToApprovePluginSetup is PluginSetup {
     /// @notice The contract constructor deploying the implementation contracts to use.
     constructor() PluginSetup(address(new LockToApprovePlugin())) {
         lockManagerImpl = new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode(0), PluginMode(0)),
-            IERC20(address(0)),
-            IERC20(address(0))
+            IDAO(address(0)), LockManagerSettings(UnlockMode(0), PluginMode(0)), IERC20(address(0)), IERC20(address(0))
         );
     }
 
     /// @inheritdoc IPluginSetup
-    function prepareInstallation(
-        address _dao,
-        bytes calldata _installParameters
-    ) external returns (address plugin, PreparedSetupData memory preparedSetupData) {
+    function prepareInstallation(address _dao, bytes calldata _installParameters)
+        external
+        returns (address plugin, PreparedSetupData memory preparedSetupData)
+    {
         // Decode `_installParameters` to extract the params needed for deploying and initializing `LockToApprovePlugin` contract,
         // and the required helpers
         InstallationParameters memory installationParams = decodeInstallationParams(_installParameters);
@@ -124,10 +121,10 @@ contract LockToApprovePluginSetup is PluginSetup {
                 )
             )
         );
-        LockManager(helpers[0]).setPluginAddress(ILockToVoteBase(plugin));
+        LockManager(helpers[0]).setPluginAddress(ILockToGovernBase(plugin));
 
         // Condition
-        address minVotingPowerCondition = address(new MinVotingPowerCondition(ILockToVoteBase(plugin)));
+        address minVotingPowerCondition = address(new MinVotingPowerCondition(ILockToGovernBase(plugin)));
         helpers[1] = installationParams.createProposalCaller;
         helpers[2] = installationParams.executeCaller;
 
@@ -213,10 +210,11 @@ contract LockToApprovePluginSetup is PluginSetup {
     }
 
     /// @inheritdoc IPluginSetup
-    function prepareUninstallation(
-        address _dao,
-        SetupPayload calldata _payload
-    ) external view returns (PermissionLib.MultiTargetPermission[] memory permissions) {
+    function prepareUninstallation(address _dao, SetupPayload calldata _payload)
+        external
+        view
+        returns (PermissionLib.MultiTargetPermission[] memory permissions)
+    {
         // Prepare permissions.
         uint256 helperLength = _payload.currentHelpers.length;
         if (helperLength != 3) {
@@ -302,16 +300,20 @@ contract LockToApprovePluginSetup is PluginSetup {
     }
 
     /// @notice Encodes the given installation parameters into a byte array
-    function encodeInstallationParams(
-        InstallationParameters memory installationParams
-    ) external pure returns (bytes memory) {
+    function encodeInstallationParams(InstallationParameters memory installationParams)
+        external
+        pure
+        returns (bytes memory)
+    {
         return abi.encode(installationParams);
     }
 
     /// @notice Decodes the given byte array into the original installation parameters
-    function decodeInstallationParams(
-        bytes memory _data
-    ) public pure returns (InstallationParameters memory installationParams) {
+    function decodeInstallationParams(bytes memory _data)
+        public
+        pure
+        returns (InstallationParameters memory installationParams)
+    {
         installationParams = abi.decode(_data, (InstallationParameters));
     }
 

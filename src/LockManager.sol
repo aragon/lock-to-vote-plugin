@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import {ILockManager, LockManagerSettings, UnlockMode, PluginMode} from "./interfaces/ILockManager.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {DaoAuthorizable} from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizable.sol";
-import {ILockToVoteBase} from "./interfaces/ILockToVoteBase.sol";
+import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
 import {ILockToApprove} from "./interfaces/ILockToApprove.sol";
 import {ILockToVote} from "./interfaces/ILockToVote.sol";
 import {IMajorityVoting} from "./interfaces/IMajorityVoting.sol";
@@ -22,7 +22,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     LockManagerSettings public settings;
 
     /// @notice The address of the lock to vote plugin to use
-    ILockToVoteBase public plugin;
+    ILockToGovernBase public plugin;
 
     /// @notice The address of the token contract
     IERC20 public immutable token;
@@ -200,10 +200,10 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function setPluginAddress(ILockToVoteBase _newPluginAddress) public virtual {
+    function setPluginAddress(ILockToGovernBase _newPluginAddress) public virtual {
         if (address(plugin) != address(0)) {
             revert SetPluginAddressForbidden();
-        } else if (!IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToVoteBase).interfaceId)) {
+        } else if (!IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToGovernBase).interfaceId)) {
             revert InvalidPlugin();
         }
         // Is it the right type of plugin?

@@ -6,24 +6,24 @@ pragma solidity ^0.8.8;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ILockManager} from "../interfaces/ILockManager.sol";
-import {ILockToVoteBase} from "../interfaces/ILockToVoteBase.sol";
+import {ILockToGovernBase} from "../interfaces/ILockToGovernBase.sol";
 import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 
-/// @title LockToVoteBase
+/// @title LockToGovernBase
 /// @author Aragon X 2024-2025
-abstract contract LockToVoteBase is ILockToVoteBase, IMembership, ERC165Upgradeable {
+abstract contract LockToGovernBase is ILockToGovernBase, IMembership, ERC165Upgradeable {
     event LockManagerDefined(ILockManager lockManager);
 
     error NoVotingPower();
     error LockManagerAlreadyDefined();
 
-    /// @inheritdoc ILockToVoteBase
+    /// @inheritdoc ILockToGovernBase
     ILockManager public lockManager;
 
     /// @notice Initializes the component to be used by inheriting contracts.
     /// @param _lockManager The address of the contract with the ability to manager votes on behalf of users.
-    function __LockToVoteBase_init(ILockManager _lockManager) internal onlyInitializing {
+    function __LockToGovernBase_init(ILockManager _lockManager) internal onlyInitializing {
         _setLockManager(_lockManager);
     }
 
@@ -31,18 +31,16 @@ abstract contract LockToVoteBase is ILockToVoteBase, IMembership, ERC165Upgradea
     /// @param _interfaceId The ID of the interface.
     /// @return Returns `true` if the interface is supported.
     function supportsInterface(bytes4 _interfaceId) public view virtual override(ERC165Upgradeable) returns (bool) {
-        return
-            _interfaceId == type(ILockToVoteBase).interfaceId ||
-            _interfaceId == type(IMembership).interfaceId ||
-            super.supportsInterface(_interfaceId);
+        return _interfaceId == type(ILockToGovernBase).interfaceId || _interfaceId == type(IMembership).interfaceId
+            || super.supportsInterface(_interfaceId);
     }
 
-    /// @inheritdoc ILockToVoteBase
+    /// @inheritdoc ILockToGovernBase
     function token() external view returns (IERC20) {
         return lockManager.token();
     }
 
-    /// @inheritdoc ILockToVoteBase
+    /// @inheritdoc ILockToGovernBase
     function underlyingToken() external view returns (IERC20) {
         return lockManager.underlyingToken();
     }

@@ -2,9 +2,9 @@
 pragma solidity ^0.8.13;
 
 import {ILockManager, UnlockMode} from "./interfaces/ILockManager.sol";
-import {ILockToVoteBase} from "./interfaces/ILockToVote.sol";
+import {ILockToGovernBase} from "./interfaces/ILockToVote.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {LockToVoteBase} from "./base/LockToVoteBase.sol";
+import {LockToGovernBase} from "./base/LockToGovernBase.sol";
 import {ILockToApprove} from "./interfaces/ILockToApprove.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {ProposalUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/ProposalUpgradeable.sol";
@@ -26,7 +26,7 @@ contract LockToApprovePlugin is
     MetadataExtensionUpgradeable,
     PluginUUPSUpgradeable,
     ProposalUpgradeable,
-    LockToVoteBase
+    LockToGovernBase
 {
     using SafeCastUpgradeable for uint256;
 
@@ -151,7 +151,7 @@ contract LockToApprovePlugin is
         _updateApprovalSettings(_pluginSettings);
         _setTargetConfig(_targetConfig);
         _setMetadata(_pluginMetadata);
-        __LockToVoteBase_init(_lockManager);
+        __LockToGovernBase_init(_lockManager);
 
         emit MembershipContractAnnounced({definingContract: address(_lockManager.token())});
     }
@@ -164,7 +164,7 @@ contract LockToApprovePlugin is
         view
         virtual
         override(
-            ERC165Upgradeable, MetadataExtensionUpgradeable, PluginUUPSUpgradeable, ProposalUpgradeable, LockToVoteBase
+            ERC165Upgradeable, MetadataExtensionUpgradeable, PluginUUPSUpgradeable, ProposalUpgradeable, LockToGovernBase
         )
         returns (bool)
     {
@@ -329,7 +329,7 @@ contract LockToApprovePlugin is
         return settings.proposalDuration;
     }
 
-    /// @inheritdoc ILockToVoteBase
+    /// @inheritdoc ILockToGovernBase
     function minProposerVotingPower() public view override returns (uint256) {
         return settings.minProposerVotingPower;
     }
@@ -339,7 +339,7 @@ contract LockToApprovePlugin is
         return settings.minApprovalRatio;
     }
 
-    /// @inheritdoc ILockToVoteBase
+    /// @inheritdoc ILockToGovernBase
     function isProposalOpen(uint256 _proposalId) external view returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
         return _isProposalOpen(proposal_);
@@ -351,7 +351,7 @@ contract LockToApprovePlugin is
         return lockManager.token().totalSupply();
     }
 
-    /// @inheritdoc ILockToVoteBase
+    /// @inheritdoc ILockToGovernBase
     function usedVotingPower(uint256 _proposalId, address _voter) public view returns (uint256) {
         return proposals[_proposalId].approvals[_voter];
     }
