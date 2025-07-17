@@ -2244,6 +2244,7 @@ contract LockToVoteTest is TestBase {
         givenMinApprovalIsReached
         givenIsSupportThresholdReachedEarlyWasReachedBeforeEndDate
     {
+        // 1
         (dao,, ltvPlugin, lockManager, lockableToken,) = new DaoBuilder().withStandardVoting().withVotingPlugin()
             .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice) // No early execution
@@ -2256,7 +2257,37 @@ contract LockToVoteTest is TestBase {
 
         // It canExecute() should return false
         assertFalse(ltvPlugin.canExecute(proposalId));
-        // It hasSucceeded() should return true
+        // It hasSucceeded() should return false
+        assertFalse(ltvPlugin.hasSucceeded(proposalId));
+
+        vm.warp(block.timestamp + 10 days);
+
+        // It canExecute() should return true when ended
+        assertTrue(ltvPlugin.canExecute(proposalId));
+        // It hasSucceeded() should return true when ended
+        assertTrue(ltvPlugin.hasSucceeded(proposalId));
+
+        // 2
+        (dao,, ltvPlugin, lockManager, lockableToken,) = new DaoBuilder().withVoteReplacement().withVotingPlugin()
+            .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
+            .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice) // No early execution
+            .build();
+        dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 51 ether);
+
+        // It canExecute() should return false
+        assertFalse(ltvPlugin.canExecute(proposalId));
+        // It hasSucceeded() should return false
+        assertFalse(ltvPlugin.hasSucceeded(proposalId));
+
+        vm.warp(block.timestamp + 10 days);
+
+        // It canExecute() should return true when ended
+        assertTrue(ltvPlugin.canExecute(proposalId));
+        // It hasSucceeded() should return true when ended
         assertTrue(ltvPlugin.hasSucceeded(proposalId));
     }
 
