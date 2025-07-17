@@ -77,6 +77,7 @@ contract MinVotingPowerConditionTest is TestBase {
         // Update settings to require a minimum voting power
         uint256 minPower = 10 ether;
         LockToApprovePlugin.ApprovalSettings memory newSettings = LockToApprovePlugin.ApprovalSettings({
+            approvalMode: LockToApprovePlugin.ApprovalMode.Standard,
             minApprovalRatio: uint32(ltaPlugin.minApprovalRatio()),
             proposalDuration: ltaPlugin.proposalDuration(),
             minProposerVotingPower: minPower

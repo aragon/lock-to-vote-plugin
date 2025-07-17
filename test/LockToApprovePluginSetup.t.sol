@@ -46,6 +46,7 @@ contract LockToApprovePluginSetupTest is TestBase {
             token: token,
             underlyingToken: IERC20(address(0)),
             approvalSettings: LockToApprovePlugin.ApprovalSettings({
+                approvalMode: LockToApprovePlugin.ApprovalMode.Standard,
                 minApprovalRatio: 100_000, // 10%
                 proposalDuration: 10 days,
                 minProposerVotingPower: 1 ether
@@ -197,6 +198,7 @@ contract LockToApprovePluginSetupTest is TestBase {
             token: token,
             underlyingToken: IERC20(address(0)),
             approvalSettings: LockToApprovePlugin.ApprovalSettings({
+                approvalMode: LockToApprovePlugin.ApprovalMode.Standard,
                 minApprovalRatio: 100_000, // 10%
                 proposalDuration: 10 days,
                 minProposerVotingPower: 1 ether

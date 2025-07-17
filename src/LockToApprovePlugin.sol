@@ -322,7 +322,7 @@ contract LockToApprovePlugin is
         emit ApprovalCast(_proposalId, _voter, _currentVotingPower);
 
         if (proposal_.parameters.approvalMode == ApprovalMode.EarlyExecution) {
-            _attemptEarlyExecution(_proposalId, _msgSender());
+            _attemptEarlyExecution(_proposalId, proposal_, _msgSender());
         }
     }
 
@@ -332,7 +332,7 @@ contract LockToApprovePlugin is
 
         if (!_isProposalOpen(proposal_)) {
             revert ApprovalRemovalForbidden(_proposalId, _voter);
-        } else if (proposal_.parameters.votingMode != VotingMode.VoteReplacement) {
+        } else if (proposal_.parameters.approvalMode != ApprovalMode.VoteReplacement) {
             revert ApprovalRemovalForbidden(_proposalId, _voter);
         } else if (proposal_.approvals[_voter] == 0) {
             return;
@@ -350,7 +350,7 @@ contract LockToApprovePlugin is
     /// @notice Returns the approval mode stored in the approval settings.
     /// @return The approval mode parameter.
     function approvalMode() public view virtual returns (ApprovalMode) {
-        return approvalSettings.approvalMode;
+        return settings.approvalMode;
     }
 
     /// @notice Returns the proposal duration parameter setting.
@@ -462,7 +462,7 @@ contract LockToApprovePlugin is
         // Verify that the vote has not been executed already.
         if (proposal_.executed) {
             return false;
-        } else if (!_hasSucceeded(_proposalId)) {
+        } else if (!_hasSucceeded(proposal_)) {
             return false;
         }
         /// @dev Handling the case of Standard and VoteReplacement approval modes
@@ -546,14 +546,14 @@ contract LockToApprovePlugin is
         }
     }
 
-    function _attemptEarlyExecution(uint256 _proposalId, address _approveCaller) internal {
-        if (!_canExecute(_proposalId)) {
+    function _attemptEarlyExecution(uint256 _proposalId, Proposal storage proposal_, address _approveCaller) internal {
+        if (!_canExecute(proposal_)) {
             return;
         } else if (!dao().hasPermission(address(this), _approveCaller, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
             return;
         }
 
-        _execute(_proposalId);
+        _execute(_proposalId, proposal_);
     }
 
     function _execute(uint256 _proposalId, Proposal storage proposal_) internal {

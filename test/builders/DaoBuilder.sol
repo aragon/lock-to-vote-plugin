@@ -157,6 +157,7 @@ contract DaoBuilder is Test {
 
             if (pluginMode == PluginMode.Approval) {
                 LockToApprovePlugin.ApprovalSettings memory approvalSettings = LockToApprovePlugin.ApprovalSettings({
+                    approvalMode: LockToApprovePlugin.ApprovalMode(uint8(votingMode)),
                     minApprovalRatio: minApprovalRatio,
                     proposalDuration: proposalDuration,
                     minProposerVotingPower: 0
