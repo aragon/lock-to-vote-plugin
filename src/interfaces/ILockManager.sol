@@ -6,14 +6,6 @@ import {ILockToGovernBase} from "./ILockToGovernBase.sol";
 import {IMajorityVoting} from "./IMajorityVoting.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/// @notice Defines whether locked funds can be unlocked at any time or not
-enum UnlockMode {
-    /// @notice It allows token holders to unlock their tokens early, as long as the voting plugin allows clearing the active votes.
-    Standard,
-    /// @notice It allows to unlock if the token holder has no tokens allocated in open proposals.
-    Strict
-}
-
 /// @notice Defines wether the voting plugin expects approvals or votes
 enum PluginMode {
     Approval,
@@ -22,8 +14,6 @@ enum PluginMode {
 
 /// @notice The struct containing the LockManager helper settings. They are immutable after deployed.
 struct LockManagerSettings {
-    /// @notice The mode defining whether funds can be unlocked at any time or not
-    UnlockMode unlockMode;
     /// @notice Wether the plugins expects approvals or votes
     PluginMode pluginMode;
 }
@@ -33,19 +23,21 @@ struct LockManagerSettings {
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 interface ILockManager {
     /// @notice Returns the current settings of the LockManager.
-    function settings() external view returns (UnlockMode unlockMode, PluginMode pluginMode);
+    function settings() external view returns (PluginMode pluginMode);
 
     /// @notice Returns the address of the voting plugin.
     /// @return The LockToVote plugin address.
     function plugin() external view returns (ILockToGovernBase);
 
     /// @notice Returns the address of the token contract used to determine the voting power.
+    ///     If the native token is being used it returns address(0).
     /// @return The token used for voting.
-    function token() external view returns (IERC20);
+    function token() external view returns (address);
 
     /// @notice If applicable, returns the address of the token that can be staked to obtain `token()`. Else, it returns the main token's address.
+    ///     If the native token is being used it returns address(0).
     /// @return The address of the underlying token.
-    function underlyingToken() external view returns (IERC20);
+    function underlyingToken() external view returns (address);
 
     /// @notice Returns the currently locked balance that the given account has on the contract.
     function lockedBalances(address account) external view returns (uint256);
@@ -53,19 +45,35 @@ interface ILockManager {
     /// @notice Locks the balance currently allowed by msg.sender on this contract
     function lock() external;
 
+    /// @notice Locks the given amount from msg.sender on this contract
+    /// @param amount How many tokens the contract should lock
+    function lock(uint256 amount) external;
+
     /// @notice Locks the balance currently allowed by msg.sender on this contract and registers an approval on the target plugin
     /// @param proposalId The ID of the proposal where the approval will be registered
     function lockAndApprove(uint256 proposalId) external;
 
+    /// @notice Locks the given amount from msg.sender on this contract and registers an approval on the target plugin
+    /// @param proposalId The ID of the proposal where the approval will be registered
+    /// @param amount How many tokens the contract should lock and use for voting
+    function lockAndApprove(uint256 proposalId, uint256 amount) external;
+
     /// @notice Locks the balance currently allowed by msg.sender on this contract and registers the given vote on the target plugin
     /// @param proposalId The ID of the proposal where the vote will be registered
+    /// @param vote The vote to cast (Yes, No, Abstain)
     function lockAndVote(uint256 proposalId, IMajorityVoting.VoteOption vote) external;
+
+    /// @notice Locks the given amount from msg.sender on this contract and registers the given vote on the target plugin
+    /// @param proposalId The ID of the proposal where the vote will be registered
+    /// @param vote The vote to cast (Yes, No, Abstain)
+    /// @param amount How many tokens the contract should lock and use for voting
+    function lockAndVote(uint256 proposalId, IMajorityVoting.VoteOption vote, uint256 amount) external;
 
     /// @notice Uses the locked balance to place an approval on the given proposal for the registered plugin
     /// @param proposalId The ID of the proposal where the approval will be registered
     function approve(uint256 proposalId) external;
 
-    /// @notice Uses the locked balance to place the given vote on the given proposal for the registered plugin
+    /// @notice Uses the locked balance to vote on the given proposal for the registered plugin
     /// @param proposalId The ID of the proposal where the vote will be registered
     function vote(uint256 proposalId, IMajorityVoting.VoteOption vote) external;
 
@@ -84,7 +92,7 @@ interface ILockManager {
         view
         returns (bool);
 
-    /// @notice If the mode allows it, releases all active locks placed on active proposals and transfers msg.sender's locked balance back. Depending on the current mode, it withdraws only if no locks are being used in active proposals.
+    /// @notice If the governance plugin allows it, releases all active locks placed on active proposals and transfers msg.sender's locked balance back. Depending on the current mode, it withdraws only if no locks are being used in active proposals.
     function unlock() external;
 
     /// @notice Called by the lock to vote plugin whenever a proposal is created. It instructs the manager to start tracking the given proposal.
