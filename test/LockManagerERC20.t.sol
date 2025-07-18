@@ -10,18 +10,19 @@ import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
 import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
-import {LockManager} from "../src/LockManager.sol";
+import {LockManagerBase} from "../src/base/LockManagerBase.sol";
+import {LockManagerERC20} from "../src/LockManagerERC20.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TestToken} from "./mocks/TestToken.sol";
 import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
 
-contract LockManagerTest is TestBase {
+contract LockManagerERC20Test is TestBase {
     DaoBuilder builder;
     DAO dao;
     LockToApprovePlugin ltaPlugin;
     LockToVotePlugin ltvPlugin;
-    LockManager lockManager;
+    LockManagerERC20 lockManager;
     IERC20 lockableToken;
     IERC20 underlyingToken;
     uint256 proposalId;
@@ -65,7 +66,7 @@ contract LockManagerTest is TestBase {
         IERC20 testUnderlying = IERC20(address(new TestToken()));
         LockManagerSettings memory settings = LockManagerSettings({pluginMode: PluginMode.Approval});
 
-        LockManager newLockManager = new LockManager(settings, testToken, testUnderlying);
+        LockManagerERC20 newLockManager = new LockManagerERC20(settings, testToken, testUnderlying);
 
         (PluginMode pm) = newLockManager.settings();
         assertEq(uint8(pm), uint8(PluginMode.Approval), "Plugin mode mismatch");
@@ -76,14 +77,14 @@ contract LockManagerTest is TestBase {
 
     function test_WhenDeployingWithAZeroaddressForTheUnderlyingToken() external givenTheContractIsBeingDeployed {
         // It Should set the underlying token address to address(0)
-        LockManager newLockManager =
-            new LockManager(LockManagerSettings(PluginMode.Approval), lockableToken, IERC20(address(0)));
+        LockManagerERC20 newLockManager =
+            new LockManagerERC20(LockManagerSettings(PluginMode.Approval), lockableToken, IERC20(address(0)));
 
         assertEq(address(newLockManager.underlyingToken()), address(lockableToken));
     }
 
     modifier givenThePluginAddressHasNotBeenSetYet() {
-        lockManager = new LockManager(LockManagerSettings(PluginMode.Approval), lockableToken, underlyingToken);
+        lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Approval), lockableToken, underlyingToken);
         _;
     }
 
@@ -92,7 +93,7 @@ contract LockManagerTest is TestBase {
         givenThePluginAddressHasNotBeenSetYet
     {
         // It Should revert with InvalidPlugin
-        vm.expectRevert(LockManager.InvalidPlugin.selector);
+        vm.expectRevert(LockManagerBase.InvalidPlugin.selector);
         lockManager.setPluginAddress(ILockToGovernBase(address(dao)));
     }
 
@@ -109,7 +110,7 @@ contract LockManagerTest is TestBase {
         // It Should revert with InvalidPlugin
         (,, LockToVotePlugin votingPlugin,,,) = builder.withVotingPlugin().build();
 
-        vm.expectRevert(LockManager.InvalidPlugin.selector);
+        vm.expectRevert(LockManagerBase.InvalidPlugin.selector);
         lockManager.setPluginAddress(votingPlugin);
     }
 
@@ -125,7 +126,7 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenThePluginModeIsVoting() {
-        lockManager = new LockManager(LockManagerSettings(PluginMode.Voting), lockableToken, underlyingToken);
+        lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Voting), lockableToken, underlyingToken);
         _;
     }
 
@@ -135,7 +136,7 @@ contract LockManagerTest is TestBase {
         givenThePluginModeIsVoting
     {
         // It Should revert with InvalidPlugin
-        vm.expectRevert(LockManager.InvalidPlugin.selector);
+        vm.expectRevert(LockManagerBase.InvalidPlugin.selector);
         lockManager.setPluginAddress(ltaPlugin);
     }
 
