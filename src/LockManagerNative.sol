@@ -25,17 +25,18 @@ contract LockManagerNative is ILockManager, LockManagerBase {
 
     // Internal overrides
 
-    function _transfer(address _recipient, uint256 _amount) internal virtual override {
-        payable(_recipient).transfer(_amount);
+    /// @inheritdoc LockManagerBase
+    function _incomingTokenBalance() internal view virtual override returns (uint256) {
+        return msg.value;
     }
 
-    function _lock() internal virtual override {
-        uint256 _lockedValue = msg.value;
-        if (_lockedValue == 0) {
-            revert NoBalance();
-        }
+    /// @inheritdoc LockManagerBase
+    function _doLockTransfer(uint256 _amount) internal virtual override {
+        /// @dev Nothing to do since msg.value is already received
+    }
 
-        lockedBalances[msg.sender] += _lockedValue;
-        emit BalanceLocked(msg.sender, _lockedValue);
+    /// @inheritdoc LockManagerBase
+    function _doUnlockTransfer(address _recipient, uint256 _amount) internal virtual override {
+        payable(_recipient).transfer(_amount);
     }
 }
