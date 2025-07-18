@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import {TestBase} from "./lib/TestBase.sol";
 import {LockToApprovePluginSetup} from "../src/setup/LockToApprovePluginSetup.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
-import {LockManager} from "../src/LockManager.sol";
+import {LockManagerERC20} from "../src/LockManagerERC20.sol";
 import {MinVotingPowerCondition} from "../src/conditions/MinVotingPowerCondition.sol";
 import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {TestToken} from "./mocks/TestToken.sol";
@@ -94,7 +94,7 @@ contract LockToApprovePluginSetupTest is TestBase {
 
         // It should set the address of the lockManager on the plugin
         // (Note: test name is misleading, it sets the plugin on the lock manager)
-        assertEq(address(LockManager(lockManagerAddr).plugin()), plugin, "Plugin address not set on lock manager");
+        assertEq(address(LockManagerERC20(lockManagerAddr).plugin()), plugin, "Plugin address not set on lock manager");
 
         // It the plugin should have the right lockManager address
         assertEq(address(ltaPlugin.lockManager()), lockManagerAddr, "Lock manager address mismatch on plugin");

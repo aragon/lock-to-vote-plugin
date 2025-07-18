@@ -10,7 +10,7 @@ import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
 import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
-import {LockManager} from "../src/LockManager.sol";
+import {LockManagerERC20} from "../src/LockManagerERC20.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TestToken} from "./mocks/TestToken.sol";
@@ -28,7 +28,7 @@ contract LockToVoteTest is TestBase {
     DaoBuilder builder;
     DAO dao;
     LockToVotePlugin ltvPlugin;
-    LockManager lockManager;
+    LockManagerERC20 lockManager;
     IERC20 lockableToken;
     IERC20 underlyingToken;
     uint256 proposalId;
@@ -107,7 +107,7 @@ contract LockToVoteTest is TestBase {
         ).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).build();
 
         lockManager =
-            new LockManager(LockManagerSettings({pluginMode: PluginMode.Voting}), lockableToken, underlyingToken);
+            new LockManagerERC20(LockManagerSettings({pluginMode: PluginMode.Voting}), lockableToken, underlyingToken);
 
         ltvPlugin = LockToVotePlugin(createProxyAndCall(address(new LockToVotePlugin()), bytes("")));
 
