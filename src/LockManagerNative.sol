@@ -8,6 +8,9 @@ import {ILockManager, LockManagerSettings} from "./interfaces/ILockManager.sol";
 /// @author Aragon X 2025
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 contract LockManagerNative is ILockManager, LockManagerBase {
+    /// @notice Thrown when msg.value doesn't match with the requested `_amount` of tokens to lock
+    error IncomingBalanceMismatch(uint256 requested, uint256 actual);
+
     /// @param _settings The operation mode of the contract (plugin mode)
     constructor(LockManagerSettings memory _settings) LockManagerBase(_settings) {}
 
@@ -32,7 +35,9 @@ contract LockManagerNative is ILockManager, LockManagerBase {
 
     /// @inheritdoc LockManagerBase
     function _doLockTransfer(uint256 _amount) internal virtual override {
-        /// @dev Nothing to do since msg.value is already received
+        if (_incomingTokenBalance() != _amount) {
+            revert IncomingBalanceMismatch({requested: _amount, actual: _incomingTokenBalance()});
+        }
     }
 
     /// @inheritdoc LockManagerBase

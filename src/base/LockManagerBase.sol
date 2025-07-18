@@ -233,6 +233,7 @@ abstract contract LockManagerBase is ILockManager {
     }
 
     /// @notice Triggers the transfer needed in order to complete the token locking flow.
+    ///     Reverts if the requested amount cannot be locked.
     function _doLockTransfer(uint256 _amount) internal virtual;
 
     /// @notice Transfers the requested amount of tokens to the recipient
