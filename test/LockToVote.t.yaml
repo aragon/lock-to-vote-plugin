@@ -2,7 +2,6 @@ LockToVoteTest:
   # Contract lifecycle
   - when: deploying the contract
     then:
-      - it: should disable the initializers
       - it: should initialize normally
   - given: a deployed contract
     then:
@@ -28,7 +27,6 @@ LockToVoteTest:
         and:
           - it: Should revert
 
-
   # ERC165
   - when: calling supportsInterface
     then:
@@ -44,13 +42,13 @@ LockToVoteTest:
         and:
           - given: no minimum voting power
             and:
-            - given: valid parameters
-              then:
-                - it: sets the given failuremap, if any
-                - it: proposalIds are predictable and reproducible
-                - it: sets the given voting mode, target, params and actions
-                - it: emits an event
-                - it: reports proposalCreated() on the lockManager
+              - given: valid parameters
+                then:
+                  - it: sets the given failuremap, if any
+                  - it: proposalIds are predictable and reproducible
+                  - it: sets the given voting mode, target, params and actions
+                  - it: emits an event
+                  - it: reports proposalCreated() on the lockManager
           - given: minimum voting power above zero
             then:
               - it: should succeed when the creator has enough balance
@@ -70,29 +68,29 @@ LockToVoteTest:
     and:
       - given: the proposal is open
         and:
-        - given: non empty vote
-          and:
-          - given: submitting the first vote
-            then:
-              - it: should return true when the voter locked balance is positive
-              - it: should return false when the voter has no locked balance
-              - it: should happen in all voting modes
-          - given: voting again
+          - given: non empty vote
             and:
-            - given: standard voting mode
-              then:
-                - it: should return true when voting the same with more balance
-                - it: should return false otherwise
-            - given: vote replacement mode
-              then:
-                - it: should return true when the locked balance is higher
-                - it: should return false otherwise
-            - given: early execution mode
-              then:
-                - it: should return false
-        - given: empty vote
-          then:
-            - it: should return false
+              - given: submitting the first vote
+                then:
+                  - it: should return true when the voter locked balance is positive
+                  - it: should return false when the voter has no locked balance
+                  - it: should happen in all voting modes
+              - given: voting again
+                and:
+                  - given: standard voting mode
+                    then:
+                      - it: should return true when voting the same with more balance
+                      - it: should return false otherwise
+                  - given: vote replacement mode
+                    then:
+                      - it: should return true when the locked balance is higher
+                      - it: should return false otherwise
+                  - given: early execution mode
+                    then:
+                      - it: should return false
+          - given: empty vote
+            then:
+              - it: should return false
       - given: the proposal ended
         then:
           - it: should return false, regardless of prior votes
@@ -113,16 +111,16 @@ LockToVoteTest:
         and:
           - given: Voting the first time
             and:
-            - given: Has locked balance
-              and:
-                - it: should set the right voter's usedVotingPower
-                - it: should set the right tally of the voted option
-                - it: should set the right total voting power
-                - it: should emit an event
-            - given: No locked balance
-              comment: Redundant with canVote being false
-              and:
-                - it: should revert
+              - given: Has locked balance
+                and:
+                  - it: should set the right voter's usedVotingPower
+                  - it: should set the right tally of the voted option
+                  - it: should set the right total voting power
+                  - it: should emit an event
+              - given: No locked balance
+                comment: Redundant with canVote being false
+                and:
+                  - it: should revert
           - given: Voting the same option
             and:
               - given: Voting with the same locked balance
@@ -148,16 +146,16 @@ LockToVoteTest:
         and:
           - given: Voting the first time
             and:
-            - given: Has locked balance
-              and:
-                - it: should set the right voter's usedVotingPower
-                - it: should set the right tally of the voted option
-                - it: should set the right total voting power
-                - it: should emit an event
-            - given: No locked balance
-              comment: Redundant with canVote being false
-              and:
-                - it: should revert
+              - given: Has locked balance
+                and:
+                  - it: should set the right voter's usedVotingPower
+                  - it: should set the right tally of the voted option
+                  - it: should set the right total voting power
+                  - it: should emit an event
+              - given: No locked balance
+                comment: Redundant with canVote being false
+                and:
+                  - it: should revert
           - given: Voting the same option
             and:
               - given: Voting with the same locked balance
@@ -244,12 +242,10 @@ LockToVoteTest:
           - it: should revert
       - given: standard voting mode
         then:
-          - it: should deallocate the current voting power
-          - it: should allocate that voting power into the new vote option
+          - it: should revert
       - given: vote replacement mode
         then:
           - it: should deallocate the current voting power
-          - it: should allocate that voting power into the new vote option
 
   # Getting a vote
   - when: calling getVote()
@@ -272,8 +268,8 @@ LockToVoteTest:
           - it: canExecute() should return false
           - it: isSupportThresholdReachedEarly() should return false
           - it: isSupportThresholdReached() should return false
-          - it: isMinVotingPowerReached() should return false
-          - it: isMinApprovalReached() should return false
+          - it: isMinVotingPowerReached() should return true
+          - it: isMinApprovalReached() should return true
           - it: usedVotingPower() should return 0 for all voters
       - given: it has not started
         then:
@@ -293,7 +289,7 @@ LockToVoteTest:
           - it: hasSucceeded() should return false
           - it: canExecute() should return false
           - it: isSupportThresholdReachedEarly() should return false
-          - it: isSupportThresholdReached() should return false
+          - it: isSupportThresholdReached() should return true
           - it: isMinVotingPowerReached() should return false
           - it: isMinApprovalReached() should return false
           - it: usedVotingPower() should return the appropriate values
@@ -365,32 +361,32 @@ LockToVoteTest:
             and:
               - given: minVotingPower is reached
                 and:
-                - given: minApproval is reached
-                  and:
-                  - given: isSupportThresholdReachedEarly() was reached before endDate
+                  - given: minApproval is reached
                     and:
-                      - given: the proposal allows early execution
-                        then:
-                          - it: canExecute() should return true
-                          - it: hasSucceeded() should return true
-                      - given: the proposal does not allow early execution
-                        then:
+                      - given: isSupportThresholdReachedEarly() was reached before endDate
+                        and:
+                          - given: the proposal allows early execution
+                            then:
+                              - it: canExecute() should return true
+                              - it: hasSucceeded() should return true
+                          - given: the proposal does not allow early execution
+                            then:
+                              - it: canExecute() should return false
+                              - it: hasSucceeded() should return true
+                      - given: isSupportThresholdReached() is reached
+                        and:
+                          - it: canExecute() should return false before endDate
+                          - it: hasSucceeded() should return false before endDate
+                          - it: canExecute() should return true after endDate
+                          - it: hasSucceeded() should return true after endDate
+                      - given: isSupportThresholdReached() is not reached
+                        and:
                           - it: canExecute() should return false
                           - it: hasSucceeded() should return false
-                  - given: isSupportThresholdReached() is reached
-                    and:
-                      - it: canExecute() should return false before endDate
-                      - it: hasSucceeded() should return false before endDate
-                      - it: canExecute() should return true after endDate
-                      - it: hasSucceeded() should return true after endDate
-                  - given: isSupportThresholdReached() is not reached
+                  - given: minApproval is not reached
                     and:
                       - it: canExecute() should return false
                       - it: hasSucceeded() should return false
-                - given: minApproval is not reached
-                  and:
-                  - it: canExecute() should return false
-                  - it: hasSucceeded() should return false
               - given: minVotingPower is not reached
                 and:
                   - it: canExecute() should return false
@@ -408,7 +404,7 @@ LockToVoteTest:
   - when: calling execute()
     then:
       - given: the caller no permission to call execute
-        then: 
+        then:
           - it: should revert
       - given: the caller has permission to call execute
         and:

@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 
 contract TestToken is ERC20, ERC20Permit, ERC20Votes {
     constructor() ERC20("TestToken", "VETO") ERC20Permit("TestToken") {
-        mint(msg.sender, 10 ether);
+        // mint(msg.sender, 10 ether);
     }
 
     // The following functions are overrides required by Solidity.

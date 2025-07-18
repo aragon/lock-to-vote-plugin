@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {ILockManager} from "./interfaces/ILockManager.sol";
-import {LockToVoteBase} from "./base/LockToVoteBase.sol";
+import {LockToGovernBase} from "./base/LockToGovernBase.sol";
 import {ILockToVote} from "./interfaces/ILockToVote.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
@@ -12,9 +12,9 @@ import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/pro
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {MajorityVotingBase} from "./base/MajorityVotingBase.sol";
-import {ILockToVoteBase} from "./interfaces/ILockToVoteBase.sol";
+import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
 
-contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
+contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     using SafeCastUpgradeable for uint256;
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
@@ -28,6 +28,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     bytes32 public constant LOCK_MANAGER_PERMISSION_ID = keccak256("LOCK_MANAGER_PERMISSION");
 
     event VoteCleared(uint256 proposalId, address voter);
+
     error VoteRemovalForbidden(uint256 proposalId, address voter);
 
     /// @notice Initializes the component.
@@ -47,7 +48,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         bytes calldata _pluginMetadata
     ) external onlyCallAtInitialization reinitializer(1) {
         __MajorityVotingBase_init(_dao, _votingSettings, _targetConfig, _pluginMetadata);
-        __LockToVoteBase_init(_lockManager);
+        __LockToGovernBase_init(_lockManager);
 
         emit MembershipContractAnnounced({definingContract: address(_lockManager.token())});
     }
@@ -55,13 +56,15 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
     /// @return Returns `true` if the interface is supported.
-    function supportsInterface(
-        bytes4 _interfaceId
-    ) public view virtual override(MajorityVotingBase, LockToVoteBase) returns (bool) {
-        return
-            _interfaceId == LOCK_TO_VOTE_INTERFACE_ID ||
-            _interfaceId == type(ILockToVote).interfaceId ||
-            super.supportsInterface(_interfaceId);
+    function supportsInterface(bytes4 _interfaceId)
+        public
+        view
+        virtual
+        override(MajorityVotingBase, LockToGovernBase)
+        returns (bool)
+    {
+        return _interfaceId == LOCK_TO_VOTE_INTERFACE_ID || _interfaceId == type(ILockToVote).interfaceId
+            || super.supportsInterface(_interfaceId);
     }
 
     /// @inheritdoc IProposal
@@ -116,7 +119,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
             proposal_.allowFailureMap = _allowFailureMap;
         }
 
-        for (uint256 i; i < _actions.length; ) {
+        for (uint256 i; i < _actions.length;) {
             proposal_.actions.push(_actions[i]);
             unchecked {
                 ++i;
@@ -140,33 +143,33 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
     }
 
     /// @inheritdoc ILockToVote
-    function vote(
-        uint256 _proposalId,
-        address _voter,
-        VoteOption _voteOption,
-        uint256 _currentVotingPower
-    ) public override auth(LOCK_MANAGER_PERMISSION_ID) {
+    function vote(uint256 _proposalId, address _voter, VoteOption _voteOption, uint256 _newVotingPower)
+        public
+        override
+        auth(LOCK_MANAGER_PERMISSION_ID)
+    {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        if (!_canVote(proposal_, _voter, _voteOption, _currentVotingPower)) {
+        if (!_canVote(proposal_, _voter, _voteOption, _newVotingPower)) {
             revert VoteCastForbidden(_proposalId, _voter);
         }
 
         // Same vote
         if (_voteOption == proposal_.votes[_voter].voteOption) {
-            // Same balance, nothing to do
-            if (_currentVotingPower == proposal_.votes[_voter].votingPower) return;
+            // Same value, nothing to do
+            if (_newVotingPower == proposal_.votes[_voter].votingPower) return;
 
             // More balance
-            /// @dev Positive diff is guaranteed, as _canVote() above will return false and revert otherwise
-            uint256 diff = _currentVotingPower - proposal_.votes[_voter].votingPower;
-            proposal_.votes[_voter].votingPower = _currentVotingPower;
+            /// @dev diff > 0 is guaranteed, as _canVote() above will return false and revert otherwise
+            uint256 diff = _newVotingPower - proposal_.votes[_voter].votingPower;
+            proposal_.votes[_voter].votingPower = _newVotingPower;
 
             if (proposal_.votes[_voter].voteOption == VoteOption.Yes) {
                 proposal_.tally.yes += diff;
             } else if (proposal_.votes[_voter].voteOption == VoteOption.No) {
                 proposal_.tally.no += diff;
             } else {
+                /// @dev Voting none is not possible, as _canVote() above will return false and revert if so
                 proposal_.tally.abstain += diff;
             }
         } else {
@@ -180,39 +183,41 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
                 } else if (proposal_.votes[_voter].voteOption == VoteOption.No) {
                     proposal_.tally.no -= proposal_.votes[_voter].votingPower;
                 } else {
+                    /// @dev Voting none is not possible, only abstain is left
                     proposal_.tally.abstain -= proposal_.votes[_voter].votingPower;
                 }
             }
 
             // Register the new vote
             if (_voteOption == VoteOption.Yes) {
-                proposal_.tally.yes += _currentVotingPower;
+                proposal_.tally.yes += _newVotingPower;
             } else if (_voteOption == VoteOption.No) {
-                proposal_.tally.no += _currentVotingPower;
+                proposal_.tally.no += _newVotingPower;
             } else {
-                proposal_.tally.abstain += _currentVotingPower;
+                /// @dev Voting none is not possible, only abstain is left
+                proposal_.tally.abstain += _newVotingPower;
             }
             proposal_.votes[_voter].voteOption = _voteOption;
-            proposal_.votes[_voter].votingPower = _currentVotingPower;
+            proposal_.votes[_voter].votingPower = _newVotingPower;
         }
 
-        emit VoteCast(_proposalId, _voter, _voteOption, _currentVotingPower);
+        emit VoteCast(_proposalId, _voter, _voteOption, _newVotingPower);
 
         if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
-            _checkEarlyExecution(_proposalId, _msgSender());
+            _attemptEarlyExecution(_proposalId, _msgSender());
         }
     }
 
     /// @inheritdoc ILockToVote
     function clearVote(uint256 _proposalId, address _voter) external auth(LOCK_MANAGER_PERMISSION_ID) {
         Proposal storage proposal_ = proposals[_proposalId];
-        if (proposal_.votes[_voter].votingPower == 0) {
-            // Nothing to do
-            return;
-        } else if (!_isProposalOpen(proposal_)) {
+        if (!_isProposalOpen(proposal_)) {
             revert VoteRemovalForbidden(_proposalId, _voter);
         } else if (proposal_.parameters.votingMode != VotingMode.VoteReplacement) {
             revert VoteRemovalForbidden(_proposalId, _voter);
+        } else if (proposal_.votes[_voter].votingPower == 0) {
+            // Nothing to do
+            return;
         }
 
         // Undo that vote
@@ -230,14 +235,14 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         emit VoteCleared(_proposalId, _voter);
     }
 
-    /// @inheritdoc ILockToVoteBase
+    /// @inheritdoc ILockToGovernBase
     function isProposalOpen(uint256 _proposalId) external view returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
         return _isProposalOpen(proposal_);
     }
 
     /// @inheritdoc MajorityVotingBase
-    function minProposerVotingPower() public view override(ILockToVoteBase, MajorityVotingBase) returns (uint256) {
+    function minProposerVotingPower() public view override(ILockToGovernBase, MajorityVotingBase) returns (uint256) {
         return MajorityVotingBase.minProposerVotingPower();
     }
 
@@ -246,41 +251,56 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToVoteBase {
         return lockManager.token().totalSupply();
     }
 
-    /// @inheritdoc ILockToVoteBase
+    /// @inheritdoc ILockToGovernBase
     function usedVotingPower(uint256 _proposalId, address _voter) public view returns (uint256) {
         return proposals[_proposalId].votes[_voter].votingPower;
     }
 
     // Internal helpers
 
-    function _canVote(
-        Proposal storage proposal_,
-        address _voter,
-        VoteOption _voteOption,
-        uint256 _newVotingPower
-    ) internal view returns (bool) {
+    function _canVote(Proposal storage proposal_, address _voter, VoteOption _voteOption, uint256 _newVotingPower)
+        internal
+        view
+        returns (bool)
+    {
+        uint256 _currentVotingPower = proposal_.votes[_voter].votingPower;
+
         // The proposal vote hasn't started or has already ended.
         if (!_isProposalOpen(proposal_)) {
             return false;
         } else if (_voteOption == VoteOption.None) {
             return false;
         }
-        // No voting power or lowering the existing one is not allowed
-        else if (_newVotingPower == 0 || _newVotingPower <= proposal_.votes[_voter].votingPower) {
-            return false;
+        // Standard voting + early execution
+        else if (proposal_.parameters.votingMode != VotingMode.VoteReplacement) {
+            // Lowering the existing voting power (or the same) is not allowed
+            if (_newVotingPower <= _currentVotingPower) {
+                return false;
+            }
+            // The voter already voted a different option but vote replacment is not allowed.
+            else if (
+                proposal_.votes[_voter].voteOption != VoteOption.None
+                    && _voteOption != proposal_.votes[_voter].voteOption
+            ) {
+                return false;
+            }
         }
-        // The voter has already voted but vote replacment is not allowed.
-        else if (
-            proposal_.votes[_voter].voteOption != VoteOption.None &&
-            proposal_.parameters.votingMode != VotingMode.VoteReplacement
-        ) {
-            return false;
+        // Vote replacement mode
+        else {
+            // Lowering the existing voting power is not allowed
+            if (_newVotingPower == 0 || _newVotingPower < _currentVotingPower) {
+                return false;
+            }
+            // Voting the same option with the same balance is not allowed
+            else if (_newVotingPower == _currentVotingPower && _voteOption == proposal_.votes[_voter].voteOption) {
+                return false;
+            }
         }
 
         return true;
     }
 
-    function _checkEarlyExecution(uint256 _proposalId, address _voteCaller) internal {
+    function _attemptEarlyExecution(uint256 _proposalId, address _voteCaller) internal {
         if (!dao().hasPermission(address(this), _voteCaller, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
             return;
         } else if (!_canExecute(_proposalId)) {

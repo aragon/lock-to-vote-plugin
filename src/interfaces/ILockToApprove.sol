@@ -2,12 +2,12 @@
 
 pragma solidity ^0.8.17;
 
-import {ILockToVoteBase} from "./ILockToVoteBase.sol";
+import {ILockToGovernBase} from "./ILockToGovernBase.sol";
 
 /// @title ILockToApprove
 /// @author Aragon X
 /// @notice Governance plugin allowing token holders to use tokens locked without a snapshot requirement and engage in proposals immediately
-interface ILockToApprove is ILockToVoteBase {
+interface ILockToApprove is ILockToGovernBase {
     /// @notice Returns wether the given address can approve or increase the amount of tokens assigned to aprove a proposal
     function canApprove(uint256 proposalId, address voter) external view returns (bool);
 

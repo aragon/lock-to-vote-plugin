@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import {ILockManager, LockManagerSettings, UnlockMode, PluginMode} from "./interfaces/ILockManager.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {DaoAuthorizable} from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizable.sol";
-import {ILockToVoteBase} from "./interfaces/ILockToVoteBase.sol";
+import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
 import {ILockToApprove} from "./interfaces/ILockToApprove.sol";
 import {ILockToVote} from "./interfaces/ILockToVote.sol";
 import {IMajorityVoting} from "./interfaces/IMajorityVoting.sol";
@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title LockManager
-/// @author Aragon X 2024
+/// @author Aragon X 2025
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 contract LockManager is ILockManager, DaoAuthorizable {
     using EnumerableSet for EnumerableSet.UintSet;
@@ -22,13 +22,14 @@ contract LockManager is ILockManager, DaoAuthorizable {
     LockManagerSettings public settings;
 
     /// @notice The address of the lock to vote plugin to use
-    ILockToVoteBase public plugin;
+    ILockToGovernBase public plugin;
 
     /// @notice The address of the token contract
     IERC20 public immutable token;
 
-    /// @notice The address of the underlying token from which "token" originates, if applicable
-    IERC20 immutable underlyingTokenAddress;
+    /// @notice If applicable, the address of the underlying token from which "token" originates. Zero otherwise.
+    /// @dev This is relevant in cases where the main token can experience swift deviations in supply, whereas the underlying token is much more stable
+    IERC20 private immutable underlyingTokenAddr;
 
     /// @notice Keeps track of the amount of tokens locked by address
     mapping(address => uint256) public lockedBalances;
@@ -47,17 +48,11 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @param proposalId The ID the proposal where votes can no longer be submitted or cleared
     event ProposalEnded(uint256 proposalId);
 
-    /// @notice Thrown when trying to assign an invalid lock mode
-    error InvalidUnlockMode();
-
     /// @notice Thrown when the address calling proposalEnded() is not the plugin's
     error InvalidPluginAddress();
 
     /// @notice Raised when the caller holds no tokens or didn't lock any tokens
     error NoBalance();
-
-    /// @notice Raised when trying to vote on a proposal with the same balance as the last time
-    error NoNewBalance();
 
     /// @notice Raised when attempting to unlock while active votes are cast in strict mode
     error LocksStillActive();
@@ -71,24 +66,27 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Thrown when trying to define the address of the plugin after it already was
     error SetPluginAddressForbidden();
 
+    /// @param _dao The address of the DAO where permissions should be checked by this contract
+    /// @param _settings The operation mode of the contract (plugin mode and unlock mode)
+    /// @param _token The address of the token contract that users can lock
+    /// @param _underlyingToken If applicable, the address of the contract from which `token` originates. This is relevant for LP tokens whose supply may experiment swift changes.
     constructor(IDAO _dao, LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken)
         DaoAuthorizable(_dao)
     {
-        if (_settings.unlockMode != UnlockMode.Strict && _settings.unlockMode != UnlockMode.Early) {
-            revert InvalidUnlockMode();
-        } else if (_settings.pluginMode != PluginMode.Approval && _settings.pluginMode != PluginMode.Voting) {
-            revert InvalidPluginMode();
-        }
-
         settings.unlockMode = _settings.unlockMode;
         settings.pluginMode = _settings.pluginMode;
         token = _token;
-        underlyingTokenAddress = _underlyingToken;
+        underlyingTokenAddr = _underlyingToken;
     }
 
     /// @notice Returns the known proposalID at the given index
     function knownProposalIdAt(uint256 _index) public view virtual returns (uint256) {
         return knownProposalIds.at(_index);
+    }
+
+    /// @notice Returns the number of known proposalID's
+    function knownProposalIdsLength() public view virtual returns (uint256) {
+        return knownProposalIds.length();
     }
 
     /// @inheritdoc ILockManager
@@ -194,18 +192,18 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
-    function underlyingToken() external view virtual returns (IERC20) {
-        if (address(underlyingTokenAddress) == address(0)) {
+    function underlyingToken() public view virtual returns (IERC20) {
+        if (address(underlyingTokenAddr) == address(0)) {
             return token;
         }
-        return underlyingTokenAddress;
+        return underlyingTokenAddr;
     }
 
     /// @inheritdoc ILockManager
-    function setPluginAddress(ILockToVoteBase _newPluginAddress) public virtual {
+    function setPluginAddress(ILockToGovernBase _newPluginAddress) public virtual {
         if (address(plugin) != address(0)) {
             revert SetPluginAddressForbidden();
-        } else if (!IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToVoteBase).interfaceId)) {
+        } else if (!IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToGovernBase).interfaceId)) {
             revert InvalidPlugin();
         }
         // Is it the right type of plugin?
@@ -239,22 +237,16 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     function _approve(uint256 _proposalId) internal virtual {
         uint256 _currentVotingPower = lockedBalances[msg.sender];
-        if (_currentVotingPower == 0) {
-            revert NoBalance();
-        } else if (_currentVotingPower == plugin.usedVotingPower(_proposalId, msg.sender)) {
-            revert NoNewBalance();
-        }
+
+        /// @dev The voting power value is checked within plugin.approve()
 
         ILockToApprove(address(plugin)).approve(_proposalId, msg.sender, _currentVotingPower);
     }
 
     function _vote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) internal virtual {
         uint256 _currentVotingPower = lockedBalances[msg.sender];
-        if (_currentVotingPower == 0) {
-            revert NoBalance();
-        } else if (_currentVotingPower == plugin.usedVotingPower(_proposalId, msg.sender)) {
-            revert NoNewBalance();
-        }
+
+        /// @dev The voting power value is checked within plugin.vote()
 
         ILockToVote(address(plugin)).vote(_proposalId, msg.sender, _voteOption, _currentVotingPower);
     }

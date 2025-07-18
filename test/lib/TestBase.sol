@@ -6,7 +6,7 @@ import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {ALICE_ADDRESS, BOB_ADDRESS, CAROL_ADDRESS, DAVID_ADDRESS} from "../constants.sol";
 import {Test} from "forge-std/Test.sol";
 
-contract AragonTest is Test {
+contract TestBase is Test {
     address immutable alice = ALICE_ADDRESS;
     address immutable bob = BOB_ADDRESS;
     address immutable carol = CAROL_ADDRESS;

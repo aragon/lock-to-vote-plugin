@@ -2,14 +2,16 @@
 
 pragma solidity ^0.8.17;
 
-import {ILockToVoteBase} from "./ILockToVoteBase.sol";
+import {ILockToGovernBase} from "./ILockToGovernBase.sol";
 import {IMajorityVoting} from "./IMajorityVoting.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice Defines whether locked funds can be unlocked at any time or not
 enum UnlockMode {
-    Strict,
-    Early
+    /// @notice It allows token holders to unlock their tokens early, as long as the voting plugin allows clearing the active votes.
+    Standard,
+    /// @notice It allows to unlock if the token holder has no tokens allocated in open proposals.
+    Strict
 }
 
 /// @notice Defines wether the voting plugin expects approvals or votes
@@ -27,7 +29,7 @@ struct LockManagerSettings {
 }
 
 /// @title ILockManager
-/// @author Aragon X 2024
+/// @author Aragon X 2025
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 interface ILockManager {
     /// @notice Returns the current settings of the LockManager.
@@ -35,7 +37,7 @@ interface ILockManager {
 
     /// @notice Returns the address of the voting plugin.
     /// @return The LockToVote plugin address.
-    function plugin() external view returns (ILockToVoteBase);
+    function plugin() external view returns (ILockToGovernBase);
 
     /// @notice Returns the address of the token contract used to determine the voting power.
     /// @return The token used for voting.
@@ -77,11 +79,10 @@ interface ILockManager {
     /// @param voteOption The value of the new vote to register.
     /// @return Returns true if the account is allowed to vote.
     /// @dev The function assumes that the queried proposal exists.
-    function canVote(
-        uint256 proposalId,
-        address voter,
-        IMajorityVoting.VoteOption voteOption
-    ) external view returns (bool);
+    function canVote(uint256 proposalId, address voter, IMajorityVoting.VoteOption voteOption)
+        external
+        view
+        returns (bool);
 
     /// @notice If the mode allows it, releases all active locks placed on active proposals and transfers msg.sender's locked balance back. Depending on the current mode, it withdraws only if no locks are being used in active proposals.
     function unlock() external;
@@ -95,5 +96,5 @@ interface ILockManager {
     function proposalEnded(uint256 proposalId) external;
 
     /// @notice Defines the given plugin address as the target for voting
-    function setPluginAddress(ILockToVoteBase _plugin) external;
+    function setPluginAddress(ILockToGovernBase _plugin) external;
 }

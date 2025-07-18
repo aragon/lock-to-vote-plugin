@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import {AragonTest} from "./lib/TestBase.sol";
+import {TestBase} from "./lib/TestBase.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockManager} from "../src/LockManager.sol";
 import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
@@ -12,14 +12,13 @@ import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth
 import {TestToken} from "./mocks/TestToken.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
-import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
 import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {createProxyAndCall, createSaltedProxyAndCall, predictProxyAddress} from "../src/util/proxy.sol";
 
-contract LockToApproveTest is AragonTest {
+contract LockToApproveTest is TestBase {
     using SafeCastUpgradeable for uint256;
 
     DaoBuilder builder;
@@ -30,15 +29,8 @@ contract LockToApproveTest is AragonTest {
     IERC20 underlyingToken;
     uint256 proposalId;
 
-    address immutable LOCK_TO_APPROVE_BASE = address(new LockToApprovePlugin());
-    address immutable LOCK_MANAGER_BASE = address(
-        new LockManager(
-            IDAO(address(0)),
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval),
-            IERC20(address(0)),
-            IERC20(address(0))
-        )
-    );
+    address LOCK_TO_APPROVE_BASE;
+    address LOCK_MANAGER_BASE;
 
     bytes32 constant CREATE_PROPOSAL_PERMISSION_ID = keccak256("CREATE_PROPOSAL_PERMISSION");
     bytes32 constant EXECUTE_PROPOSAL_PERMISSION_ID = keccak256("EXECUTE_PROPOSAL_PERMISSION");
@@ -60,7 +52,19 @@ contract LockToApproveTest is AragonTest {
     event ApprovalCleared(uint256 proposalId, address voter);
     event ProposalExecuted(uint256 indexed proposalId);
 
+    error AlreadyInitialized();
+
     function setUp() public {
+        LOCK_TO_APPROVE_BASE = address(new LockToApprovePlugin());
+        LOCK_MANAGER_BASE = address(
+            new LockManager(
+                IDAO(address(0)),
+                LockManagerSettings(UnlockMode.Standard, PluginMode.Approval),
+                IERC20(address(0)),
+                IERC20(address(0))
+            )
+        );
+
         vm.startPrank(alice);
         vm.warp(10 days);
         vm.roll(100);
@@ -93,8 +97,18 @@ contract LockToApproveTest is AragonTest {
 
     function test_GivenADeployedContract() external {
         // It should refuse to initialize again
-
-        vm.skip(true);
+        vm.expectRevert(AlreadyInitialized.selector);
+        plugin.initialize(
+            dao,
+            lockManager,
+            LockToApprovePlugin.ApprovalSettings({
+                minApprovalRatio: 100_000, // 10%
+                proposalDuration: 10 days,
+                minProposerVotingPower: 0
+            }),
+            IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call}),
+            abi.encode(uint256(0))
+        );
     }
 
     modifier givenANewProxy() {
@@ -108,7 +122,50 @@ contract LockToApproveTest is AragonTest {
         // It should define the plugin metadata
         // It should define the lock manager
 
-        vm.skip(true);
+        LockToApprovePlugin newPlugin;
+        LockManager newLockManager;
+        DAO newDao =
+            DAO(payable(createProxyAndCall(DAO_BASE, abi.encodeCall(DAO.initialize, ("", alice, address(0x0), "")))));
+        TestToken newToken = new TestToken();
+
+        LockToApprovePlugin.ApprovalSettings memory settings = LockToApprovePlugin.ApprovalSettings({
+            minApprovalRatio: 110_000, // 11%
+            proposalDuration: 12 days,
+            minProposerVotingPower: 1234
+        });
+        IPlugin.TargetConfig memory targetConfig =
+            IPlugin.TargetConfig({target: address(newDao), operation: IPlugin.Operation.Call});
+        bytes memory pluginMetadata = "ipfs://1234";
+
+        newLockManager = new LockManager(
+            newDao, LockManagerSettings(UnlockMode.Standard, PluginMode.Approval), newToken, IERC20(address(0))
+        );
+
+        newPlugin = LockToApprovePlugin(
+            createProxyAndCall(
+                address(LOCK_TO_APPROVE_BASE),
+                abi.encodeCall(
+                    LockToApprovePlugin.initialize, (newDao, newLockManager, settings, targetConfig, pluginMetadata)
+                )
+            )
+        );
+
+        // It should set the DAO address
+        assertEq(address(newPlugin.dao()), address(newDao));
+
+        // It should define the approval settings
+        (uint32 _ratio, uint64 _duration, uint256 _minVp) = newPlugin.settings();
+        assertEq(_ratio, settings.minApprovalRatio);
+        assertEq(_duration, settings.proposalDuration);
+        assertEq(_minVp, settings.minProposerVotingPower);
+
+        // It should define the target config
+        IPlugin.TargetConfig memory config = newPlugin.getCurrentTargetConfig();
+        assertEq(config.target, targetConfig.target);
+        assertEq(uint8(config.operation), uint8(targetConfig.operation));
+
+        // It should define the lock manager
+        assertEq(address(newPlugin.lockManager()), address(newLockManager));
     }
 
     function test_WhenCallingInitialize() public givenANewProxy {
@@ -258,7 +315,7 @@ contract LockToApproveTest is AragonTest {
 
         vm.expectEmit();
         emit ProposalCreated(
-            4925969046647307679243058902756532866152674924513261495288599221022020359470,
+            13876840710005004095411466095926402277614448292371379428030366522978619098280,
             alice,
             block.timestamp.toUint64(),
             (block.timestamp + 10 days).toUint64(),
@@ -313,7 +370,7 @@ contract LockToApproveTest is AragonTest {
 
         vm.expectEmit();
         emit ProposalCreated(
-            31465089583227639009379940193872144868935931775341506474759055387416263087238,
+            77014594595155826630278684923227134408666612923500769942032796858285014477046,
             alice,
             startDate,
             endDate,
@@ -334,7 +391,7 @@ contract LockToApproveTest is AragonTest {
             IPlugin.TargetConfig memory targetConfig
         ) = plugin.getProposal(proposalId);
 
-        assertEq(proposalId, 31465089583227639009379940193872144868935931775341506474759055387416263087238);
+        assertEq(proposalId, 77014594595155826630278684923227134408666612923500769942032796858285014477046);
         assertFalse(open);
         assertFalse(executed);
         assertEq(approvalTally, 0);
@@ -630,7 +687,7 @@ contract LockToApproveTest is AragonTest {
         lockManager.lock();
         lockManager.approve(proposalId);
 
-        vm.expectRevert(abi.encodeWithSelector(LockManager.NoNewBalance.selector));
+        vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ApprovalForbidden.selector, proposalId, alice));
         lockManager.approve(proposalId);
 
         vm.startPrank(address(lockManager));
@@ -674,7 +731,15 @@ contract LockToApproveTest is AragonTest {
         givenProposalCreatedAndStarted
     {
         // It Should do nothing
-        vm.skip(true);
+        (,,, uint256 approvalTallyBefore,,,) = plugin.getProposal(proposalId);
+        assertEq(approvalTallyBefore, 0);
+
+        vm.startPrank(address(lockManager));
+        plugin.clearApproval(proposalId, alice);
+
+        (,,, uint256 approvalTallyAfter,,,) = plugin.getProposal(proposalId);
+        assertEq(approvalTallyAfter, 0);
+        assertEq(plugin.usedVotingPower(proposalId, alice), 0);
     }
 
     function test_WhenCallingClearApprovalWithApproveBalance()
@@ -687,7 +752,22 @@ contract LockToApproveTest is AragonTest {
         // It Should decrease the proposal tally by the right amount
         // It Should emit an event
         // It usedVotingPower should return the right value
-        vm.skip(true);
+        uint256 approvalAmount = 0.5 ether;
+
+        vm.startPrank(address(lockManager));
+        plugin.approve(proposalId, alice, approvalAmount);
+
+        (,,, uint256 approvalTallyBefore,,,) = plugin.getProposal(proposalId);
+        assertEq(approvalTallyBefore, approvalAmount);
+        assertEq(plugin.usedVotingPower(proposalId, alice), approvalAmount);
+
+        vm.expectEmit();
+        emit ApprovalCleared(proposalId, alice);
+        plugin.clearApproval(proposalId, alice);
+
+        (,,, uint256 approvalTallyAfter,,,) = plugin.getProposal(proposalId);
+        assertEq(approvalTallyAfter, 0);
+        assertEq(plugin.usedVotingPower(proposalId, alice), 0);
     }
 
     function test_WhenCallingClearApproveNoApproveBalance()
@@ -803,14 +883,16 @@ contract LockToApproveTest is AragonTest {
 
     function test_WhenCallingApproveOrClearApprovalDefeated() public givenProposalDefeated {
         // It Should revert for vote, despite having the permission
-        // It Should do nothing for clearApprove
+        // It clearApprove should revert
 
         vm.startPrank(address(lockManager));
 
         vm.expectRevert(abi.encodeWithSelector(LockToApprovePlugin.ApprovalForbidden.selector, proposalId, alice));
         plugin.approve(proposalId, alice, 1);
 
-        // Nop
+        vm.expectRevert(
+            abi.encodeWithSelector(LockToApprovePlugin.ApprovalRemovalForbidden.selector, proposalId, alice)
+        );
         plugin.clearApproval(proposalId, alice);
     }
 
@@ -915,6 +997,9 @@ contract LockToApproveTest is AragonTest {
         assertEq(approvalTally, 25.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
+        vm.expectRevert(
+            abi.encodeWithSelector(LockToApprovePlugin.ApprovalRemovalForbidden.selector, proposalId, alice)
+        );
         plugin.clearApproval(proposalId, alice);
 
         (,,, approvalTally,,,) = plugin.getProposal(proposalId);
@@ -1054,6 +1139,9 @@ contract LockToApproveTest is AragonTest {
         assertEq(approvalTally, 25.1 ether);
         assertEq(plugin.usedVotingPower(proposalId, alice), 0.1 ether);
 
+        vm.expectRevert(
+            abi.encodeWithSelector(LockToApprovePlugin.ApprovalRemovalForbidden.selector, proposalId, alice)
+        );
         plugin.clearApproval(proposalId, alice);
 
         (,,, approvalTally,,,) = plugin.getProposal(proposalId);
@@ -1070,12 +1158,63 @@ contract LockToApproveTest is AragonTest {
 
     function test_WhenUnderlyingTokenIsNotDefined() external {
         // It Should use the lockable token's balance to compute the approval ratio
-        vm.skip(true);
+        builder = new DaoBuilder();
+        (dao, plugin,, lockManager, lockableToken,) = builder.withTokenHolder(alice, 5 ether).withTokenHolder(
+            bob, 5 ether
+        ).withApprovalPlugin().withMinApprovalRatio(500_000).build();
+
+        // Total supply is 10 ether. 50% is 5 ether.
+        assertEq(lockableToken.totalSupply(), 10 ether);
+
+        proposalId = plugin.createProposal("0x", new Action[](0), 0, 0, "");
+
+        // Alice locks and approves with 4.9 ether. Should not pass.
+        vm.startPrank(alice);
+        lockableToken.approve(address(lockManager), 4.9 ether);
+        lockManager.lockAndApprove(proposalId);
+
+        assertFalse(plugin.hasSucceeded(proposalId), "Should not succeed with 4.9 ether");
+
+        // Alice increases her approval to 5 ether. Should pass.
+        lockableToken.approve(address(lockManager), 0.1 ether);
+        lockManager.lockAndApprove(proposalId);
+
+        assertTrue(plugin.hasSucceeded(proposalId), "Should succeed with 5 ether");
     }
 
     function test_WhenUnderlyingTokenIsDefined() external {
         // It Should use the underlying token's balance to compute the approval ratio
-        vm.skip(true);
+        TestToken underlyingTkn = new TestToken();
+        // The total supply of the underlying token will be used for the ratio calculation.
+        underlyingTkn.mint(address(this), 100 ether);
+
+        builder = new DaoBuilder();
+        // We give Alice and Bob enough lockable tokens to potentially meet the threshold.
+        (dao, plugin,, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 60 ether)
+            .withTokenHolder(bob, 20 ether).withApprovalPlugin().withMinApprovalRatio(500_000).withUnderlyingToken(
+            underlyingTkn
+        ).build();
+
+        // Underlying token supply is 100 ether, not 60+20
+        // The check should be against the underlying token's supply.
+        // Required approval: 50% of 100 ether = 50 ether.
+        assertEq(underlyingToken.totalSupply(), 100 ether);
+
+        proposalId = plugin.createProposal("0x", new Action[](0), 0, 0, "");
+
+        // Alice locks and approves with 49 ether. Should not be enough.
+        vm.startPrank(alice);
+        lockableToken.approve(address(lockManager), 49 ether);
+        lockManager.lockAndApprove(proposalId);
+
+        assertFalse(plugin.hasSucceeded(proposalId), "Should not succeed with 49 ether approval");
+
+        // Bob locks and approves with 1 ether. Total approval is now 50 ether. Should pass.
+        vm.startPrank(bob);
+        lockableToken.approve(address(lockManager), 1 ether);
+        lockManager.lockAndApprove(proposalId);
+
+        assertTrue(plugin.hasSucceeded(proposalId), "Should succeed with 50 ether total approval");
     }
 
     function test_WhenCallingIsMember() public {
