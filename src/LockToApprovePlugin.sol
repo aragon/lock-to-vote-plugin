@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {ILockManager, UnlockMode} from "./interfaces/ILockManager.sol";
+import {ILockManager} from "./interfaces/ILockManager.sol";
 import {ILockToGovernBase} from "./interfaces/ILockToVote.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {LockToGovernBase} from "./base/LockToGovernBase.sol";
@@ -15,6 +15,7 @@ import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
 import {MetadataExtensionUpgradeable} from
     "@aragon/osx-commons-contracts/src/utils/metadata/MetadataExtensionUpgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {_applyRatioCeiled} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
@@ -293,14 +294,11 @@ contract LockToApprovePlugin is
         emit ApprovalCast(_proposalId, _voter, _currentVotingPower);
 
         // Check if we may execute early
-        (UnlockMode unlockMode,) = lockManager.settings();
-        if (unlockMode == UnlockMode.Strict) {
-            if (
-                _canExecute(proposal_)
-                    && dao().hasPermission(address(this), _msgSender(), EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())
-            ) {
-                _execute(_proposalId, proposal_);
-            }
+        if (
+            _canExecute(proposal_)
+                && dao().hasPermission(address(this), _msgSender(), EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())
+        ) {
+            _execute(_proposalId, proposal_);
         }
     }
 
@@ -348,7 +346,7 @@ contract LockToApprovePlugin is
     /// @notice Returns the total voting power checkpointed for a specific block number.
     /// @return The total voting power.
     function currentTokenSupply() public view returns (uint256) {
-        return lockManager.token().totalSupply();
+        return IERC20(lockManager.token()).totalSupply();
     }
 
     /// @inheritdoc ILockToGovernBase
@@ -452,8 +450,9 @@ contract LockToApprovePlugin is
 
         // NOTE: Assuming a 1:1 correlation between token() and underlyingToken()
 
-        _minTally =
-            _applyRatioCeiled(lockManager.underlyingToken().totalSupply(), proposal_.parameters.minApprovalRatio);
+        _minTally = _applyRatioCeiled(
+            IERC20(lockManager.underlyingToken()).totalSupply(), proposal_.parameters.minApprovalRatio
+        );
     }
 
     /// @notice Validates and returns the proposal dates.

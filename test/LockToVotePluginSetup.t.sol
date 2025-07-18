@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import {TestBase} from "./lib/TestBase.sol";
 import {LockToVotePluginSetup} from "../src/setup/LockToVotePluginSetup.sol";
 import {LockToVotePlugin} from "../src/LockToVotePlugin.sol";
-import {LockManager} from "../src/LockManager.sol";
+import {LockManagerERC20} from "../src/LockManagerERC20.sol";
 import {MinVotingPowerCondition} from "../src/conditions/MinVotingPowerCondition.sol";
 import {TestToken} from "./mocks/TestToken.sol";
 import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
@@ -13,7 +13,7 @@ import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/IPluginSetup.sol";
 import {MajorityVotingBase} from "../src/base/MajorityVotingBase.sol";
 import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
-import {UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
+import {PluginMode} from "../src/interfaces/ILockManager.sol";
 import {createProxyAndCall} from "../src/util/proxy.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -48,7 +48,6 @@ contract LockToVotePluginSetupTest is TestBase {
 
     modifier whenPreparingAnInstallation() {
         installParams = LockToVotePluginSetup.InstallationParameters({
-            unlockMode: UnlockMode.Standard,
             token: token,
             underlyingToken: underlyingToken,
             votingSettings: MajorityVotingBase.VotingSettings({
@@ -107,7 +106,9 @@ contract LockToVotePluginSetupTest is TestBase {
         assertEq(settings.minProposerVotingPower, installParams.votingSettings.minProposerVotingPower);
 
         // It should set the address of the lockManager on the plugin
-        assertEq(address(LockManager(lockManagerAddr).plugin()), pluginAddr, "plugin address not set on lockManager");
+        assertEq(
+            address(LockManagerERC20(lockManagerAddr).plugin()), pluginAddr, "plugin address not set on lockManager"
+        );
 
         // It the plugin should have the right lockManager address
         assertEq(address(plugin.lockManager()), lockManagerAddr, "lockManager address mismatch on plugin");
@@ -177,7 +178,7 @@ contract LockToVotePluginSetupTest is TestBase {
         assertEq(address(MinVotingPowerCondition(conditionAddr).plugin()), address(plugin), "condition plugin mismatch");
         assertEq(address(MinVotingPowerCondition(conditionAddr).token()), address(token), "condition token mismatch");
 
-        // 6. LockManager can manage plugin
+        // 6. LockManagerERC20 can manage plugin
         _assertPermission(
             preparedSetupData.permissions[6],
             PermissionLib.Operation.Grant,
@@ -215,7 +216,6 @@ contract LockToVotePluginSetupTest is TestBase {
 
     modifier whenPreparingAnUninstallation() {
         installParams = LockToVotePluginSetup.InstallationParameters({
-            unlockMode: UnlockMode.Standard,
             token: token,
             underlyingToken: underlyingToken,
             votingSettings: MajorityVotingBase.VotingSettings({
@@ -305,7 +305,7 @@ contract LockToVotePluginSetupTest is TestBase {
             PermissionLib.NO_CONDITION,
             impl.CREATE_PROPOSAL_PERMISSION_ID()
         );
-        // 6. Revoke LockManager can manage plugin
+        // 6. Revoke LockManagerERC20 can manage plugin
         _assertPermission(
             revokePermissions[6],
             PermissionLib.Operation.Revoke,
