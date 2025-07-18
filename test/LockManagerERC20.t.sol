@@ -179,7 +179,7 @@ contract LockManagerERC20Test is TestBase {
         emit BalanceLocked(bob, allowance);
         lockManager.lock();
 
-        assertEq(lockManager.lockedBalances(bob), allowance, "Locked balance incorrect");
+        assertEq(lockManager.getLockedBalance(bob), allowance, "Locked balance incorrect");
         assertEq(lockableToken.balanceOf(bob), initialBobBalance - allowance, "User balance incorrect");
     }
 
@@ -210,7 +210,7 @@ contract LockManagerERC20Test is TestBase {
 
     modifier givenTheUserHasNoLockedBalance() {
         vm.prank(alice);
-        assertEq(lockManager.lockedBalances(alice), 0);
+        assertEq(lockManager.getLockedBalance(alice), 0);
         _;
     }
 
@@ -265,7 +265,7 @@ contract LockManagerERC20Test is TestBase {
         );
         lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
 
-        assertEq(lockManager.lockedBalances(alice), allowance, "Locked balance incorrect");
+        assertEq(lockManager.getLockedBalance(alice), allowance, "Locked balance incorrect");
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance, "User balance not transferred");
     }
 
@@ -276,7 +276,7 @@ contract LockManagerERC20Test is TestBase {
         lockableToken.approve(address(lockManager), 0.5 ether);
         vm.prank(alice);
         lockManager.lock();
-        assertEq(lockManager.lockedBalances(alice), 0.5 ether);
+        assertEq(lockManager.getLockedBalance(alice), 0.5 ether);
         _;
     }
 
@@ -286,7 +286,7 @@ contract LockManagerERC20Test is TestBase {
         givenTheUserHasALockedBalance
     {
         // It Should call vote() on the plugin with the user's full locked balance
-        uint256 lockedBalance = lockManager.lockedBalances(alice);
+        uint256 lockedBalance = lockManager.getLockedBalance(alice);
 
         vm.prank(alice);
         vm.expectCall(
@@ -299,7 +299,7 @@ contract LockManagerERC20Test is TestBase {
     }
 
     modifier givenTheUserHasAlreadyVotedOnTheProposalWithTheirCurrentBalance() {
-        uint256 lockedBalance = lockManager.lockedBalances(alice);
+        uint256 lockedBalance = lockManager.getLockedBalance(alice);
         vm.prank(alice);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
         assertEq(ltvPlugin.usedVotingPower(proposalId, alice), lockedBalance);
@@ -354,7 +354,7 @@ contract LockManagerERC20Test is TestBase {
         vm.prank(alice);
         lockManager.lock();
 
-        uint256 newLockedBalance = lockManager.lockedBalances(alice);
+        uint256 newLockedBalance = lockManager.getLockedBalance(alice);
         assertGt(newLockedBalance, 0.5 ether);
 
         vm.prank(alice);
@@ -431,7 +431,7 @@ contract LockManagerERC20Test is TestBase {
         );
         lockManager.lockAndApprove(proposalId);
 
-        assertEq(lockManager.lockedBalances(alice), allowance, "Locked balance incorrect");
+        assertEq(lockManager.getLockedBalance(alice), allowance, "Locked balance incorrect");
         assertEq(lockableToken.balanceOf(alice), initialBalance - allowance, "User balance not transferred");
     }
 
@@ -441,7 +441,7 @@ contract LockManagerERC20Test is TestBase {
         givenTheUserHasALockedBalance
     {
         // It Should call approve() on the plugin with the user's full locked balance
-        uint256 lockedBalance = lockManager.lockedBalances(alice);
+        uint256 lockedBalance = lockManager.getLockedBalance(alice);
         vm.expectCall(
             address(ltaPlugin), abi.encodeWithSelector(ltaPlugin.approve.selector, proposalId, alice, lockedBalance)
         );
@@ -450,7 +450,7 @@ contract LockManagerERC20Test is TestBase {
     }
 
     modifier givenTheUserHasAlreadyApprovedTheProposalWithTheirCurrentBalance() {
-        uint256 lockedBalance = lockManager.lockedBalances(alice);
+        uint256 lockedBalance = lockManager.getLockedBalance(alice);
         vm.prank(alice);
         lockManager.approve(proposalId);
         assertEq(ltaPlugin.usedVotingPower(proposalId, alice), lockedBalance);
@@ -477,7 +477,7 @@ contract LockManagerERC20Test is TestBase {
         givenTheUserLocksMoreTokens
     {
         // It Should call approve() on the plugin with the new, larger balance
-        uint256 newLockedBalance = lockManager.lockedBalances(alice);
+        uint256 newLockedBalance = lockManager.getLockedBalance(alice);
         vm.expectCall(
             address(ltaPlugin), abi.encodeWithSelector(ltaPlugin.approve.selector, proposalId, alice, newLockedBalance)
         );
@@ -490,7 +490,7 @@ contract LockManagerERC20Test is TestBase {
     }
 
     modifier givenTheUserHasNoLockedBalance3() {
-        assertEq(lockManager.lockedBalances(alice), 0);
+        assertEq(lockManager.getLockedBalance(alice), 0);
         _;
     }
 
@@ -524,13 +524,13 @@ contract LockManagerERC20Test is TestBase {
         givenTheUserHasNoActiveVotesOnAnyOpenProposals2
     {
         // It Should succeed and transfer the locked balance back to the user
-        uint256 lockedAmount = lockManager.lockedBalances(alice);
+        uint256 lockedAmount = lockManager.getLockedBalance(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
 
         vm.prank(alice);
         lockManager.unlock();
 
-        assertEq(lockManager.lockedBalances(alice), 0);
+        assertEq(lockManager.getLockedBalance(alice), 0);
         assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
     }
 
@@ -555,7 +555,7 @@ contract LockManagerERC20Test is TestBase {
         // It Should transfer the locked balance back to the user
         // It Should set the user's lockedBalances to 0
         // It Should emit a BalanceUnlocked event
-        uint256 lockedAmount = lockManager.lockedBalances(alice);
+        uint256 lockedAmount = lockManager.getLockedBalance(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
 
         vm.expectCall(address(ltvPlugin), abi.encodeWithSelector(ltvPlugin.clearVote.selector, proposalId, alice));
@@ -565,7 +565,7 @@ contract LockManagerERC20Test is TestBase {
         vm.prank(alice);
         lockManager.unlock();
 
-        assertEq(lockManager.lockedBalances(alice), 0);
+        assertEq(lockManager.getLockedBalance(alice), 0);
         assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
     }
 
@@ -590,7 +590,7 @@ contract LockManagerERC20Test is TestBase {
         // It Should transfer the locked balance back to the user
         // It Should set the user's lockedBalances to 0
         // It Should emit a BalanceUnlocked event
-        uint256 lockedAmount = lockManager.lockedBalances(alice);
+        uint256 lockedAmount = lockManager.getLockedBalance(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
 
         vm.prank(alice);
@@ -599,7 +599,7 @@ contract LockManagerERC20Test is TestBase {
         emit BalanceUnlocked(alice, lockedAmount);
         lockManager.unlock();
 
-        assertEq(lockManager.lockedBalances(alice), 0);
+        assertEq(lockManager.getLockedBalance(alice), 0);
         assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
     }
 
@@ -629,7 +629,7 @@ contract LockManagerERC20Test is TestBase {
         // It Should not attempt to clear votes for the closed proposal
         // It Should remove the closed proposal from knownProposalIds
         // It Should succeed and transfer the locked balance back to the user
-        uint256 lockedAmount = lockManager.lockedBalances(alice);
+        uint256 lockedAmount = lockManager.getLockedBalance(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
 
         assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 1 ether);
@@ -637,7 +637,7 @@ contract LockManagerERC20Test is TestBase {
         lockManager.unlock();
         assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 1 ether);
 
-        assertEq(lockManager.lockedBalances(alice), 0);
+        assertEq(lockManager.getLockedBalance(alice), 0);
         assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
         vm.expectRevert();
         lockManager.knownProposalIdAt(0);
@@ -670,7 +670,7 @@ contract LockManagerERC20Test is TestBase {
         // It Should not attempt to clear votes for the closed proposal
         // It Should remove the closed proposal from knownProposalIds
         // It Should succeed and transfer the locked balance back to the user
-        uint256 lockedAmount = lockManager.lockedBalances(alice);
+        uint256 lockedAmount = lockManager.getLockedBalance(alice);
         uint256 initialBalance = lockableToken.balanceOf(alice);
 
         assertEq(ltaPlugin.usedVotingPower(proposalId, alice), 1 ether);
@@ -678,7 +678,7 @@ contract LockManagerERC20Test is TestBase {
         lockManager.unlock();
         assertEq(ltaPlugin.usedVotingPower(proposalId, alice), 1 ether);
 
-        assertEq(lockManager.lockedBalances(alice), 0);
+        assertEq(lockManager.getLockedBalance(alice), 0);
         assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
         vm.expectRevert();
         lockManager.knownProposalIdAt(0);

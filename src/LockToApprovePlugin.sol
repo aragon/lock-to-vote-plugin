@@ -271,7 +271,7 @@ contract LockToApprovePlugin is
     function canApprove(uint256 _proposalId, address _voter) external view returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        return _canApprove(proposal_, _voter, lockManager.lockedBalances(_voter));
+        return _canApprove(proposal_, _voter, lockManager.getLockedBalance(_voter));
     }
 
     /// @inheritdoc ILockToApprove

@@ -33,8 +33,8 @@ interface ILockManager {
     /// @return The token used for voting.
     function token() external view returns (address);
 
-    /// @notice Returns the currently locked balance that the given account has on the contract.
-    function lockedBalances(address account) external view returns (uint256);
+    /// @notice Returns the locked balance that the given account currently has on the contract.
+    function getLockedBalance(address account) external view returns (uint256);
 
     /// @notice Locks the balance currently allowed by msg.sender on this contract
     function lock() external;
