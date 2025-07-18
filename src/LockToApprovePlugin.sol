@@ -346,7 +346,7 @@ contract LockToApprovePlugin is
     /// @notice Returns the total voting power checkpointed for a specific block number.
     /// @return The total voting power.
     function currentTokenSupply() public view returns (uint256) {
-        return IERC20(lockManager.token()).totalSupply();
+        return IERC20(lockManager.underlyingToken()).totalSupply();
     }
 
     /// @inheritdoc ILockToGovernBase
@@ -450,9 +450,7 @@ contract LockToApprovePlugin is
 
         // NOTE: Assuming a 1:1 correlation between token() and underlyingToken()
 
-        _minTally = _applyRatioCeiled(
-            IERC20(lockManager.underlyingToken()).totalSupply(), proposal_.parameters.minApprovalRatio
-        );
+        _minTally = _applyRatioCeiled(currentTokenSupply(), proposal_.parameters.minApprovalRatio);
     }
 
     /// @notice Validates and returns the proposal dates.
