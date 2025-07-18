@@ -28,19 +28,17 @@ contract LockManagerERC20 is ILockManager, LockManagerBase {
     // Overrides
 
     /// @inheritdoc LockManagerBase
-    function _transfer(address _recipient, uint256 _amount) internal virtual override {
-        erc20Token.transfer(_recipient, _amount);
+    function _incomingTokenBalance() internal view virtual override returns (uint256) {
+        return erc20Token.allowance(msg.sender, address(this));
     }
 
     /// @inheritdoc LockManagerBase
-    function _lock() internal virtual override {
-        uint256 _allowance = erc20Token.allowance(msg.sender, address(this));
-        if (_allowance == 0) {
-            revert NoBalance();
-        }
+    function _doLockTransfer(uint256 _amount) internal virtual override {
+        erc20Token.transferFrom(msg.sender, address(this), _amount);
+    }
 
-        erc20Token.transferFrom(msg.sender, address(this), _allowance);
-        lockedBalances[msg.sender] += _allowance;
-        emit BalanceLocked(msg.sender, _allowance);
+    /// @inheritdoc LockManagerBase
+    function _doUnlockTransfer(address _recipient, uint256 _amount) internal virtual override {
+        erc20Token.transfer(_recipient, _amount);
     }
 }
