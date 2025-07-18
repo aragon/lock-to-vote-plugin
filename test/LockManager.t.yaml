@@ -4,7 +4,6 @@ LockManagerTest:
       - when: Deploying with valid parameters and a non-zero underlying token
         then:
           - it: Should set the DAO address correctly
-          - it: Should set the unlockMode correctly
           - it: Should set the pluginMode correctly
           - it: Should set the token address correctly
           - it: Should set the underlying token address correctly
@@ -152,66 +151,43 @@ LockManagerTest:
               - it: Should revert with NoBalance
       - given: The user has a locked balance
         and:
-          - given: unlockMode is Strict
+          - given: The user has no active votes on any open proposals
             and:
-              - given: The user has no active votes on any open proposals
-                and:
-                  - when: Calling unlock()
-                    then:
-                      - it: Should transfer the locked balance back to the user
-                      - it: Should set the user's lockedBalances to 0
-                      - it: Should emit a BalanceUnlocked event
-              - given: The user has an active vote on at least one open proposal
-                and:
-                  - when: Calling unlock()
-                    then:
-                      - it: Should revert with LocksStillActive
-              - given: The user only has votes on proposals that are now closed
-                comment: The contract should garbage-collect the closed proposal during the check
-                and:
-                  - when: Calling unlock()
-                    then:
-                      - it: Should succeed and transfer the locked balance back to the user
-                      - it: Should remove the closed proposal from knownProposalIds
-          - given: unlockMode is Default
+              - when: Calling unlock()
+                then:
+                  - it: Should succeed and transfer the locked balance back to the user
+          - given: The user has votes on open proposals
             and:
-              - given: The user has no active votes on any open proposals
-                and:
-                  - when: Calling unlock()
-                    then:
-                      - it: Should succeed and transfer the locked balance back to the user
-              - given: The user has votes on open proposals
-                and:
-                  - when: Calling unlock()
-                    then:
-                      - it: Should call clearVote() on the plugin for each active proposal
-                      - it: Should transfer the locked balance back to the user
-                      - it: Should set the user's lockedBalances to 0
-                      - it: Should emit a BalanceUnlocked event
-              - given: The user has approvals on open proposals
-                and:
-                  - when: Calling unlock()
-                    then:
-                      - it: Should call clearApproval() on the plugin for each active proposal
-                      - it: Should transfer the locked balance back to the user
-                      - it: Should set the user's lockedBalances to 0
-                      - it: Should emit a BalanceUnlocked event
-              - given: The user only has votes on proposals that are now closed or ended
-                comment: The contract should garbage-collect the closed proposal during the check
-                and:
-                  - when: Calling unlock()
-                    then:
-                      - it: Should not attempt to clear votes for the closed proposal
-                      - it: Should remove the closed proposal from knownProposalIds
-                      - it: Should succeed and transfer the locked balance back to the user
-              - given: The user only has approvals on proposals that are now closed or ended
-                comment: The contract should garbage-collect the closed proposal during the check
-                and:
-                  - when: Calling unlock()
-                    then:
-                      - it: Should not attempt to clear votes for the closed proposal
-                      - it: Should remove the closed proposal from knownProposalIds
-                      - it: Should succeed and transfer the locked balance back to the user
+              - when: Calling unlock()
+                then:
+                  - it: Should call clearVote() on the plugin for each active proposal
+                  - it: Should transfer the locked balance back to the user
+                  - it: Should set the user's lockedBalances to 0
+                  - it: Should emit a BalanceUnlocked event
+          - given: The user has approvals on open proposals
+            and:
+              - when: Calling unlock()
+                then:
+                  - it: Should call clearApproval() on the plugin for each active proposal
+                  - it: Should transfer the locked balance back to the user
+                  - it: Should set the user's lockedBalances to 0
+                  - it: Should emit a BalanceUnlocked event
+          - given: The user only has votes on proposals that are now closed or ended
+            comment: The contract should garbage-collect the closed proposal during the check
+            and:
+              - when: Calling unlock()
+                then:
+                  - it: Should not attempt to clear votes for the closed proposal
+                  - it: Should remove the closed proposal from knownProposalIds
+                  - it: Should succeed and transfer the locked balance back to the user
+          - given: The user only has approvals on proposals that are now closed or ended
+            comment: The contract should garbage-collect the closed proposal during the check
+            and:
+              - when: Calling unlock()
+                then:
+                  - it: Should not attempt to clear votes for the closed proposal
+                  - it: Should remove the closed proposal from knownProposalIds
+                  - it: Should succeed and transfer the locked balance back to the user
 
   - given: The plugin has been set
     and:

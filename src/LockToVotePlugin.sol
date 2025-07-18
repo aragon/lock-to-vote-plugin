@@ -211,6 +211,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @inheritdoc ILockToVote
     function clearVote(uint256 _proposalId, address _voter) external auth(LOCK_MANAGER_PERMISSION_ID) {
         Proposal storage proposal_ = proposals[_proposalId];
+
         if (!_isProposalOpen(proposal_)) {
             revert VoteRemovalForbidden(_proposalId, _voter);
         } else if (proposal_.parameters.votingMode != VotingMode.VoteReplacement) {
@@ -301,9 +302,9 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     }
 
     function _attemptEarlyExecution(uint256 _proposalId, address _voteCaller) internal {
-        if (!dao().hasPermission(address(this), _voteCaller, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
+        if (!_canExecute(_proposalId)) {
             return;
-        } else if (!_canExecute(_proposalId)) {
+        } else if (!dao().hasPermission(address(this), _voteCaller, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
             return;
         }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {ILockManager, UnlockMode} from "./interfaces/ILockManager.sol";
+import {ILockManager} from "./interfaces/ILockManager.sol";
 import {ILockToGovernBase} from "./interfaces/ILockToVote.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {LockToGovernBase} from "./base/LockToGovernBase.sol";
@@ -30,12 +30,31 @@ contract LockToApprovePlugin is
 {
     using SafeCastUpgradeable for uint256;
 
+    /// @notice The different approval modes available.
+    /// @param Standard In standard mode, early execution and vote replacement are disabled.
+    /// @param EarlyExecution In early execution mode, a proposal can be executed
+    ///     before the end date if the proposal has already succeeded.
+    /// @param VoteReplacement In vote replacement mode, voters can change their vote
+    ///     multiple times and only the final voting power is tallied.
+    enum ApprovalMode {
+        Standard,
+        EarlyExecution,
+        VoteReplacement
+    }
+
     /// @notice A container for the approval settings that will be applied as parameters on proposal creation.
+    /// @param approvalMode A parameter to select the approval mode.
+    ///     In standard mode (0), early execution and vote replacement are disabled.
+    ///     In early execution mode (1), a proposal can be executed early before the end date
+    ///     if the proposal has already succeeded.
+    ///     In vote replacement mode (2), voters can change their vote multiple times
+    ///     and only the final voting power is tallied.
     /// @param minApprovalRatio The minimum approval ratio required to approve over the total supply.
     ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     /// @param proposalDuration The amount of seconds during which the proposal will be open after startDate.
     /// @param minProposerVotingPower The minimum voting power required to create a proposal.
     struct ApprovalSettings {
+        ApprovalMode approvalMode;
         uint32 minApprovalRatio;
         uint64 proposalDuration;
         uint256 minProposerVotingPower;
@@ -64,11 +83,18 @@ contract LockToApprovePlugin is
     }
 
     /// @notice A container for the proposal parameters at the time of proposal creation.
+    /// @param approvalMode A parameter to select the approval mode.
+    ///     In standard mode (0), early execution and vote replacement are disabled.
+    ///     In early execution mode (1), a proposal can be executed early before the end date
+    ///     if the proposal has already succeeded.
+    ///     In vote replacement mode (2), voters can change their vote multiple times
+    ///     and only the final voting power is tallied.
     /// @param minApprovalRatio The approval threshold above which the proposal becomes executable.
     ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     /// @param startDate The start date of the proposal vote.
     /// @param endDate The end date of the proposal vote.
     struct ProposalParameters {
+        ApprovalMode approvalMode;
         uint32 minApprovalRatio;
         uint64 startDate;
         uint64 endDate;
@@ -88,8 +114,9 @@ contract LockToApprovePlugin is
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
     bytes4 internal constant LOCK_TO_APPROVE_INTERFACE_ID = this.minProposerVotingPower.selector
-        ^ this.currentTokenSupply.selector ^ this.proposalDuration.selector ^ this.minApprovalRatio.selector
-        ^ this.getProposal.selector ^ this.updateApprovalSettings.selector ^ this.createProposal.selector;
+        ^ this.currentTokenSupply.selector ^ this.approvalMode.selector ^ this.proposalDuration.selector
+        ^ this.minApprovalRatio.selector ^ this.getProposal.selector ^ this.updateApprovalSettings.selector
+        ^ this.createProposal.selector;
 
     ApprovalSettings public settings;
 
@@ -97,7 +124,9 @@ contract LockToApprovePlugin is
 
     event ApprovalCast(uint256 proposalId, address voter, uint256 newVotingPower);
     event ApprovalCleared(uint256 proposalId, address voter);
-    event ApprovalSettingsUpdated(uint32 minApprovalRatio, uint64 proposalDuration, uint256 minProposerVotingPower);
+    event ApprovalSettingsUpdated(
+        ApprovalMode approvalMode, uint32 minApprovalRatio, uint64 proposalDuration, uint256 minProposerVotingPower
+    );
 
     /// @notice Thrown when the voter cannot approve.
     /// @param proposalId The ID of the proposal.
@@ -292,15 +321,8 @@ contract LockToApprovePlugin is
 
         emit ApprovalCast(_proposalId, _voter, _currentVotingPower);
 
-        // Check if we may execute early
-        (UnlockMode unlockMode,) = lockManager.settings();
-        if (unlockMode == UnlockMode.Strict) {
-            if (
-                _canExecute(proposal_)
-                    && dao().hasPermission(address(this), _msgSender(), EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())
-            ) {
-                _execute(_proposalId, proposal_);
-            }
+        if (proposal_.parameters.approvalMode == ApprovalMode.EarlyExecution) {
+            _attemptEarlyExecution(_proposalId, proposal_, _msgSender());
         }
     }
 
@@ -309,6 +331,8 @@ contract LockToApprovePlugin is
         Proposal storage proposal_ = proposals[_proposalId];
 
         if (!_isProposalOpen(proposal_)) {
+            revert ApprovalRemovalForbidden(_proposalId, _voter);
+        } else if (proposal_.parameters.approvalMode != ApprovalMode.VoteReplacement) {
             revert ApprovalRemovalForbidden(_proposalId, _voter);
         } else if (proposal_.approvals[_voter] == 0) {
             return;
@@ -321,6 +345,12 @@ contract LockToApprovePlugin is
         proposal_.approvals[_voter] = 0;
 
         emit ApprovalCleared(_proposalId, _voter);
+    }
+
+    /// @notice Returns the approval mode stored in the approval settings.
+    /// @return The approval mode parameter.
+    function approvalMode() public view virtual returns (ApprovalMode) {
+        return settings.approvalMode;
     }
 
     /// @notice Returns the proposal duration parameter setting.
@@ -432,9 +462,19 @@ contract LockToApprovePlugin is
         // Verify that the vote has not been executed already.
         if (proposal_.executed) {
             return false;
+        } else if (!_hasSucceeded(proposal_)) {
+            return false;
+        }
+        /// @dev Handling the case of Standard and VoteReplacement approval modes
+        /// @dev Enforce waiting until endDate, which is not covered by _hasSucceeded()
+        else if (
+            proposal_.parameters.approvalMode != ApprovalMode.EarlyExecution
+                && block.timestamp.toUint64() < proposal_.parameters.endDate
+        ) {
+            return false;
         }
 
-        return _hasSucceeded(proposal_);
+        return true;
     }
 
     function _hasSucceeded(Proposal storage proposal_) internal view returns (bool) {
@@ -442,6 +482,16 @@ contract LockToApprovePlugin is
             // Avoid empty proposals to be reported as succeeded
             return false;
         }
+
+        if (_isProposalOpen(proposal_)) {
+            // If the proposal is still open and the approval mode is not early execution, the proposal
+            // cannot have succeeded.
+            if (proposal_.parameters.approvalMode != ApprovalMode.EarlyExecution) {
+                return false;
+            }
+        }
+
+        // Normal execution or early execution
         return proposal_.approvalTally >= _minApprovalTally(proposal_);
     }
 
@@ -496,6 +546,16 @@ contract LockToApprovePlugin is
         }
     }
 
+    function _attemptEarlyExecution(uint256 _proposalId, Proposal storage proposal_, address _approveCaller) internal {
+        if (!_canExecute(proposal_)) {
+            return;
+        } else if (!dao().hasPermission(address(this), _approveCaller, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
+            return;
+        }
+
+        _execute(_proposalId, proposal_);
+    }
+
     function _execute(uint256 _proposalId, Proposal storage proposal_) internal {
         proposal_.executed = true;
 
@@ -523,12 +583,16 @@ contract LockToApprovePlugin is
             revert ProposalDurationOutOfBounds({limit: 365 days, actual: _newSettings.proposalDuration});
         }
 
+        settings.approvalMode = _newSettings.approvalMode;
         settings.minApprovalRatio = _newSettings.minApprovalRatio;
         settings.proposalDuration = _newSettings.proposalDuration;
         settings.minProposerVotingPower = _newSettings.minProposerVotingPower;
 
         emit ApprovalSettingsUpdated(
-            _newSettings.minApprovalRatio, _newSettings.proposalDuration, _newSettings.minProposerVotingPower
+            _newSettings.approvalMode,
+            _newSettings.minApprovalRatio,
+            _newSettings.proposalDuration,
+            _newSettings.minProposerVotingPower
         );
     }
 

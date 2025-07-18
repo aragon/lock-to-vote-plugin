@@ -11,7 +11,7 @@ import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
 import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
-import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
+import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
 import {LockManager} from "../src/LockManager.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
@@ -77,6 +77,7 @@ contract MinVotingPowerConditionTest is TestBase {
         // Update settings to require a minimum voting power
         uint256 minPower = 10 ether;
         LockToApprovePlugin.ApprovalSettings memory newSettings = LockToApprovePlugin.ApprovalSettings({
+            approvalMode: LockToApprovePlugin.ApprovalMode.Standard,
             minApprovalRatio: uint32(ltaPlugin.minApprovalRatio()),
             proposalDuration: ltaPlugin.proposalDuration(),
             minProposerVotingPower: minPower

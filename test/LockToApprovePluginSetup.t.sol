@@ -12,7 +12,6 @@ import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
 import {IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/PluginSetup.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
-import {UnlockMode} from "../src/interfaces/ILockManager.sol";
 import {createProxyAndCall} from "../src/util/proxy.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -44,10 +43,10 @@ contract LockToApprovePluginSetupTest is TestBase {
 
     modifier whenPreparingAnInstallation() {
         installParams = LockToApprovePluginSetup.InstallationParameters({
-            unlockMode: UnlockMode.Standard,
             token: token,
             underlyingToken: IERC20(address(0)),
             approvalSettings: LockToApprovePlugin.ApprovalSettings({
+                approvalMode: LockToApprovePlugin.ApprovalMode.Standard,
                 minApprovalRatio: 100_000, // 10%
                 proposalDuration: 10 days,
                 minProposerVotingPower: 1 ether
@@ -196,10 +195,10 @@ contract LockToApprovePluginSetupTest is TestBase {
 
     modifier whenPreparingAnUninstallation() {
         installParams = LockToApprovePluginSetup.InstallationParameters({
-            unlockMode: UnlockMode.Standard,
             token: token,
             underlyingToken: IERC20(address(0)),
             approvalSettings: LockToApprovePlugin.ApprovalSettings({
+                approvalMode: LockToApprovePlugin.ApprovalMode.Standard,
                 minApprovalRatio: 100_000, // 10%
                 proposalDuration: 10 days,
                 minProposerVotingPower: 1 ether

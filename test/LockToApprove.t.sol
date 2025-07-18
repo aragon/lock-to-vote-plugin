@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import {TestBase} from "./lib/TestBase.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockManager} from "../src/LockManager.sol";
-import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
+import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {ILockToApprove} from "../src/interfaces/ILockToApprove.sol";
 import {DaoBuilder} from "./builders/DaoBuilder.sol";
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
@@ -56,14 +56,8 @@ contract LockToApproveTest is TestBase {
 
     function setUp() public {
         LOCK_TO_APPROVE_BASE = address(new LockToApprovePlugin());
-        LOCK_MANAGER_BASE = address(
-            new LockManager(
-                IDAO(address(0)),
-                LockManagerSettings(UnlockMode.Standard, PluginMode.Approval),
-                IERC20(address(0)),
-                IERC20(address(0))
-            )
-        );
+        LOCK_MANAGER_BASE =
+            address(new LockManager(LockManagerSettings(PluginMode.Approval), IERC20(address(0)), IERC20(address(0))));
 
         vm.startPrank(alice);
         vm.warp(10 days);
@@ -73,7 +67,6 @@ contract LockToApproveTest is TestBase {
         (dao, plugin,, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
             .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
             .withApprovalPlugin().build();
-        // .withStrictUnlock()
         // .withMinApprovalRatio(100_000)
         // .withDuration(10 days)
     }
@@ -86,6 +79,7 @@ contract LockToApproveTest is TestBase {
             dao,
             lockManager,
             LockToApprovePlugin.ApprovalSettings({
+                approvalMode: LockToApprovePlugin.ApprovalMode.Standard,
                 minApprovalRatio: 100_000, // 10%
                 proposalDuration: 10 days,
                 minProposerVotingPower: 0
@@ -102,6 +96,7 @@ contract LockToApproveTest is TestBase {
             dao,
             lockManager,
             LockToApprovePlugin.ApprovalSettings({
+                approvalMode: LockToApprovePlugin.ApprovalMode.Standard,
                 minApprovalRatio: 100_000, // 10%
                 proposalDuration: 10 days,
                 minProposerVotingPower: 0
@@ -129,6 +124,7 @@ contract LockToApproveTest is TestBase {
         TestToken newToken = new TestToken();
 
         LockToApprovePlugin.ApprovalSettings memory settings = LockToApprovePlugin.ApprovalSettings({
+            approvalMode: LockToApprovePlugin.ApprovalMode.VoteReplacement,
             minApprovalRatio: 110_000, // 11%
             proposalDuration: 12 days,
             minProposerVotingPower: 1234
@@ -137,9 +133,7 @@ contract LockToApproveTest is TestBase {
             IPlugin.TargetConfig({target: address(newDao), operation: IPlugin.Operation.Call});
         bytes memory pluginMetadata = "ipfs://1234";
 
-        newLockManager = new LockManager(
-            newDao, LockManagerSettings(UnlockMode.Standard, PluginMode.Approval), newToken, IERC20(address(0))
-        );
+        newLockManager = new LockManager(LockManagerSettings(PluginMode.Approval), newToken, IERC20(address(0)));
 
         newPlugin = LockToApprovePlugin(
             createProxyAndCall(
@@ -154,7 +148,10 @@ contract LockToApproveTest is TestBase {
         assertEq(address(newPlugin.dao()), address(newDao));
 
         // It should define the approval settings
-        (uint32 _ratio, uint64 _duration, uint256 _minVp) = newPlugin.settings();
+        (LockToApprovePlugin.ApprovalMode approvalMode, uint32 _ratio, uint64 _duration, uint256 _minVp) =
+            newPlugin.settings();
+        assertEq(uint8(approvalMode), uint8(settings.approvalMode));
+        assertEq(uint8(newPlugin.approvalMode()), uint8(settings.approvalMode));
         assertEq(_ratio, settings.minApprovalRatio);
         assertEq(_duration, settings.proposalDuration);
         assertEq(_minVp, settings.minProposerVotingPower);
@@ -174,6 +171,7 @@ contract LockToApproveTest is TestBase {
         // It should define the given settings
 
         LockToApprovePlugin.ApprovalSettings memory settings = LockToApprovePlugin.ApprovalSettings({
+            approvalMode: LockToApprovePlugin.ApprovalMode.EarlyExecution,
             minApprovalRatio: 110_000, // 11%
             proposalDuration: 12 days,
             minProposerVotingPower: 1234
@@ -194,7 +192,10 @@ contract LockToApproveTest is TestBase {
         assertEq(address(plugin.dao()), address(dao), "Incorrect DAO");
         assertEq(address(plugin.lockManager()), address(lockManager), "Incorrect lockManager");
 
-        (uint32 _ratio, uint64 _duration, uint256 _minVp) = plugin.settings();
+        (LockToApprovePlugin.ApprovalMode approvalMode, uint32 _ratio, uint64 _duration, uint256 _minVp) =
+            plugin.settings();
+        assertEq(uint8(approvalMode), uint8(settings.approvalMode));
+        assertEq(uint8(plugin.approvalMode()), uint8(settings.approvalMode));
         assertEq(_ratio, settings.minApprovalRatio);
         assertEq(_duration, settings.proposalDuration);
         assertEq(_minVp, settings.minProposerVotingPower);
@@ -209,6 +210,7 @@ contract LockToApproveTest is TestBase {
         vm.startPrank(address(bob));
         vm.expectRevert();
         LockToApprovePlugin.ApprovalSettings memory newSettings = LockToApprovePlugin.ApprovalSettings({
+            approvalMode: LockToApprovePlugin.ApprovalMode.EarlyExecution,
             minApprovalRatio: 600000, // 60%
             proposalDuration: 5 days,
             minProposerVotingPower: 500_000_000
@@ -218,16 +220,20 @@ contract LockToApproveTest is TestBase {
         vm.startPrank(address(0x1337));
         vm.expectRevert();
         newSettings = LockToApprovePlugin.ApprovalSettings({
+            approvalMode: LockToApprovePlugin.ApprovalMode.VoteReplacement,
             minApprovalRatio: 800000, // 80%
             proposalDuration: 7 days,
             minProposerVotingPower: 200
         });
         plugin.updateApprovalSettings(newSettings);
 
-        (uint32 minApprovalRatio, uint64 proposalDuration, uint256 minPvp) = plugin.settings();
+        (LockToApprovePlugin.ApprovalMode approvalMode, uint32 minApprovalRatio, uint64 proposalDuration, uint256 minVp)
+        = plugin.settings();
+        assertEq(uint8(approvalMode), uint8(newSettings.approvalMode));
+        assertEq(uint8(plugin.approvalMode()), uint8(newSettings.approvalMode));
         assertEq(minApprovalRatio, 100_000, "Incorrect minApprovalRatio");
         assertEq(proposalDuration, 10 days, "Incorrect proposalDuration");
-        assertEq(minPvp, 0, "Incorrect minProposerVotingPower");
+        assertEq(minVp, 0, "Incorrect minProposerVotingPower");
     }
 
     function test_WhenUpdateSettingsWithThePermission() public whenCallingUpdateSettings {
@@ -236,16 +242,20 @@ contract LockToApproveTest is TestBase {
         // vm.startPrank(alice);
         dao.grant(address(plugin), alice, plugin.UPDATE_SETTINGS_PERMISSION_ID());
         LockToApprovePlugin.ApprovalSettings memory newSettings = LockToApprovePlugin.ApprovalSettings({
+            approvalMode: LockToApprovePlugin.ApprovalMode.VoteReplacement,
             minApprovalRatio: 700000, // 70%
             proposalDuration: 3 days,
             minProposerVotingPower: 0
         });
         plugin.updateApprovalSettings(newSettings);
 
-        (uint32 minApprovalRatio, uint64 proposalDuration, uint256 minPvp) = plugin.settings();
+        (LockToApprovePlugin.ApprovalMode approvalMode, uint32 minApprovalRatio, uint64 proposalDuration, uint256 minVp)
+        = plugin.settings();
+        assertEq(uint8(approvalMode), uint8(newSettings.approvalMode));
+        assertEq(uint8(plugin.approvalMode()), uint8(newSettings.approvalMode));
         assertEq(minApprovalRatio, newSettings.minApprovalRatio, "Incorrect minApprovalRatio");
         assertEq(proposalDuration, newSettings.proposalDuration, "Incorrect proposalDuration");
-        assertEq(minPvp, newSettings.minProposerVotingPower, "Incorrect minProposerVotingPower");
+        assertEq(minVp, newSettings.minProposerVotingPower, "Incorrect minProposerVotingPower");
     }
 
     function test_WhenCallingSupportsInterface() public view {
@@ -1256,6 +1266,7 @@ contract LockToApproveTest is TestBase {
         // It Settings() should return the right values
 
         LockToApprovePlugin.ApprovalSettings memory newSettings = LockToApprovePlugin.ApprovalSettings({
+            approvalMode: LockToApprovePlugin.ApprovalMode.VoteReplacement,
             minApprovalRatio: 612345, // 61%
             proposalDuration: 13.4 days,
             minProposerVotingPower: 505050505
@@ -1263,7 +1274,10 @@ contract LockToApproveTest is TestBase {
 
         plugin.updateApprovalSettings(newSettings);
 
-        (uint32 minApprovalRatio, uint64 proposalDuration, uint256 minVp) = plugin.settings();
+        (LockToApprovePlugin.ApprovalMode approvalMode, uint32 minApprovalRatio, uint64 proposalDuration, uint256 minVp)
+        = plugin.settings();
+        assertEq(uint8(approvalMode), uint8(newSettings.approvalMode));
+        assertEq(uint8(plugin.approvalMode()), uint8(newSettings.approvalMode));
         assertEq(minApprovalRatio, 612345);
         assertEq(proposalDuration, 13.4 days);
         assertEq(minVp, 505050505);
@@ -1278,6 +1292,7 @@ contract LockToApproveTest is TestBase {
         // It Should revert
 
         LockToApprovePlugin.ApprovalSettings memory newSettings = LockToApprovePlugin.ApprovalSettings({
+            approvalMode: LockToApprovePlugin.ApprovalMode.EarlyExecution,
             minApprovalRatio: 612345, // 61%
             proposalDuration: 13.4 days,
             minProposerVotingPower: 55555
@@ -1290,7 +1305,10 @@ contract LockToApproveTest is TestBase {
         );
         plugin.updateApprovalSettings(newSettings);
 
-        (uint32 minApprovalRatio, uint64 proposalDuration, uint256 minVp) = plugin.settings();
+        (LockToApprovePlugin.ApprovalMode approvalMode, uint32 minApprovalRatio, uint64 proposalDuration, uint256 minVp)
+        = plugin.settings();
+        assertEq(uint8(approvalMode), uint8(newSettings.approvalMode));
+        assertEq(uint8(plugin.approvalMode()), uint8(newSettings.approvalMode));
         assertEq(minApprovalRatio, 100000);
         assertEq(proposalDuration, 10 days);
         assertEq(minVp, 0);

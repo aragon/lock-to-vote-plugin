@@ -8,7 +8,7 @@ import {ALICE_ADDRESS} from "../constants.sol";
 import {LockToApprovePlugin} from "../../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../../src/LockToVotePlugin.sol";
 import {LockManager} from "../../src/LockManager.sol";
-import {LockManagerSettings, UnlockMode, PluginMode} from "../../src/interfaces/ILockManager.sol";
+import {LockManagerSettings, PluginMode} from "../../src/interfaces/ILockManager.sol";
 import {ILockToGovernBase} from "../../src/interfaces/ILockToGovernBase.sol";
 import {RATIO_BASE} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
@@ -31,7 +31,6 @@ contract DaoBuilder is Test {
     MintEntry[] tokenHolders;
 
     // Lock Manager
-    UnlockMode unlockMode = UnlockMode.Strict;
     PluginMode pluginMode = PluginMode.Approval;
     IERC20 underlyingTokenAddr;
 
@@ -50,16 +49,6 @@ contract DaoBuilder is Test {
 
     function withTokenHolder(address newTokenHolder, uint256 amount) public returns (DaoBuilder) {
         tokenHolders.push(MintEntry({tokenHolder: newTokenHolder, amount: amount}));
-        return this;
-    }
-
-    function withStrictUnlock() public returns (DaoBuilder) {
-        unlockMode = UnlockMode.Strict;
-        return this;
-    }
-
-    function withStandardUnlock() public returns (DaoBuilder) {
-        unlockMode = UnlockMode.Standard;
         return this;
     }
 
@@ -160,8 +149,7 @@ contract DaoBuilder is Test {
         {
             // Plugin and helper
 
-            lockManager =
-                new LockManager(dao, LockManagerSettings(unlockMode, pluginMode), lockableToken, underlyingToken);
+            lockManager = new LockManager(LockManagerSettings(pluginMode), lockableToken, underlyingToken);
 
             bytes memory pluginMetadata = "";
             IPlugin.TargetConfig memory targetConfig =
@@ -169,6 +157,7 @@ contract DaoBuilder is Test {
 
             if (pluginMode == PluginMode.Approval) {
                 LockToApprovePlugin.ApprovalSettings memory approvalSettings = LockToApprovePlugin.ApprovalSettings({
+                    approvalMode: LockToApprovePlugin.ApprovalMode(uint8(votingMode)),
                     minApprovalRatio: minApprovalRatio,
                     proposalDuration: proposalDuration,
                     minProposerVotingPower: 0

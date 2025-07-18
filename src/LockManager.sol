@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {ILockManager, LockManagerSettings, UnlockMode, PluginMode} from "./interfaces/ILockManager.sol";
+import {ILockManager, LockManagerSettings, PluginMode} from "./interfaces/ILockManager.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
-import {DaoAuthorizable} from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizable.sol";
 import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
 import {ILockToApprove} from "./interfaces/ILockToApprove.sol";
 import {ILockToVote} from "./interfaces/ILockToVote.sol";
@@ -15,7 +14,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 /// @title LockManager
 /// @author Aragon X 2025
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
-contract LockManager is ILockManager, DaoAuthorizable {
+contract LockManager is ILockManager {
     using EnumerableSet for EnumerableSet.UintSet;
 
     /// @notice The current LockManager settings
@@ -66,14 +65,10 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Thrown when trying to define the address of the plugin after it already was
     error SetPluginAddressForbidden();
 
-    /// @param _dao The address of the DAO where permissions should be checked by this contract
     /// @param _settings The operation mode of the contract (plugin mode and unlock mode)
     /// @param _token The address of the token contract that users can lock
     /// @param _underlyingToken If applicable, the address of the contract from which `token` originates. This is relevant for LP tokens whose supply may experiment swift changes.
-    constructor(IDAO _dao, LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken)
-        DaoAuthorizable(_dao)
-    {
-        settings.unlockMode = _settings.unlockMode;
+    constructor(LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken) {
         settings.pluginMode = _settings.pluginMode;
         token = _token;
         underlyingTokenAddr = _underlyingToken;
@@ -153,11 +148,8 @@ contract LockManager is ILockManager, DaoAuthorizable {
             revert NoBalance();
         }
 
-        if (settings.unlockMode == UnlockMode.Strict) {
-            if (_hasActiveLocks()) revert LocksStillActive();
-        } else {
-            _withdrawActiveVotingPower();
-        }
+        /// @dev The plugin may decide to revert if its voting mode doesn't allow for it
+        _withdrawActiveVotingPower();
 
         // All votes clear
 

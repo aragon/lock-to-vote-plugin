@@ -8,7 +8,7 @@ import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol"
 import {createProxyAndCall} from "../src/util/proxy.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
-import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
+import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
 import {LockManager} from "../src/LockManager.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
@@ -63,7 +63,7 @@ contract LockToVoteTest is TestBase {
         builder = new DaoBuilder();
         (dao,, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
             .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
-            .withStrictUnlock().withVotingPlugin().withProposer(alice).build();
+            .withVotingPlugin().withProposer(alice).build();
 
         for (uint256 i = 0; i < actions.length; i++) {
             actions.pop();
@@ -106,12 +106,8 @@ contract LockToVoteTest is TestBase {
             bob, 10 ether
         ).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).build();
 
-        lockManager = new LockManager(
-            dao,
-            LockManagerSettings({unlockMode: UnlockMode.Strict, pluginMode: PluginMode.Voting}),
-            lockableToken,
-            underlyingToken
-        );
+        lockManager =
+            new LockManager(LockManagerSettings({pluginMode: PluginMode.Voting}), lockableToken, underlyingToken);
 
         ltvPlugin = LockToVotePlugin(createProxyAndCall(address(new LockToVotePlugin()), bytes("")));
 
