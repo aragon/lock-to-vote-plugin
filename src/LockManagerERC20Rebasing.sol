@@ -13,7 +13,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// @author Aragon X 2025
 /// @notice Helper contract acting as the vault for locked rebasing tokens
 /// used to vote on multiple plugins and proposals. It ensures accrued yield is fairly distributed.
-contract LockManagerERC20Rebase is ILockManager, LockManagerBase {
+contract LockManagerERC20Rebasing is ILockManager, LockManagerBase {
     /// @notice The address of the rebasing token contract
     IERC20 private immutable tokenAddr;
 
