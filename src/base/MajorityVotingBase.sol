@@ -517,12 +517,12 @@ abstract contract MajorityVotingBase is
 
         // Support threshold, depending on the status and mode
         if (_isProposalOpen(proposal_)) {
-            // If the proposal is still open and the voting mode is VoteReplacement,
+            // If the proposal is still open and the voting mode is not EarlyExecution,
             // success cannot be determined until the voting period ends.
-            if (proposal_.parameters.votingMode == VotingMode.VoteReplacement) {
+            if (proposal_.parameters.votingMode != VotingMode.EarlyExecution) {
                 return false;
             }
-            // For Standard and EarlyExecution modes, check if the support threshold
+            // For EarlyExecution, check if the support threshold
             // has been reached early to determine success while proposal is still open.
             else if (!isSupportThresholdReachedEarly(_proposalId)) {
                 return false;

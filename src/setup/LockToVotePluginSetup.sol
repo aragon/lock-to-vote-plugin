@@ -15,7 +15,7 @@ import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {PluginSetup, IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/PluginSetup.sol";
 import {LockToVotePlugin} from "../LockToVotePlugin.sol";
 import {LockManager} from "../LockManager.sol";
-import {LockManagerSettings, UnlockMode, PluginMode} from "../../src/interfaces/ILockManager.sol";
+import {LockManagerSettings, PluginMode} from "../../src/interfaces/ILockManager.sol";
 import {ILockToGovernBase} from "../../src/interfaces/ILockToGovernBase.sol";
 import {MinVotingPowerCondition} from "../../src/conditions/MinVotingPowerCondition.sol";
 import {createProxyAndCall} from "../util/proxy.sol";
@@ -33,7 +33,6 @@ contract LockToVotePluginSetup is PluginSetup {
     LockManager private immutable lockManagerImpl;
 
     /// @notice Struct containing all the parameters to set up the plugin, helpers and permissions
-    /// @param unlockMode Whether tokens can be unlocked at any time or only when a voter has no votes on active proposals
     /// @param token The address of the token that users can lock for voting (staking token in most cases)
     /// @param underlyingToken If users obtain `token` by staking another token, the address of that token. Zero otherwise.
     /// @param votingSettings The voting plugin settings
@@ -42,7 +41,6 @@ contract LockToVotePluginSetup is PluginSetup {
     /// @param executeCaller The address that can call execute (can be ANY_ADDR)
     /// @param targetConfig Where and how the plugin will execute actions
     struct InstallationParameters {
-        UnlockMode unlockMode;
         IERC20 token;
         IERC20 underlyingToken;
         LockToVotePlugin.VotingSettings votingSettings;
@@ -66,9 +64,7 @@ contract LockToVotePluginSetup is PluginSetup {
 
     /// @notice The contract constructor deploying the implementation contracts to use.
     constructor() PluginSetup(address(new LockToVotePlugin())) {
-        lockManagerImpl = new LockManager(
-            IDAO(address(0)), LockManagerSettings(UnlockMode(0), PluginMode(0)), IERC20(address(0)), IERC20(address(0))
-        );
+        lockManagerImpl = new LockManager(LockManagerSettings(PluginMode(0)), IERC20(address(0)), IERC20(address(0)));
     }
 
     /// @inheritdoc IPluginSetup
@@ -86,10 +82,7 @@ contract LockToVotePluginSetup is PluginSetup {
         // Lock Manager
         helpers[0] = address(
             new LockManager(
-                IDAO(_dao),
-                LockManagerSettings(installationParams.unlockMode, PluginMode.Voting),
-                installationParams.token,
-                installationParams.underlyingToken
+                LockManagerSettings(PluginMode.Voting), installationParams.token, installationParams.underlyingToken
             )
         );
 

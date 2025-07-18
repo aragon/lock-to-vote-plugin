@@ -13,7 +13,7 @@ import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/IPluginSetup.sol";
 import {MajorityVotingBase} from "../src/base/MajorityVotingBase.sol";
 import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
-import {UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
+import {PluginMode} from "../src/interfaces/ILockManager.sol";
 import {createProxyAndCall} from "../src/util/proxy.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -48,7 +48,6 @@ contract LockToVotePluginSetupTest is TestBase {
 
     modifier whenPreparingAnInstallation() {
         installParams = LockToVotePluginSetup.InstallationParameters({
-            unlockMode: UnlockMode.Standard,
             token: token,
             underlyingToken: underlyingToken,
             votingSettings: MajorityVotingBase.VotingSettings({
@@ -215,7 +214,6 @@ contract LockToVotePluginSetupTest is TestBase {
 
     modifier whenPreparingAnUninstallation() {
         installParams = LockToVotePluginSetup.InstallationParameters({
-            unlockMode: UnlockMode.Standard,
             token: token,
             underlyingToken: underlyingToken,
             votingSettings: MajorityVotingBase.VotingSettings({
