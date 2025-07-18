@@ -1,21 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {ILockManager, LockManagerSettings, UnlockMode, PluginMode} from "./interfaces/ILockManager.sol";
-import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
-import {DaoAuthorizable} from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizable.sol";
-import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
-import {ILockToApprove} from "./interfaces/ILockToApprove.sol";
-import {ILockToVote} from "./interfaces/ILockToVote.sol";
-import {IMajorityVoting} from "./interfaces/IMajorityVoting.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ILockManager, LockManagerSettings, PluginMode} from "../interfaces/ILockManager.sol";
+import {ILockToGovernBase} from "../interfaces/ILockToGovernBase.sol";
+import {ILockToApprove} from "../interfaces/ILockToApprove.sol";
+import {ILockToVote} from "../interfaces/ILockToVote.sol";
+import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-/// @title LockManager
+/// @title LockManagerBase
 /// @author Aragon X 2025
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
-contract LockManager is ILockManager, DaoAuthorizable {
+abstract contract LockManagerBase is ILockManager {
     using EnumerableSet for EnumerableSet.UintSet;
 
     /// @notice The current LockManager settings
@@ -24,15 +21,8 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice The address of the lock to vote plugin to use
     ILockToGovernBase public plugin;
 
-    /// @notice The address of the token contract
-    IERC20 public immutable token;
-
-    /// @notice If applicable, the address of the underlying token from which "token" originates. Zero otherwise.
-    /// @dev This is relevant in cases where the main token can experience swift deviations in supply, whereas the underlying token is much more stable
-    IERC20 private immutable underlyingTokenAddr;
-
     /// @notice Keeps track of the amount of tokens locked by address
-    mapping(address => uint256) public lockedBalances;
+    mapping(address => uint256) private lockedBalances;
 
     /// @notice Keeps track of the known active proposal ID's
     /// @dev NOTE: Executed proposals will be actively reported, but defeated proposals will need to be garbage collected over time.
@@ -66,17 +56,9 @@ contract LockManager is ILockManager, DaoAuthorizable {
     /// @notice Thrown when trying to define the address of the plugin after it already was
     error SetPluginAddressForbidden();
 
-    /// @param _dao The address of the DAO where permissions should be checked by this contract
-    /// @param _settings The operation mode of the contract (plugin mode and unlock mode)
-    /// @param _token The address of the token contract that users can lock
-    /// @param _underlyingToken If applicable, the address of the contract from which `token` originates. This is relevant for LP tokens whose supply may experiment swift changes.
-    constructor(IDAO _dao, LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken)
-        DaoAuthorizable(_dao)
-    {
-        settings.unlockMode = _settings.unlockMode;
+    /// @param _settings The operation mode of the contract (plugin mode)
+    constructor(LockManagerSettings memory _settings) {
         settings.pluginMode = _settings.pluginMode;
-        token = _token;
-        underlyingTokenAddr = _underlyingToken;
     }
 
     /// @notice Returns the known proposalID at the given index
@@ -91,7 +73,12 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     /// @inheritdoc ILockManager
     function lock() public virtual {
-        _lock();
+        _lock(_incomingTokenBalance());
+    }
+
+    /// @inheritdoc ILockManager
+    function lock(uint256 _amount) public virtual {
+        _lock(_amount);
     }
 
     /// @inheritdoc ILockManager
@@ -100,8 +87,17 @@ contract LockManager is ILockManager, DaoAuthorizable {
             revert InvalidPluginMode();
         }
 
-        _lock();
+        _lock(_incomingTokenBalance());
+        _approve(_proposalId);
+    }
 
+    /// @inheritdoc ILockManager
+    function lockAndApprove(uint256 _proposalId, uint256 _amount) public virtual {
+        if (settings.pluginMode != PluginMode.Approval) {
+            revert InvalidPluginMode();
+        }
+
+        _lock(_amount);
         _approve(_proposalId);
     }
 
@@ -111,8 +107,17 @@ contract LockManager is ILockManager, DaoAuthorizable {
             revert InvalidPluginMode();
         }
 
-        _lock();
+        _lock(_incomingTokenBalance());
+        _vote(_proposalId, _voteOption);
+    }
 
+    /// @inheritdoc ILockManager
+    function lockAndVote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption, uint256 _amount) public virtual {
+        if (settings.pluginMode != PluginMode.Voting) {
+            revert InvalidPluginMode();
+        }
+
+        _lock(_amount);
         _vote(_proposalId, _voteOption);
     }
 
@@ -135,6 +140,11 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     /// @inheritdoc ILockManager
+    function getLockedBalance(address _account) public view virtual returns (uint256) {
+        return lockedBalances[_account];
+    }
+
+    /// @inheritdoc ILockManager
     function canVote(uint256 _proposalId, address _voter, IMajorityVoting.VoteOption _voteOption)
         external
         view
@@ -149,23 +159,20 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     /// @inheritdoc ILockManager
     function unlock() public virtual {
-        if (lockedBalances[msg.sender] == 0) {
+        uint256 _refundableBalance = getLockedBalance(msg.sender);
+        if (_refundableBalance == 0) {
             revert NoBalance();
         }
 
-        if (settings.unlockMode == UnlockMode.Strict) {
-            if (_hasActiveLocks()) revert LocksStillActive();
-        } else {
-            _withdrawActiveVotingPower();
-        }
+        /// @dev The plugin may decide to revert if its voting mode doesn't allow for it
+        _withdrawActiveVotingPower();
 
         // All votes clear
 
-        uint256 _refundableBalance = lockedBalances[msg.sender];
         lockedBalances[msg.sender] = 0;
 
         // Withdraw
-        token.transfer(msg.sender, _refundableBalance);
+        _doUnlockTransfer(msg.sender, _refundableBalance);
         emit BalanceUnlocked(msg.sender, _refundableBalance);
     }
 
@@ -189,14 +196,6 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
         emit ProposalEnded(_proposalId);
         knownProposalIds.remove(_proposalId);
-    }
-
-    /// @inheritdoc ILockManager
-    function underlyingToken() public view virtual returns (IERC20) {
-        if (address(underlyingTokenAddr) == address(0)) {
-            return token;
-        }
-        return underlyingTokenAddr;
     }
 
     /// @inheritdoc ILockManager
@@ -224,19 +223,33 @@ contract LockManager is ILockManager, DaoAuthorizable {
 
     // Internal
 
-    function _lock() internal virtual {
-        uint256 _allowance = token.allowance(msg.sender, address(this));
-        if (_allowance == 0) {
+    /// @notice Returns the amount of tokens that LockManager receives or can transfer from msg.sender
+    function _incomingTokenBalance() internal view virtual returns (uint256);
+
+    /// @notice Takes the user's tokens and registers the received amount.
+    function _lock(uint256 _amount) internal virtual {
+        if (_amount == 0) {
             revert NoBalance();
         }
 
-        token.transferFrom(msg.sender, address(this), _allowance);
-        lockedBalances[msg.sender] += _allowance;
-        emit BalanceLocked(msg.sender, _allowance);
+        /// @dev Reverts if not enough balance is approved
+        _doLockTransfer(_amount);
+
+        lockedBalances[msg.sender] += _amount;
+        emit BalanceLocked(msg.sender, _amount);
     }
 
+    /// @notice Triggers the transfer needed in order to complete the token locking flow.
+    ///     Reverts if the requested amount cannot be locked.
+    function _doLockTransfer(uint256 _amount) internal virtual;
+
+    /// @notice Transfers the requested amount of tokens to the recipient
+    /// @param _recipient The address that will receive the locked tokens back
+    /// @param _amount The amount of tokens that the recipient will get
+    function _doUnlockTransfer(address _recipient, uint256 _amount) internal virtual;
+
     function _approve(uint256 _proposalId) internal virtual {
-        uint256 _currentVotingPower = lockedBalances[msg.sender];
+        uint256 _currentVotingPower = getLockedBalance(msg.sender);
 
         /// @dev The voting power value is checked within plugin.approve()
 
@@ -244,7 +257,7 @@ contract LockManager is ILockManager, DaoAuthorizable {
     }
 
     function _vote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) internal virtual {
-        uint256 _currentVotingPower = lockedBalances[msg.sender];
+        uint256 _currentVotingPower = getLockedBalance(msg.sender);
 
         /// @dev The voting power value is checked within plugin.vote()
 

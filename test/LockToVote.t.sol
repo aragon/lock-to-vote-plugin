@@ -8,9 +8,9 @@ import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol"
 import {createProxyAndCall} from "../src/util/proxy.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
-import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
+import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
-import {LockManager} from "../src/LockManager.sol";
+import {LockManagerERC20} from "../src/LockManagerERC20.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TestToken} from "./mocks/TestToken.sol";
@@ -28,7 +28,7 @@ contract LockToVoteTest is TestBase {
     DaoBuilder builder;
     DAO dao;
     LockToVotePlugin ltvPlugin;
-    LockManager lockManager;
+    LockManagerERC20 lockManager;
     IERC20 lockableToken;
     IERC20 underlyingToken;
     uint256 proposalId;
@@ -63,7 +63,7 @@ contract LockToVoteTest is TestBase {
         builder = new DaoBuilder();
         (dao,, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
             .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
-            .withStrictUnlock().withVotingPlugin().withProposer(alice).build();
+            .withVotingPlugin().withProposer(alice).build();
 
         for (uint256 i = 0; i < actions.length; i++) {
             actions.pop();
@@ -106,12 +106,8 @@ contract LockToVoteTest is TestBase {
             bob, 10 ether
         ).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).build();
 
-        lockManager = new LockManager(
-            dao,
-            LockManagerSettings({unlockMode: UnlockMode.Strict, pluginMode: PluginMode.Voting}),
-            lockableToken,
-            underlyingToken
-        );
+        lockManager =
+            new LockManagerERC20(LockManagerSettings({pluginMode: PluginMode.Voting}), lockableToken, underlyingToken);
 
         ltvPlugin = LockToVotePlugin(createProxyAndCall(address(new LockToVotePlugin()), bytes("")));
 
@@ -566,7 +562,7 @@ contract LockToVoteTest is TestBase {
 
         _lock(alice, 1 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         vm.expectEmit(true, true, true, true);
         emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance);
@@ -621,7 +617,7 @@ contract LockToVoteTest is TestBase {
 
         _lock(alice, 1 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
         vm.prank(alice);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
@@ -650,7 +646,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         _lock(alice, 0.5 ether);
         // It should emit an event
@@ -685,7 +681,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         // It should revert
         vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
@@ -710,7 +706,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
         _lock(alice, 0.5 ether);
 
         // It should revert
@@ -747,7 +743,7 @@ contract LockToVoteTest is TestBase {
 
         _lock(alice, 1 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         // It should emit an event
         vm.expectEmit(true, true, true, true);
@@ -803,7 +799,7 @@ contract LockToVoteTest is TestBase {
 
         _lock(alice, 1 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
         vm.prank(alice);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
@@ -832,7 +828,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         _lock(alice, 0.5 ether);
         // It should emit an event
@@ -867,7 +863,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
         assertEq(tally.yes, aliceBalance);
@@ -914,7 +910,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
         assertEq(tally.yes, aliceBalance);
@@ -976,7 +972,7 @@ contract LockToVoteTest is TestBase {
 
         _lock(alice, 1 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         // It should emit an event
         vm.expectEmit(true, true, true, true);
@@ -1032,7 +1028,7 @@ contract LockToVoteTest is TestBase {
 
         _lock(alice, 1 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
         vm.prank(alice);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
@@ -1061,7 +1057,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         _lock(alice, 0.5 ether);
         // It should emit an event
@@ -1096,7 +1092,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
         _lock(alice, 0.5 ether);
 
         // It should revert
@@ -1122,7 +1118,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
         _lock(alice, 0.5 ether);
 
         // It should revert
@@ -2248,6 +2244,7 @@ contract LockToVoteTest is TestBase {
         givenMinApprovalIsReached
         givenIsSupportThresholdReachedEarlyWasReachedBeforeEndDate
     {
+        // 1
         (dao,, ltvPlugin, lockManager, lockableToken,) = new DaoBuilder().withStandardVoting().withVotingPlugin()
             .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice) // No early execution
@@ -2260,7 +2257,37 @@ contract LockToVoteTest is TestBase {
 
         // It canExecute() should return false
         assertFalse(ltvPlugin.canExecute(proposalId));
-        // It hasSucceeded() should return true
+        // It hasSucceeded() should return false
+        assertFalse(ltvPlugin.hasSucceeded(proposalId));
+
+        vm.warp(block.timestamp + 10 days);
+
+        // It canExecute() should return true when ended
+        assertTrue(ltvPlugin.canExecute(proposalId));
+        // It hasSucceeded() should return true when ended
+        assertTrue(ltvPlugin.hasSucceeded(proposalId));
+
+        // 2
+        (dao,, ltvPlugin, lockManager, lockableToken,) = new DaoBuilder().withVoteReplacement().withVotingPlugin()
+            .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
+            .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice) // No early execution
+            .build();
+        dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 51 ether);
+
+        // It canExecute() should return false
+        assertFalse(ltvPlugin.canExecute(proposalId));
+        // It hasSucceeded() should return false
+        assertFalse(ltvPlugin.hasSucceeded(proposalId));
+
+        vm.warp(block.timestamp + 10 days);
+
+        // It canExecute() should return true when ended
+        assertTrue(ltvPlugin.canExecute(proposalId));
+        // It hasSucceeded() should return true when ended
         assertTrue(ltvPlugin.hasSucceeded(proposalId));
     }
 
