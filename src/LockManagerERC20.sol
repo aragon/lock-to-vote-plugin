@@ -13,13 +13,14 @@ contract LockManagerERC20 is ILockManager, LockManagerBase {
     /// @notice The address of the token contract used to determine the voting power
     IERC20 private immutable tokenAddr;
 
-    /// @notice If applicable, the address of the underlying token from which "token" originates. Zero otherwise.
+    /// @notice If applicable, the address of the underlying token from which "tokenAddr" originates. Zero otherwise.
     /// @dev This is relevant in cases where the main token can experience swift deviations in supply, whereas the underlying token is much more stable
     IERC20 private immutable underlyingTokenAddr;
 
     /// @param _settings The operation mode of the contract (plugin mode)
     /// @param _token The address of the token contract that users can lock
-    /// @param _underlyingToken If applicable, the address of the contract from which `token` originates. This is relevant for LP tokens whose supply may experiment swift changes.
+    /// @param _underlyingToken If applicable, the address of the contract from which `token` originates.
+    ///     This is relevant for LP tokens whose supply may experiment swift changes.
     constructor(LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken)
         LockManagerBase(_settings)
     {

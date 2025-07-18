@@ -562,7 +562,7 @@ contract LockToVoteTest is TestBase {
 
         _lock(alice, 1 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         vm.expectEmit(true, true, true, true);
         emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance);
@@ -617,7 +617,7 @@ contract LockToVoteTest is TestBase {
 
         _lock(alice, 1 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
         vm.prank(alice);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
@@ -646,7 +646,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         _lock(alice, 0.5 ether);
         // It should emit an event
@@ -681,7 +681,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         // It should revert
         vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
@@ -706,7 +706,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
         _lock(alice, 0.5 ether);
 
         // It should revert
@@ -743,7 +743,7 @@ contract LockToVoteTest is TestBase {
 
         _lock(alice, 1 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         // It should emit an event
         vm.expectEmit(true, true, true, true);
@@ -799,7 +799,7 @@ contract LockToVoteTest is TestBase {
 
         _lock(alice, 1 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
         vm.prank(alice);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
@@ -828,7 +828,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         _lock(alice, 0.5 ether);
         // It should emit an event
@@ -863,7 +863,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
         assertEq(tally.yes, aliceBalance);
@@ -910,7 +910,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
         assertEq(tally.yes, aliceBalance);
@@ -972,7 +972,7 @@ contract LockToVoteTest is TestBase {
 
         _lock(alice, 1 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         // It should emit an event
         vm.expectEmit(true, true, true, true);
@@ -1028,7 +1028,7 @@ contract LockToVoteTest is TestBase {
 
         _lock(alice, 1 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
         vm.prank(alice);
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
@@ -1057,7 +1057,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
 
         _lock(alice, 0.5 ether);
         // It should emit an event
@@ -1092,7 +1092,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
         _lock(alice, 0.5 ether);
 
         // It should revert
@@ -1118,7 +1118,7 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
 
-        uint256 aliceBalance = lockManager.lockedBalances(alice);
+        uint256 aliceBalance = lockManager.getLockedBalance(alice);
         _lock(alice, 0.5 ether);
 
         // It should revert
