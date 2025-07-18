@@ -160,8 +160,7 @@ contract DaoBuilder is Test {
         {
             // Plugin and helper
 
-            lockManager =
-                new LockManager(dao, LockManagerSettings(unlockMode, pluginMode), lockableToken, underlyingToken);
+            lockManager = new LockManager(LockManagerSettings(unlockMode, pluginMode), lockableToken, underlyingToken);
 
             bytes memory pluginMetadata = "";
             IPlugin.TargetConfig memory targetConfig =

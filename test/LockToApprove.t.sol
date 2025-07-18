@@ -58,10 +58,7 @@ contract LockToApproveTest is TestBase {
         LOCK_TO_APPROVE_BASE = address(new LockToApprovePlugin());
         LOCK_MANAGER_BASE = address(
             new LockManager(
-                IDAO(address(0)),
-                LockManagerSettings(UnlockMode.Standard, PluginMode.Approval),
-                IERC20(address(0)),
-                IERC20(address(0))
+                LockManagerSettings(UnlockMode.Standard, PluginMode.Approval), IERC20(address(0)), IERC20(address(0))
             )
         );
 
@@ -137,9 +134,8 @@ contract LockToApproveTest is TestBase {
             IPlugin.TargetConfig({target: address(newDao), operation: IPlugin.Operation.Call});
         bytes memory pluginMetadata = "ipfs://1234";
 
-        newLockManager = new LockManager(
-            newDao, LockManagerSettings(UnlockMode.Standard, PluginMode.Approval), newToken, IERC20(address(0))
-        );
+        newLockManager =
+            new LockManager(LockManagerSettings(UnlockMode.Standard, PluginMode.Approval), newToken, IERC20(address(0)));
 
         newPlugin = LockToApprovePlugin(
             createProxyAndCall(
