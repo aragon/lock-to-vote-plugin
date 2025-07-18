@@ -3,8 +3,8 @@ pragma solidity ^0.8.17;
 
 import {TestBase} from "./lib/TestBase.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
-import {LockManager} from "../src/LockManager.sol";
-import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
+import {LockManagerERC20} from "../src/LockManagerERC20.sol";
+import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {ILockToApprove} from "../src/interfaces/ILockToApprove.sol";
 import {DaoBuilder} from "./builders/DaoBuilder.sol";
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
@@ -24,7 +24,7 @@ contract LockToApproveTest is TestBase {
     DaoBuilder builder;
     DAO dao;
     LockToApprovePlugin plugin;
-    LockManager lockManager;
+    LockManagerERC20 lockManager;
     IERC20 lockableToken;
     IERC20 underlyingToken;
     uint256 proposalId;
@@ -57,12 +57,7 @@ contract LockToApproveTest is TestBase {
     function setUp() public {
         LOCK_TO_APPROVE_BASE = address(new LockToApprovePlugin());
         LOCK_MANAGER_BASE = address(
-            new LockManager(
-                IDAO(address(0)),
-                LockManagerSettings(UnlockMode.Standard, PluginMode.Approval),
-                IERC20(address(0)),
-                IERC20(address(0))
-            )
+            new LockManagerERC20(LockManagerSettings(PluginMode.Approval), IERC20(address(0)), IERC20(address(0)))
         );
 
         vm.startPrank(alice);
@@ -73,7 +68,6 @@ contract LockToApproveTest is TestBase {
         (dao, plugin,, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
             .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
             .withApprovalPlugin().build();
-        // .withStrictUnlock()
         // .withMinApprovalRatio(100_000)
         // .withDuration(10 days)
     }
@@ -123,7 +117,7 @@ contract LockToApproveTest is TestBase {
         // It should define the lock manager
 
         LockToApprovePlugin newPlugin;
-        LockManager newLockManager;
+        LockManagerERC20 newLockManager;
         DAO newDao =
             DAO(payable(createProxyAndCall(DAO_BASE, abi.encodeCall(DAO.initialize, ("", alice, address(0x0), "")))));
         TestToken newToken = new TestToken();
@@ -137,9 +131,7 @@ contract LockToApproveTest is TestBase {
             IPlugin.TargetConfig({target: address(newDao), operation: IPlugin.Operation.Call});
         bytes memory pluginMetadata = "ipfs://1234";
 
-        newLockManager = new LockManager(
-            newDao, LockManagerSettings(UnlockMode.Standard, PluginMode.Approval), newToken, IERC20(address(0))
-        );
+        newLockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Approval), newToken, IERC20(address(0)));
 
         newPlugin = LockToApprovePlugin(
             createProxyAndCall(

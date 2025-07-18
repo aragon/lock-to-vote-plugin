@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import {TestBase} from "./lib/TestBase.sol";
 import {LockToApprovePluginSetup} from "../src/setup/LockToApprovePluginSetup.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
-import {LockManager} from "../src/LockManager.sol";
+import {LockManagerERC20} from "../src/LockManagerERC20.sol";
 import {MinVotingPowerCondition} from "../src/conditions/MinVotingPowerCondition.sol";
 import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {TestToken} from "./mocks/TestToken.sol";
@@ -12,7 +12,6 @@ import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
 import {IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/PluginSetup.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
-import {UnlockMode} from "../src/interfaces/ILockManager.sol";
 import {createProxyAndCall} from "../src/util/proxy.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -44,7 +43,6 @@ contract LockToApprovePluginSetupTest is TestBase {
 
     modifier whenPreparingAnInstallation() {
         installParams = LockToApprovePluginSetup.InstallationParameters({
-            unlockMode: UnlockMode.Standard,
             token: token,
             underlyingToken: IERC20(address(0)),
             approvalSettings: LockToApprovePlugin.ApprovalSettings({
@@ -96,7 +94,7 @@ contract LockToApprovePluginSetupTest is TestBase {
 
         // It should set the address of the lockManager on the plugin
         // (Note: test name is misleading, it sets the plugin on the lock manager)
-        assertEq(address(LockManager(lockManagerAddr).plugin()), plugin, "Plugin address not set on lock manager");
+        assertEq(address(LockManagerERC20(lockManagerAddr).plugin()), plugin, "Plugin address not set on lock manager");
 
         // It the plugin should have the right lockManager address
         assertEq(address(ltaPlugin.lockManager()), lockManagerAddr, "Lock manager address mismatch on plugin");
@@ -196,7 +194,6 @@ contract LockToApprovePluginSetupTest is TestBase {
 
     modifier whenPreparingAnUninstallation() {
         installParams = LockToApprovePluginSetup.InstallationParameters({
-            unlockMode: UnlockMode.Standard,
             token: token,
             underlyingToken: IERC20(address(0)),
             approvalSettings: LockToApprovePlugin.ApprovalSettings({
