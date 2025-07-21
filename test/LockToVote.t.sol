@@ -107,7 +107,6 @@ contract LockToVoteTest is TestBase {
         ).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).build();
 
         lockManager = new LockManager(
-            dao,
             LockManagerSettings({unlockMode: UnlockMode.Strict, pluginMode: PluginMode.Voting}),
             lockableToken,
             underlyingToken

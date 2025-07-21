@@ -62,15 +62,13 @@ contract LockManagerTest is TestBase {
         // It Should set the token address correctly
         // It Should set the underlying token address correctly
         // It Should initialize the plugin address to address(0)
-        IDAO testDao = IDAO(address(dao));
         IERC20 testToken = IERC20(address(new TestToken()));
         IERC20 testUnderlying = IERC20(address(new TestToken()));
         LockManagerSettings memory settings =
             LockManagerSettings({unlockMode: UnlockMode.Strict, pluginMode: PluginMode.Approval});
 
-        LockManager newLockManager = new LockManager(testDao, settings, testToken, testUnderlying);
+        LockManager newLockManager = new LockManager(settings, testToken, testUnderlying);
 
-        assertEq(address(newLockManager.dao()), address(testDao), "DAO address mismatch");
         (UnlockMode um, PluginMode pm) = newLockManager.settings();
         assertEq(uint8(um), uint8(UnlockMode.Strict), "Unlock mode mismatch");
         assertEq(uint8(pm), uint8(PluginMode.Approval), "Plugin mode mismatch");
@@ -82,16 +80,15 @@ contract LockManagerTest is TestBase {
     function test_WhenDeployingWithAZeroaddressForTheUnderlyingToken() external givenTheContractIsBeingDeployed {
         // It Should set the underlying token address to address(0)
         LockManager newLockManager = new LockManager(
-            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Approval), lockableToken, IERC20(address(0))
+            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval), lockableToken, IERC20(address(0))
         );
 
         assertEq(address(newLockManager.underlyingToken()), address(lockableToken));
     }
 
     modifier givenThePluginAddressHasNotBeenSetYet() {
-        lockManager = new LockManager(
-            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Approval), lockableToken, underlyingToken
-        );
+        lockManager =
+            new LockManager(LockManagerSettings(UnlockMode.Strict, PluginMode.Approval), lockableToken, underlyingToken);
         _;
     }
 
@@ -133,9 +130,8 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenThePluginModeIsVoting() {
-        lockManager = new LockManager(
-            dao, LockManagerSettings(UnlockMode.Strict, PluginMode.Voting), lockableToken, underlyingToken
-        );
+        lockManager =
+            new LockManager(LockManagerSettings(UnlockMode.Strict, PluginMode.Voting), lockableToken, underlyingToken);
         _;
     }
 
