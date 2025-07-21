@@ -19,7 +19,7 @@ contract LockManagerERC20 is ILockManager, LockManagerBase {
 
     /// @param _settings The operation mode of the contract (plugin mode)
     /// @param _token The address of the token contract that users can lock
-    /// @param _underlyingToken If applicable, the address of the contract from which `token` originates. This is relevant for LP tokens whose supply may experiment swift changes.
+    /// @param _underlyingToken If applicable, the address of the contract from which `token` originates. This is relevant for LP tokens whose supply may experience swift changes.
     constructor(LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken)
         LockManagerBase(_settings)
     {
