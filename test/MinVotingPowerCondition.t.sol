@@ -82,15 +82,37 @@ contract MinVotingPowerConditionTest is TestBase {
             condition.isGranted(address(0x0), alice, bytes32(0x0), ""), // Alice has 1 ether
             "Should return false for user with less than min power"
         );
+        vm.startPrank(alice);
+        token.approve(address(ltaPlugin.lockManager()), 0.5 ether);
+        ltaPlugin.lockManager().lock();
+        assertFalse(
+            condition.isGranted(address(0x0), alice, bytes32(0x0), ""), // Alice has 0.5+0.5 ether
+            "Should return false for alice"
+        );
 
         // It should return true when 'who' holds the minimum voting power
         assertTrue(
             condition.isGranted(address(0x0), bob, bytes32(0x0), ""), // Bob has 10 ether
             "Should return true for user with exact min power"
         );
+        vm.startPrank(bob);
+        token.approve(address(ltaPlugin.lockManager()), 0.5 ether);
+        ltaPlugin.lockManager().lock();
+        assertTrue(
+            condition.isGranted(address(0x0), bob, bytes32(0x0), ""), // Bob has 9.5+0.5 ether
+            "Should return true for bob"
+        );
+
         assertTrue(
             condition.isGranted(address(0x0), david, bytes32(0x0), ""), // David has 15 ether
             "Should return true for user with more than min power"
+        );
+        vm.startPrank(david);
+        token.approve(address(ltaPlugin.lockManager()), 5.5 ether);
+        ltaPlugin.lockManager().lock();
+        assertTrue(
+            condition.isGranted(address(0x0), david, bytes32(0x0), ""), // David has 9.5+5.5 ether
+            "Should return true for david"
         );
     }
 }
