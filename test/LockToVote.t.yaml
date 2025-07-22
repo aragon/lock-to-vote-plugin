@@ -459,11 +459,3 @@ LockToVoteTest:
   - when: Calling token()
     then:
       - it: Should return the right address
-  - when: Calling underlyingToken()
-    then:
-      - given: Underlying token is not defined
-        then:
-          - it: Should use the (lockable) token's balance to compute the approval ratio
-      - given: Underlying token is defined
-        then:
-          - it: Should use the underlying token's balance to compute the approval ratio

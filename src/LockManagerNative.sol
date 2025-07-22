@@ -18,11 +18,6 @@ contract LockManagerNative is ILockManager, LockManagerBase {
         /// @dev Returning address(0) as there is no token
     }
 
-    /// @inheritdoc ILockManager
-    function underlyingToken() public view virtual returns (address _underlyingToken) {
-        /// @dev Returning address(0) as there is no token
-    }
-
     // Internal overrides
 
     function _transfer(address _recipient, uint256 _amount) internal virtual override {

@@ -44,7 +44,6 @@ contract LockToApprovePluginSetupTest is TestBase {
     modifier whenPreparingAnInstallation() {
         installParams = LockToApprovePluginSetup.InstallationParameters({
             token: token,
-            underlyingToken: IERC20(address(0)),
             approvalSettings: LockToApprovePlugin.ApprovalSettings({
                 minApprovalRatio: 100_000, // 10%
                 proposalDuration: 10 days,
@@ -195,7 +194,6 @@ contract LockToApprovePluginSetupTest is TestBase {
     modifier whenPreparingAnUninstallation() {
         installParams = LockToApprovePluginSetup.InstallationParameters({
             token: token,
-            underlyingToken: IERC20(address(0)),
             approvalSettings: LockToApprovePlugin.ApprovalSettings({
                 minApprovalRatio: 100_000, // 10%
                 proposalDuration: 10 days,

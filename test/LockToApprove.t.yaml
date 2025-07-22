@@ -183,14 +183,6 @@ LockToApproveTest:
         then:
           - it: Should revert regardless of the permission
 
-  - when: Underlying token is not defined
-    then:
-      - it: Should use the lockable token's balance to compute the approval ratio
-
-  - when: Underlying token is defined
-    then:
-      - it: Should use the underlying token's balance to compute the approval ratio
-  
   # Getters
   - when: Calling isMember
     then:
@@ -204,7 +196,7 @@ LockToApproveTest:
   - given: Update approval settings permission granted
     and:
       - when: Calling updatePluginSettings [granted]
-        then: 
+        then:
           - it: Should set the new values
           - it: Settings() should return the right values
   - given: No update approval settings permission

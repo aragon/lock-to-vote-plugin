@@ -23,7 +23,7 @@ contract MinVotingPowerConditionTest is TestBase {
         vm.roll(100);
 
         builder = new DaoBuilder();
-        (dao, ltaPlugin, ltvPlugin,, token,) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(bob, 10 ether)
+        (dao, ltaPlugin, ltvPlugin,, token) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(bob, 10 ether)
             .withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).withApprovalPlugin().withDaoOwner(alice)
             .build();
     }

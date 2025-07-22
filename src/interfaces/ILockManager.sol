@@ -34,11 +34,6 @@ interface ILockManager {
     /// @return The token used for voting.
     function token() external view returns (address);
 
-    /// @notice If applicable, returns the address of the token that can be staked to obtain `token()`. Else, it returns the main token's address.
-    ///     If the native token is being used it returns address(0).
-    /// @return The address of the underlying token.
-    function underlyingToken() external view returns (address);
-
     /// @notice Returns the currently locked balance that the given account has on the contract.
     function lockedBalances(address account) external view returns (uint256);
 

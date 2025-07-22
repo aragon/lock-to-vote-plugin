@@ -87,8 +87,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
             (_allowFailureMap) = abi.decode(_data, (uint256));
         }
 
-        uint256 _currentSupply = IERC20(lockManager.token()).totalSupply();
-        if (_currentSupply == 0) {
+        if (currentTokenSupply() == 0) {
             revert NoVotingPower();
         }
 

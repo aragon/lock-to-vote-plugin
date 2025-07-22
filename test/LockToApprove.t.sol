@@ -26,7 +26,6 @@ contract LockToApproveTest is TestBase {
     LockToApprovePlugin plugin;
     LockManagerERC20 lockManager;
     IERC20 lockableToken;
-    IERC20 underlyingToken;
     uint256 proposalId;
 
     address LOCK_TO_APPROVE_BASE;
@@ -56,18 +55,16 @@ contract LockToApproveTest is TestBase {
 
     function setUp() public {
         LOCK_TO_APPROVE_BASE = address(new LockToApprovePlugin());
-        LOCK_MANAGER_BASE = address(
-            new LockManagerERC20(LockManagerSettings(PluginMode.Approval), IERC20(address(0)), IERC20(address(0)))
-        );
+        LOCK_MANAGER_BASE = address(new LockManagerERC20(LockManagerSettings(PluginMode.Approval), IERC20(address(0))));
 
         vm.startPrank(alice);
         vm.warp(10 days);
         vm.roll(100);
 
         builder = new DaoBuilder();
-        (dao, plugin,, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
-            .withApprovalPlugin().build();
+        (dao, plugin,, lockManager, lockableToken) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(
+            bob, 10 ether
+        ).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).withApprovalPlugin().build();
         // .withMinApprovalRatio(100_000)
         // .withDuration(10 days)
     }
@@ -131,7 +128,7 @@ contract LockToApproveTest is TestBase {
             IPlugin.TargetConfig({target: address(newDao), operation: IPlugin.Operation.Call});
         bytes memory pluginMetadata = "ipfs://1234";
 
-        newLockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Approval), newToken, IERC20(address(0)));
+        newLockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Approval), newToken);
 
         newPlugin = LockToApprovePlugin(
             createProxyAndCall(
@@ -1148,10 +1145,10 @@ contract LockToApproveTest is TestBase {
         plugin.execute(proposalId);
     }
 
-    function test_WhenUnderlyingTokenIsNotDefined() external {
+    function test_MinApprovalBasedOnTokenSupply() external {
         // It Should use the lockable token's balance to compute the approval ratio
         builder = new DaoBuilder();
-        (dao, plugin,, lockManager, lockableToken,) = builder.withTokenHolder(alice, 5 ether).withTokenHolder(
+        (dao, plugin,, lockManager, lockableToken) = builder.withTokenHolder(alice, 5 ether).withTokenHolder(
             bob, 5 ether
         ).withApprovalPlugin().withMinApprovalRatio(500_000).build();
 
@@ -1172,41 +1169,6 @@ contract LockToApproveTest is TestBase {
         lockManager.lockAndApprove(proposalId);
 
         assertTrue(plugin.hasSucceeded(proposalId), "Should succeed with 5 ether");
-    }
-
-    function test_WhenUnderlyingTokenIsDefined() external {
-        // It Should use the underlying token's balance to compute the approval ratio
-        TestToken underlyingTkn = new TestToken();
-        // The total supply of the underlying token will be used for the ratio calculation.
-        underlyingTkn.mint(address(this), 100 ether);
-
-        builder = new DaoBuilder();
-        // We give Alice and Bob enough lockable tokens to potentially meet the threshold.
-        (dao, plugin,, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(alice, 60 ether)
-            .withTokenHolder(bob, 20 ether).withApprovalPlugin().withMinApprovalRatio(500_000).withUnderlyingToken(
-            underlyingTkn
-        ).build();
-
-        // Underlying token supply is 100 ether, not 60+20
-        // The check should be against the underlying token's supply.
-        // Required approval: 50% of 100 ether = 50 ether.
-        assertEq(underlyingToken.totalSupply(), 100 ether);
-
-        proposalId = plugin.createProposal("0x", new Action[](0), 0, 0, "");
-
-        // Alice locks and approves with 49 ether. Should not be enough.
-        vm.startPrank(alice);
-        lockableToken.approve(address(lockManager), 49 ether);
-        lockManager.lockAndApprove(proposalId);
-
-        assertFalse(plugin.hasSucceeded(proposalId), "Should not succeed with 49 ether approval");
-
-        // Bob locks and approves with 1 ether. Total approval is now 50 ether. Should pass.
-        vm.startPrank(bob);
-        lockableToken.approve(address(lockManager), 1 ether);
-        lockManager.lockAndApprove(proposalId);
-
-        assertTrue(plugin.hasSucceeded(proposalId), "Should succeed with 50 ether total approval");
     }
 
     function test_WhenCallingIsMember() public {

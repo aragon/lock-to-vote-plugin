@@ -34,7 +34,6 @@ contract LockToVotePluginSetup is PluginSetup {
 
     /// @notice Struct containing all the parameters to set up the plugin, helpers and permissions
     /// @param token The address of the token that users can lock for voting (staking token in most cases)
-    /// @param underlyingToken If users obtain `token` by staking another token, the address of that token. Zero otherwise.
     /// @param votingSettings The voting plugin settings
     /// @param pluginMetadata An IPFS URI pointing to a pinned JSON file with the plugin's details
     /// @param createProposalCaller The address that can call createProposal (can be ANY_ADDR)
@@ -42,7 +41,6 @@ contract LockToVotePluginSetup is PluginSetup {
     /// @param targetConfig Where and how the plugin will execute actions
     struct InstallationParameters {
         IERC20 token;
-        IERC20 underlyingToken;
         LockToVotePlugin.VotingSettings votingSettings;
         bytes pluginMetadata;
         address createProposalCaller;
@@ -64,8 +62,7 @@ contract LockToVotePluginSetup is PluginSetup {
 
     /// @notice The contract constructor deploying the implementation contracts to use.
     constructor() PluginSetup(address(new LockToVotePlugin())) {
-        lockManagerImpl =
-            new LockManagerERC20(LockManagerSettings(PluginMode(0)), IERC20(address(0)), IERC20(address(0)));
+        lockManagerImpl = new LockManagerERC20(LockManagerSettings(PluginMode(0)), IERC20(address(0)));
     }
 
     /// @inheritdoc IPluginSetup
@@ -81,24 +78,12 @@ contract LockToVotePluginSetup is PluginSetup {
         address[] memory helpers = new address[](3);
 
         // Lock Manager
-        helpers[0] = address(
-            new LockManagerERC20(
-                LockManagerSettings(PluginMode.Voting), installationParams.token, installationParams.underlyingToken
-            )
-        );
+        helpers[0] = address(new LockManagerERC20(LockManagerSettings(PluginMode.Voting), installationParams.token));
 
         if (!address(installationParams.token).isContract()) {
             revert TokenNotContract(address(installationParams.token));
         } else if (!_supportsErc20(address(installationParams.token))) {
             revert TokenNotERC20(address(installationParams.token));
-        }
-
-        if (address(installationParams.underlyingToken) != address(0)) {
-            if (!address(installationParams.underlyingToken).isContract()) {
-                revert TokenNotContract(address(installationParams.underlyingToken));
-            } else if (!_supportsErc20(address(installationParams.underlyingToken))) {
-                revert TokenNotERC20(address(installationParams.underlyingToken));
-            }
         }
 
         // Prepare and deploy plugin proxy.

@@ -444,15 +444,7 @@ contract LockToApprovePlugin is
     }
 
     function _minApprovalTally(Proposal storage proposal_) internal view returns (uint256 _minTally) {
-        /// @dev Checking against the totalSupply() of the **underlying token**.
-        /// @dev LP tokens could have important supply variations and this would impact the value of existing votes, after created.
-        /// @dev However, the total supply of the underlying token (USDC, USDT, DAI, etc) will experiment little to no variations in comparison.
-
-        // NOTE: Assuming a 1:1 correlation between token() and underlyingToken()
-
-        _minTally = _applyRatioCeiled(
-            IERC20(lockManager.underlyingToken()).totalSupply(), proposal_.parameters.minApprovalRatio
-        );
+        _minTally = _applyRatioCeiled(currentTokenSupply(), proposal_.parameters.minApprovalRatio);
     }
 
     /// @notice Validates and returns the proposal dates.

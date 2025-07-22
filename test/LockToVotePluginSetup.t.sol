@@ -22,7 +22,6 @@ contract LockToVotePluginSetupTest is TestBase {
     LockToVotePluginSetup internal setup;
     DAO internal dao;
     TestToken internal token;
-    TestToken internal underlyingToken;
 
     // Parameters for installation
     LockToVotePluginSetup.InstallationParameters internal installParams;
@@ -37,7 +36,6 @@ contract LockToVotePluginSetupTest is TestBase {
             payable(createProxyAndCall(DAO_BASE, abi.encodeCall(DAO.initialize, ("", address(this), address(0x0), ""))))
         );
         token = new TestToken();
-        underlyingToken = new TestToken();
     }
 
     function test_WhenDeployingANewInstance() external {
@@ -49,7 +47,6 @@ contract LockToVotePluginSetupTest is TestBase {
     modifier whenPreparingAnInstallation() {
         installParams = LockToVotePluginSetup.InstallationParameters({
             token: token,
-            underlyingToken: underlyingToken,
             votingSettings: MajorityVotingBase.VotingSettings({
                 votingMode: MajorityVotingBase.VotingMode.Standard,
                 supportThresholdRatio: 500_000, // 50%
@@ -217,7 +214,6 @@ contract LockToVotePluginSetupTest is TestBase {
     modifier whenPreparingAnUninstallation() {
         installParams = LockToVotePluginSetup.InstallationParameters({
             token: token,
-            underlyingToken: underlyingToken,
             votingSettings: MajorityVotingBase.VotingSettings({
                 votingMode: MajorityVotingBase.VotingMode.Standard,
                 supportThresholdRatio: 500_000,

@@ -32,7 +32,6 @@ contract DaoBuilder is Test {
 
     // Lock Manager
     PluginMode pluginMode = PluginMode.Approval;
-    IERC20 underlyingTokenAddr;
 
     // Voting
     MajorityVotingBase.VotingMode votingMode = MajorityVotingBase.VotingMode.Standard;
@@ -103,11 +102,6 @@ contract DaoBuilder is Test {
         return this;
     }
 
-    function withUnderlyingToken(IERC20 underlyingToken) public returns (DaoBuilder) {
-        underlyingTokenAddr = underlyingToken;
-        return this;
-    }
-
     /// @dev Creates a DAO with the given orchestration settings.
     /// @dev The setup is done on block/timestamp 0 and tests should be made on block/timestamp 1 or later.
     function build()
@@ -117,8 +111,7 @@ contract DaoBuilder is Test {
             LockToApprovePlugin ltaPlugin,
             LockToVotePlugin ltvPlugin,
             LockManagerERC20 lockManager,
-            IERC20 lockableToken,
-            IERC20 underlyingToken
+            IERC20 lockableToken
         )
     {
         if (owner == address(0)) owner = msg.sender;
@@ -134,7 +127,6 @@ contract DaoBuilder is Test {
 
         // Deploy ERC20 token
         lockableToken = new TestToken();
-        underlyingToken = underlyingTokenAddr;
 
         if (tokenHolders.length > 0) {
             for (uint256 i = 0; i < tokenHolders.length; i++) {
@@ -149,7 +141,7 @@ contract DaoBuilder is Test {
         {
             // Plugin and helper
 
-            lockManager = new LockManagerERC20(LockManagerSettings(pluginMode), lockableToken, underlyingToken);
+            lockManager = new LockManagerERC20(LockManagerSettings(pluginMode), lockableToken);
 
             bytes memory pluginMetadata = "";
             IPlugin.TargetConfig memory targetConfig =
@@ -232,7 +224,6 @@ contract DaoBuilder is Test {
         vm.label(address(ltvPlugin), "LockToVote");
         vm.label(address(lockManager), "LockManager");
         vm.label(address(lockableToken), "VotingToken");
-        vm.label(address(underlyingToken), "UnderlyingToken");
 
         // Moving forward to avoid proposal creations failing or getVotes() giving inconsistent values
         vm.roll(block.number + 1);
