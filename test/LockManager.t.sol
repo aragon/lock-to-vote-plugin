@@ -8,7 +8,7 @@ import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol"
 import {createProxyAndCall} from "../src/util/proxy.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
-import {LockManagerSettings, UnlockMode, PluginMode} from "../src/interfaces/ILockManager.sol";
+import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
 import {LockManager} from "../src/LockManager.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
@@ -45,7 +45,7 @@ contract LockManagerTest is TestBase {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(
             alice, 1 ether
         ).withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
-            .withStrictUnlock().withApprovalPlugin().build();
+            .withApprovalPlugin().build();
     }
 
     modifier givenTheContractIsBeingDeployed() {
@@ -57,20 +57,17 @@ contract LockManagerTest is TestBase {
         givenTheContractIsBeingDeployed
     {
         // It Should set the DAO address correctly
-        // It Should set the unlockMode correctly
         // It Should set the pluginMode correctly
         // It Should set the token address correctly
         // It Should set the underlying token address correctly
         // It Should initialize the plugin address to address(0)
         IERC20 testToken = IERC20(address(new TestToken()));
         IERC20 testUnderlying = IERC20(address(new TestToken()));
-        LockManagerSettings memory settings =
-            LockManagerSettings({unlockMode: UnlockMode.Strict, pluginMode: PluginMode.Approval});
+        LockManagerSettings memory settings = LockManagerSettings({pluginMode: PluginMode.Approval});
 
         LockManager newLockManager = new LockManager(settings, testToken, testUnderlying);
 
-        (UnlockMode um, PluginMode pm) = newLockManager.settings();
-        assertEq(uint8(um), uint8(UnlockMode.Strict), "Unlock mode mismatch");
+        (PluginMode pm) = newLockManager.settings();
         assertEq(uint8(pm), uint8(PluginMode.Approval), "Plugin mode mismatch");
         assertEq(address(newLockManager.token()), address(testToken), "Token address mismatch");
         assertEq(address(newLockManager.underlyingToken()), address(testUnderlying), "Underlying token mismatch");
@@ -79,16 +76,14 @@ contract LockManagerTest is TestBase {
 
     function test_WhenDeployingWithAZeroaddressForTheUnderlyingToken() external givenTheContractIsBeingDeployed {
         // It Should set the underlying token address to address(0)
-        LockManager newLockManager = new LockManager(
-            LockManagerSettings(UnlockMode.Strict, PluginMode.Approval), lockableToken, IERC20(address(0))
-        );
+        LockManager newLockManager =
+            new LockManager(LockManagerSettings(PluginMode.Approval), lockableToken, IERC20(address(0)));
 
         assertEq(address(newLockManager.underlyingToken()), address(lockableToken));
     }
 
     modifier givenThePluginAddressHasNotBeenSetYet() {
-        lockManager =
-            new LockManager(LockManagerSettings(UnlockMode.Strict, PluginMode.Approval), lockableToken, underlyingToken);
+        lockManager = new LockManager(LockManagerSettings(PluginMode.Approval), lockableToken, underlyingToken);
         _;
     }
 
@@ -130,8 +125,7 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenThePluginModeIsVoting() {
-        lockManager =
-            new LockManager(LockManagerSettings(UnlockMode.Strict, PluginMode.Voting), lockableToken, underlyingToken);
+        lockManager = new LockManager(LockManagerSettings(PluginMode.Voting), lockableToken, underlyingToken);
         _;
     }
 
@@ -539,113 +533,13 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenTheUserHasALockedBalance3() {
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+            builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
+
         vm.prank(alice);
         lockableToken.approve(address(lockManager), 1 ether);
         vm.prank(alice);
         lockManager.lock();
-        _;
-    }
-
-    modifier givenUnlockModeIsStrict() {
-        // Default setup is strict
-        _;
-    }
-
-    modifier givenTheUserHasNoActiveVotesOnAnyOpenProposals() {
-        // User has locked tokens but not voted/approved
-        _;
-    }
-
-    function test_WhenCallingUnlock2()
-        external
-        givenAUserWantsToUnlockTokens
-        givenTheUserHasALockedBalance3
-        givenUnlockModeIsStrict
-        givenTheUserHasNoActiveVotesOnAnyOpenProposals
-    {
-        // It Should transfer the locked balance back to the user
-        // It Should set the user's lockedBalances to 0
-        // It Should emit a BalanceUnlocked event
-        uint256 lockedAmount = lockManager.lockedBalances(alice);
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-
-        vm.prank(alice);
-        vm.expectEmit(true, true, true, true);
-        emit BalanceUnlocked(alice, lockedAmount);
-        lockManager.unlock();
-
-        assertEq(lockManager.lockedBalances(alice), 0);
-        assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
-    }
-
-    modifier givenTheUserHasAnActiveVoteOnAtLeastOneOpenProposal() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
-            builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
-        Action[] memory _actions = new Action[](0);
-        proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
-        vm.prank(address(ltaPlugin));
-        lockManager.proposalCreated(proposalId);
-
-        vm.prank(alice);
-        lockableToken.approve(address(lockManager), 1 ether);
-        vm.prank(alice);
-        lockManager.lockAndApprove(proposalId);
-        _;
-    }
-
-    function test_WhenCallingUnlock3()
-        external
-        givenAUserWantsToUnlockTokens
-        givenUnlockModeIsStrict
-        givenTheUserHasAnActiveVoteOnAtLeastOneOpenProposal
-    {
-        // It Should revert with LocksStillActive
-        vm.prank(alice);
-        vm.expectRevert(LockManager.LocksStillActive.selector);
-        lockManager.unlock();
-    }
-
-    modifier givenTheUserOnlyHasVotesOnProposalsThatAreNowClosed() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
-            builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
-        Action[] memory _actions = new Action[](0);
-        proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
-        vm.prank(address(ltaPlugin));
-        lockManager.proposalCreated(proposalId);
-
-        vm.prank(alice);
-        lockableToken.approve(address(lockManager), 1 ether);
-        vm.prank(alice);
-        lockManager.lockAndApprove(proposalId);
-
-        vm.warp(block.timestamp + ltaPlugin.proposalDuration() + 1 days);
-        assertFalse(ltaPlugin.isProposalOpen(proposalId));
-        _;
-    }
-
-    function test_WhenCallingUnlock4()
-        external
-        givenAUserWantsToUnlockTokens
-        givenUnlockModeIsStrict
-        givenTheUserOnlyHasVotesOnProposalsThatAreNowClosed
-    {
-        // It Should succeed and transfer the locked balance back to the user
-        // It Should remove the closed proposal from knownProposalIds
-        uint256 lockedAmount = lockManager.lockedBalances(alice);
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-
-        vm.prank(alice);
-        lockManager.unlock();
-
-        assertEq(lockManager.lockedBalances(alice), 0);
-        assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
-        vm.expectRevert();
-        lockManager.knownProposalIdAt(0);
-    }
-
-    modifier givenUnlockModeIsDefault() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
-            builder.withStandardUnlock().withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
         _;
     }
 
@@ -657,7 +551,6 @@ contract LockManagerTest is TestBase {
     function test_WhenCallingUnlock5()
         external
         givenAUserWantsToUnlockTokens
-        givenUnlockModeIsDefault
         givenTheUserHasALockedBalance3
         givenTheUserHasNoActiveVotesOnAnyOpenProposals2
     {
@@ -673,8 +566,9 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenTheUserHasVotesOnOpenProposals() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withStandardUnlock()
-            .withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+            builder.withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
+
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
         vm.prank(address(ltvPlugin));
@@ -687,12 +581,7 @@ contract LockManagerTest is TestBase {
         _;
     }
 
-    function test_WhenCallingUnlock6()
-        external
-        givenAUserWantsToUnlockTokens
-        givenUnlockModeIsDefault
-        givenTheUserHasVotesOnOpenProposals
-    {
+    function test_WhenCallingUnlock6() external givenAUserWantsToUnlockTokens givenTheUserHasVotesOnOpenProposals {
         // It Should call clearVote() on the plugin for each active proposal
         // It Should transfer the locked balance back to the user
         // It Should set the user's lockedBalances to 0
@@ -713,7 +602,7 @@ contract LockManagerTest is TestBase {
 
     modifier givenTheUserHasApprovalsOnOpenProposals() {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
-            builder.withStandardUnlock().withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
+            builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
 
         Action[] memory _actions = new Action[](0);
         proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -746,8 +635,8 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenTheUserOnlyHasVotesOnProposalsThatAreNowClosedOrEnded() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withStandardUnlock()
-            .withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+            builder.withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
         vm.prank(address(ltvPlugin));
@@ -787,7 +676,7 @@ contract LockManagerTest is TestBase {
 
     modifier givenTheUserOnlyHasApprovalsOnProposalsThatAreNowClosedOrEnded() {
         (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
-            builder.withStandardUnlock().withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
+            builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
 
         Action[] memory _actions = new Action[](0);
         proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
