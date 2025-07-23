@@ -49,7 +49,6 @@ abstract contract LockToGovernBase is ILockToGovernBase, IMembership, ERC165Upgr
         if (address(_token) != address(0)) {
             if (_token.balanceOf(_account) > 0) return true;
         }
-        /// @dev When there is no token, we are not considering the native token as a way of membership
 
         return false;
     }

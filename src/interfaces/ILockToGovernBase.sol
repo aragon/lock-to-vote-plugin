@@ -16,7 +16,6 @@ interface ILockToGovernBase {
     function lockManager() external view returns (ILockManager);
 
     /// @notice Returns the address of the token contract used to determine the voting power.
-    ///     If the native token is being used it returns address(0).
     /// @return The address of the token used for voting.
     function token() external view returns (IERC20);
 
