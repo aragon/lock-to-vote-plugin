@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {ILockManager, LockManagerSettings, PluginMode} from "./interfaces/ILockManager.sol";
-import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
-import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
-import {ILockToApprove} from "./interfaces/ILockToApprove.sol";
-import {ILockToVote} from "./interfaces/ILockToVote.sol";
-import {IMajorityVoting} from "./interfaces/IMajorityVoting.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ILockManager, LockManagerSettings, PluginMode} from "../interfaces/ILockManager.sol";
+import {ILockToGovernBase} from "../interfaces/ILockToGovernBase.sol";
+import {ILockToApprove} from "../interfaces/ILockToApprove.sol";
+import {ILockToVote} from "../interfaces/ILockToVote.sol";
+import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-/// @title LockManager
+/// @title LockManagerBase
 /// @author Aragon X 2025
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
-contract LockManager is ILockManager {
+abstract contract LockManagerBase is ILockManager {
     using EnumerableSet for EnumerableSet.UintSet;
 
     /// @notice The current LockManager settings
@@ -22,13 +20,6 @@ contract LockManager is ILockManager {
 
     /// @notice The address of the lock to vote plugin to use
     ILockToGovernBase public plugin;
-
-    /// @notice The address of the token contract
-    IERC20 public immutable token;
-
-    /// @notice If applicable, the address of the underlying token from which "token" originates. Zero otherwise.
-    /// @dev This is relevant in cases where the main token can experience swift deviations in supply, whereas the underlying token is much more stable
-    IERC20 private immutable underlyingTokenAddr;
 
     /// @notice Keeps track of the amount of tokens locked by address
     mapping(address => uint256) public lockedBalances;
@@ -65,13 +56,9 @@ contract LockManager is ILockManager {
     /// @notice Thrown when trying to define the address of the plugin after it already was
     error SetPluginAddressForbidden();
 
-    /// @param _settings The operation mode of the contract (plugin mode and unlock mode)
-    /// @param _token The address of the token contract that users can lock
-    /// @param _underlyingToken If applicable, the address of the contract from which `token` originates. This is relevant for LP tokens whose supply may experiment swift changes.
-    constructor(LockManagerSettings memory _settings, IERC20 _token, IERC20 _underlyingToken) {
+    /// @param _settings The operation mode of the contract (plugin mode)
+    constructor(LockManagerSettings memory _settings) {
         settings.pluginMode = _settings.pluginMode;
-        token = _token;
-        underlyingTokenAddr = _underlyingToken;
     }
 
     /// @notice Returns the known proposalID at the given index
@@ -157,7 +144,7 @@ contract LockManager is ILockManager {
         lockedBalances[msg.sender] = 0;
 
         // Withdraw
-        token.transfer(msg.sender, _refundableBalance);
+        _transfer(msg.sender, _refundableBalance);
         emit BalanceUnlocked(msg.sender, _refundableBalance);
     }
 
@@ -181,14 +168,6 @@ contract LockManager is ILockManager {
 
         emit ProposalEnded(_proposalId);
         knownProposalIds.remove(_proposalId);
-    }
-
-    /// @inheritdoc ILockManager
-    function underlyingToken() public view virtual returns (IERC20) {
-        if (address(underlyingTokenAddr) == address(0)) {
-            return token;
-        }
-        return underlyingTokenAddr;
     }
 
     /// @inheritdoc ILockManager
@@ -216,16 +195,14 @@ contract LockManager is ILockManager {
 
     // Internal
 
-    function _lock() internal virtual {
-        uint256 _allowance = token.allowance(msg.sender, address(this));
-        if (_allowance == 0) {
-            revert NoBalance();
-        }
+    /// @notice Transfers the requested amount of tokens to the given recipient
+    /// @param _recipient The address that will receive the locked tokens back
+    /// @param _amount The amount of tokens that the recipient will get
+    function _transfer(address _recipient, uint256 _amount) internal virtual;
 
-        token.transferFrom(msg.sender, address(this), _allowance);
-        lockedBalances[msg.sender] += _allowance;
-        emit BalanceLocked(msg.sender, _allowance);
-    }
+    /// @notice Takes the user's tokens and registers the received amount.
+    /// @dev The override needs to emit the event.
+    function _lock() internal virtual;
 
     function _approve(uint256 _proposalId) internal virtual {
         uint256 _currentVotingPower = lockedBalances[msg.sender];

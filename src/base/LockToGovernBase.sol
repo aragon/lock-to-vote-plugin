@@ -6,6 +6,7 @@ pragma solidity ^0.8.8;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ILockManager} from "../interfaces/ILockManager.sol";
+import {ILockManager} from "../interfaces/ILockManager.sol";
 import {ILockToGovernBase} from "../interfaces/ILockToGovernBase.sol";
 import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
@@ -36,19 +37,19 @@ abstract contract LockToGovernBase is ILockToGovernBase, IMembership, ERC165Upgr
     }
 
     /// @inheritdoc ILockToGovernBase
-    function token() external view returns (IERC20) {
-        return lockManager.token();
-    }
-
-    /// @inheritdoc ILockToGovernBase
-    function underlyingToken() external view returns (IERC20) {
-        return lockManager.underlyingToken();
+    function token() public view returns (IERC20) {
+        return IERC20(lockManager.token());
     }
 
     /// @inheritdoc IMembership
     function isMember(address _account) external view returns (bool) {
         if (lockManager.lockedBalances(_account) > 0) return true;
-        else if (lockManager.token().balanceOf(_account) > 0) return true;
+
+        IERC20 _token = token();
+        if (address(_token) != address(0)) {
+            if (_token.balanceOf(_account) > 0) return true;
+        }
+
         return false;
     }
 

@@ -3,18 +3,9 @@ pragma solidity ^0.8.17;
 
 import {TestBase} from "./lib/TestBase.sol";
 import {DaoBuilder} from "./builders/DaoBuilder.sol";
-import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
-import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
-import {createProxyAndCall} from "../src/util/proxy.sol";
-import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
-import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
+import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
-import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
-import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
-import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
-import {LockManager} from "../src/LockManager.sol";
-import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MinVotingPowerCondition} from "../src/conditions/MinVotingPowerCondition.sol";
 import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
@@ -32,7 +23,7 @@ contract MinVotingPowerConditionTest is TestBase {
         vm.roll(100);
 
         builder = new DaoBuilder();
-        (dao, ltaPlugin, ltvPlugin,, token,) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(bob, 10 ether)
+        (dao, ltaPlugin, ltvPlugin,, token) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(bob, 10 ether)
             .withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).withApprovalPlugin().withDaoOwner(alice)
             .build();
     }

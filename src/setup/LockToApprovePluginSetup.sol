@@ -14,7 +14,7 @@ import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/Permis
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {PluginSetup, IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/PluginSetup.sol";
 import {LockToApprovePlugin} from "../LockToApprovePlugin.sol";
-import {LockManager} from "../LockManager.sol";
+import {LockManagerERC20} from "../LockManagerERC20.sol";
 import {LockManagerSettings, PluginMode} from "../../src/interfaces/ILockManager.sol";
 import {ILockToGovernBase} from "../../src/interfaces/ILockToGovernBase.sol";
 import {MinVotingPowerCondition} from "../../src/conditions/MinVotingPowerCondition.sol";
@@ -29,12 +29,11 @@ contract LockToApprovePluginSetup is PluginSetup {
     using Clones for address;
     using ERC165Checker for address;
 
-    /// @notice The address of the `LockManager` implementation.
-    LockManager private immutable lockManagerImpl;
+    /// @notice The address of the `LockManagerERC20` implementation.
+    LockManagerERC20 private immutable lockManagerImpl;
 
     /// @notice Struct containing all the parameters to set up the plugin, helpers and permissions
     /// @param token The address of the token that users can lock for voting (staking token in most cases)
-    /// @param underlyingToken If users obtain `token` by staking another token, the address of that token. Zero otherwise.
     /// @param approvalSettings The plugin settings
     /// @param pluginMetadata An IPFS URI pointing to a pinned JSON file with the plugin's details
     /// @param createProposalCaller The address that can call createProposal (can be ANY_ADDR)
@@ -42,7 +41,6 @@ contract LockToApprovePluginSetup is PluginSetup {
     /// @param targetConfig Where and how the plugin will execute actions
     struct InstallationParameters {
         IERC20 token;
-        IERC20 underlyingToken;
         LockToApprovePlugin.ApprovalSettings approvalSettings;
         bytes pluginMetadata;
         address createProposalCaller;
@@ -64,7 +62,7 @@ contract LockToApprovePluginSetup is PluginSetup {
 
     /// @notice The contract constructor deploying the implementation contracts to use.
     constructor() PluginSetup(address(new LockToApprovePlugin())) {
-        lockManagerImpl = new LockManager(LockManagerSettings(PluginMode(0)), IERC20(address(0)), IERC20(address(0)));
+        lockManagerImpl = new LockManagerERC20(LockManagerSettings(PluginMode(0)), IERC20(address(0)));
     }
 
     /// @inheritdoc IPluginSetup
@@ -80,24 +78,12 @@ contract LockToApprovePluginSetup is PluginSetup {
         address[] memory helpers = new address[](3);
 
         // Lock Manager
-        helpers[0] = address(
-            new LockManager(
-                LockManagerSettings(PluginMode.Approval), installationParams.token, installationParams.underlyingToken
-            )
-        );
+        helpers[0] = address(new LockManagerERC20(LockManagerSettings(PluginMode.Approval), installationParams.token));
 
         if (!address(installationParams.token).isContract()) {
             revert TokenNotContract(address(installationParams.token));
         } else if (!_supportsErc20(address(installationParams.token))) {
             revert TokenNotERC20(address(installationParams.token));
-        }
-
-        if (address(installationParams.underlyingToken) != address(0)) {
-            if (!address(installationParams.underlyingToken).isContract()) {
-                revert TokenNotContract(address(installationParams.underlyingToken));
-            } else if (!_supportsErc20(address(installationParams.underlyingToken))) {
-                revert TokenNotERC20(address(installationParams.underlyingToken));
-            }
         }
 
         // Prepare and deploy plugin proxy.
@@ -107,14 +93,14 @@ contract LockToApprovePluginSetup is PluginSetup {
                 LockToApprovePlugin.initialize,
                 (
                     IDAO(_dao),
-                    LockManager(helpers[0]),
+                    LockManagerERC20(helpers[0]),
                     installationParams.approvalSettings,
                     installationParams.targetConfig,
                     installationParams.pluginMetadata
                 )
             )
         );
-        LockManager(helpers[0]).setPluginAddress(ILockToGovernBase(plugin));
+        LockManagerERC20(helpers[0]).setPluginAddress(ILockToGovernBase(plugin));
 
         // Condition
         address minVotingPowerCondition = address(new MinVotingPowerCondition(ILockToGovernBase(plugin)));

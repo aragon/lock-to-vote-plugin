@@ -10,20 +10,20 @@ import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
 import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
-import {LockManager} from "../src/LockManager.sol";
+import {LockManagerBase} from "../src/base/LockManagerBase.sol";
+import {LockManagerERC20} from "../src/LockManagerERC20.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TestToken} from "./mocks/TestToken.sol";
 import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
 
-contract LockManagerTest is TestBase {
+contract LockManagerERC20Test is TestBase {
     DaoBuilder builder;
     DAO dao;
     LockToApprovePlugin ltaPlugin;
     LockToVotePlugin ltvPlugin;
-    LockManager lockManager;
+    LockManagerERC20 lockManager;
     IERC20 lockableToken;
-    IERC20 underlyingToken;
     uint256 proposalId;
 
     event BalanceLocked(address voter, uint256 amount);
@@ -42,9 +42,8 @@ contract LockManagerTest is TestBase {
         vm.roll(100);
 
         builder = new DaoBuilder();
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) = builder.withTokenHolder(
-            alice, 1 ether
-        ).withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) = builder.withTokenHolder(alice, 1 ether)
+            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
             .withApprovalPlugin().build();
     }
 
@@ -52,38 +51,8 @@ contract LockManagerTest is TestBase {
         _;
     }
 
-    function test_WhenDeployingWithValidParametersAndANonzeroUnderlyingToken()
-        external
-        givenTheContractIsBeingDeployed
-    {
-        // It Should set the DAO address correctly
-        // It Should set the pluginMode correctly
-        // It Should set the token address correctly
-        // It Should set the underlying token address correctly
-        // It Should initialize the plugin address to address(0)
-        IERC20 testToken = IERC20(address(new TestToken()));
-        IERC20 testUnderlying = IERC20(address(new TestToken()));
-        LockManagerSettings memory settings = LockManagerSettings({pluginMode: PluginMode.Approval});
-
-        LockManager newLockManager = new LockManager(settings, testToken, testUnderlying);
-
-        (PluginMode pm) = newLockManager.settings();
-        assertEq(uint8(pm), uint8(PluginMode.Approval), "Plugin mode mismatch");
-        assertEq(address(newLockManager.token()), address(testToken), "Token address mismatch");
-        assertEq(address(newLockManager.underlyingToken()), address(testUnderlying), "Underlying token mismatch");
-        assertEq(address(newLockManager.plugin()), address(0), "Plugin should be zero");
-    }
-
-    function test_WhenDeployingWithAZeroaddressForTheUnderlyingToken() external givenTheContractIsBeingDeployed {
-        // It Should set the underlying token address to address(0)
-        LockManager newLockManager =
-            new LockManager(LockManagerSettings(PluginMode.Approval), lockableToken, IERC20(address(0)));
-
-        assertEq(address(newLockManager.underlyingToken()), address(lockableToken));
-    }
-
     modifier givenThePluginAddressHasNotBeenSetYet() {
-        lockManager = new LockManager(LockManagerSettings(PluginMode.Approval), lockableToken, underlyingToken);
+        lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Approval), lockableToken);
         _;
     }
 
@@ -92,7 +61,7 @@ contract LockManagerTest is TestBase {
         givenThePluginAddressHasNotBeenSetYet
     {
         // It Should revert with InvalidPlugin
-        vm.expectRevert(LockManager.InvalidPlugin.selector);
+        vm.expectRevert(LockManagerBase.InvalidPlugin.selector);
         lockManager.setPluginAddress(ILockToGovernBase(address(dao)));
     }
 
@@ -107,9 +76,9 @@ contract LockManagerTest is TestBase {
         givenThePluginModeIsApproval
     {
         // It Should revert with InvalidPlugin
-        (,, LockToVotePlugin votingPlugin,,,) = builder.withVotingPlugin().build();
+        (,, LockToVotePlugin votingPlugin,,) = builder.withVotingPlugin().build();
 
-        vm.expectRevert(LockManager.InvalidPlugin.selector);
+        vm.expectRevert(LockManagerBase.InvalidPlugin.selector);
         lockManager.setPluginAddress(votingPlugin);
     }
 
@@ -125,7 +94,7 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenThePluginModeIsVoting() {
-        lockManager = new LockManager(LockManagerSettings(PluginMode.Voting), lockableToken, underlyingToken);
+        lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Voting), lockableToken);
         _;
     }
 
@@ -135,7 +104,7 @@ contract LockManagerTest is TestBase {
         givenThePluginModeIsVoting
     {
         // It Should revert with InvalidPlugin
-        vm.expectRevert(LockManager.InvalidPlugin.selector);
+        vm.expectRevert(LockManagerBase.InvalidPlugin.selector);
         lockManager.setPluginAddress(ltaPlugin);
     }
 
@@ -145,7 +114,7 @@ contract LockManagerTest is TestBase {
         givenThePluginModeIsVoting
     {
         // It Should set the plugin address
-        (,, LockToVotePlugin votingPlugin,,,) = builder.withVotingPlugin().build();
+        (,, LockToVotePlugin votingPlugin,,) = builder.withVotingPlugin().build();
 
         assertEq(address(lockManager.plugin()), address(0));
         lockManager.setPluginAddress(votingPlugin);
@@ -215,7 +184,7 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenVotingPluginIsActive() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
             builder.withVotingPlugin().withTokenHolder(alice, 1 ether).build();
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -367,7 +336,7 @@ contract LockManagerTest is TestBase {
     {
         // It Should call vote() on the plugin with the new, larger balance
         // Note: For this to work, votingMode must be VoteReplacement
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
             builder.withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 2 ether).build();
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -399,7 +368,7 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenApprovalPluginIsActive() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
             builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
         Action[] memory _actions = new Action[](0);
         proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -533,7 +502,7 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenTheUserHasALockedBalance3() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
             builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
 
         vm.prank(alice);
@@ -566,7 +535,7 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenTheUserHasVotesOnOpenProposals() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
             builder.withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
 
         Action[] memory _actions = new Action[](0);
@@ -601,7 +570,7 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenTheUserHasApprovalsOnOpenProposals() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
             builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
 
         Action[] memory _actions = new Action[](0);
@@ -635,7 +604,7 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenTheUserOnlyHasVotesOnProposalsThatAreNowClosedOrEnded() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
             builder.withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -675,7 +644,7 @@ contract LockManagerTest is TestBase {
     }
 
     modifier givenTheUserOnlyHasApprovalsOnProposalsThatAreNowClosedOrEnded() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
+        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
             builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
 
         Action[] memory _actions = new Action[](0);
@@ -811,37 +780,6 @@ contract LockManagerTest is TestBase {
 
     modifier givenTheContractIsInitialized() {
         _;
-    }
-
-    modifier givenANonzeroUnderlyingTokenWasProvidedInTheConstructor() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
-            builder.withUnderlyingToken(new TestToken()).build();
-
-        _;
-    }
-
-    function test_WhenCallingUnderlyingToken()
-        external
-        givenTheContractIsInitialized
-        givenANonzeroUnderlyingTokenWasProvidedInTheConstructor
-    {
-        // It Should return the address of the underlying token
-        assertEq(address(lockManager.underlyingToken()), address(underlyingToken));
-    }
-
-    modifier givenAZeroaddressUnderlyingTokenWasProvidedInTheConstructor() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken, underlyingToken) =
-            builder.withUnderlyingToken(IERC20(address(0))).build();
-        _;
-    }
-
-    function test_WhenCallingUnderlyingToken2()
-        external
-        givenTheContractIsInitialized
-        givenAZeroaddressUnderlyingTokenWasProvidedInTheConstructor
-    {
-        // It Should return the address of the main token
-        assertEq(address(lockManager.underlyingToken()), address(lockableToken));
     }
 
     modifier givenAPluginIsSetAndAProposalExists() {

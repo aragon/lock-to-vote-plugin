@@ -219,16 +219,6 @@ LockManagerTest:
 
   - given: The contract is initialized
     and:
-      - given: A non-zero underlying token was provided in the constructor
-        and:
-          - when: Calling underlyingToken()
-            then:
-              - it: Should return the address of the underlying token
-      - given: A zero-address underlying token was provided in the constructor
-        and:
-          - when: Calling underlyingToken()
-            then:
-              - it: Should return the address of the main token
       - given: A plugin is set and a proposal exists
         and:
           - given: pluginMode is Voting

@@ -19,10 +19,6 @@ interface ILockToGovernBase {
     /// @return The address of the token used for voting.
     function token() external view returns (IERC20);
 
-    /// @notice If applicable, returns the address of the token that can be stacked to obtain `token()`. Else, it returns the voting token's address.
-    /// @return The address of the underlying token.
-    function underlyingToken() external view returns (IERC20);
-
     /// @notice Returns whether the account has voted for the proposal.
     /// @param proposalId The ID of the proposal.
     /// @param voter The account address to be checked.
