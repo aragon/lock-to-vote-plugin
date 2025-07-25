@@ -42,7 +42,7 @@ contract MinVotingPowerCondition is PermissionCondition {
     {
         (_where, _data, _permissionId);
 
-        uint256 _currentBalance = token.balanceOf(_who) + lockManager.lockedBalances(_who);
+        uint256 _currentBalance = token.balanceOf(_who) + lockManager.getLockedBalance(_who);
         uint256 _minProposerVotingPower = plugin.minProposerVotingPower();
 
         return _currentBalance >= _minProposerVotingPower;

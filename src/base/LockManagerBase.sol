@@ -22,7 +22,7 @@ abstract contract LockManagerBase is ILockManager {
     ILockToGovernBase public plugin;
 
     /// @notice Keeps track of the amount of tokens locked by address
-    mapping(address => uint256) public lockedBalances;
+    mapping(address => uint256) private lockedBalances;
 
     /// @notice Keeps track of the known active proposal ID's
     /// @dev NOTE: Executed proposals will be actively reported, but defeated proposals will need to be garbage collected over time.
@@ -140,6 +140,11 @@ abstract contract LockManagerBase is ILockManager {
     }
 
     /// @inheritdoc ILockManager
+    function getLockedBalance(address _account) public view virtual returns (uint256) {
+        return lockedBalances[_account];
+    }
+
+    /// @inheritdoc ILockManager
     function canVote(uint256 _proposalId, address _voter, IMajorityVoting.VoteOption _voteOption)
         external
         view
@@ -154,7 +159,8 @@ abstract contract LockManagerBase is ILockManager {
 
     /// @inheritdoc ILockManager
     function unlock() public virtual {
-        if (lockedBalances[msg.sender] == 0) {
+        uint256 _refundableBalance = getLockedBalance(msg.sender);
+        if (_refundableBalance == 0) {
             revert NoBalance();
         }
 
@@ -163,7 +169,6 @@ abstract contract LockManagerBase is ILockManager {
 
         // All votes clear
 
-        uint256 _refundableBalance = lockedBalances[msg.sender];
         lockedBalances[msg.sender] = 0;
 
         // Withdraw
@@ -227,7 +232,9 @@ abstract contract LockManagerBase is ILockManager {
             revert NoBalance();
         }
 
+        /// @dev Reverts if not enough balance is approved
         _doLockTransfer(_amount);
+
         lockedBalances[msg.sender] += _amount;
         emit BalanceLocked(msg.sender, _amount);
     }
@@ -242,7 +249,7 @@ abstract contract LockManagerBase is ILockManager {
     function _doUnlockTransfer(address _recipient, uint256 _amount) internal virtual;
 
     function _approve(uint256 _proposalId) internal virtual {
-        uint256 _currentVotingPower = lockedBalances[msg.sender];
+        uint256 _currentVotingPower = getLockedBalance(msg.sender);
 
         /// @dev The voting power value is checked within plugin.approve()
 
@@ -250,38 +257,11 @@ abstract contract LockManagerBase is ILockManager {
     }
 
     function _vote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) internal virtual {
-        uint256 _currentVotingPower = lockedBalances[msg.sender];
+        uint256 _currentVotingPower = getLockedBalance(msg.sender);
 
         /// @dev The voting power value is checked within plugin.vote()
 
         ILockToVote(address(plugin)).vote(_proposalId, msg.sender, _voteOption, _currentVotingPower);
-    }
-
-    function _hasActiveLocks() internal virtual returns (bool _activeLocks) {
-        uint256 _proposalCount = knownProposalIds.length();
-        for (uint256 _i; _i < _proposalCount;) {
-            uint256 _proposalId = knownProposalIds.at(_i);
-            if (!plugin.isProposalOpen(_proposalId)) {
-                knownProposalIds.remove(_proposalId);
-                _proposalCount = knownProposalIds.length();
-
-                // Were we at the last element?
-                if (_i == _proposalCount) {
-                    return false;
-                }
-
-                // Recheck the same index (now, another proposalId)
-                continue;
-            }
-
-            if (plugin.usedVotingPower(_proposalId, msg.sender) > 0) {
-                return true;
-            }
-
-            unchecked {
-                _i++;
-            }
-        }
     }
 
     function _withdrawActiveVotingPower() internal virtual {

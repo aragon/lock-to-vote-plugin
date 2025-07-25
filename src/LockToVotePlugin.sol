@@ -138,7 +138,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         }
 
         Proposal storage proposal_ = proposals[_proposalId];
-        return _canVote(proposal_, _voter, _voteOption, lockManager.lockedBalances(_voter));
+        return _canVote(proposal_, _voter, _voteOption, lockManager.getLockedBalance(_voter));
     }
 
     /// @inheritdoc ILockToVote
