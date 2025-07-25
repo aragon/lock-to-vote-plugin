@@ -7,7 +7,6 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {LockToVotePluginSetup} from "../src/setup/LockToVotePluginSetup.sol";
-import {LockToApprovePluginSetup} from "../src/setup/LockToApprovePluginSetup.sol";
 import {PluginRepoFactory} from "@aragon/osx/src/framework/plugin/repo/PluginRepoFactory.sol";
 import {PluginRepo} from "@aragon/osx/src/framework/plugin/repo/PluginRepo.sol";
 import {PluginSetupProcessor} from "@aragon/osx/src/framework/plugin/setup/PluginSetupProcessor.sol";
@@ -24,9 +23,7 @@ contract DeployNewPluginRepoScript is Script {
 
     // Artifacts
     PluginRepo lockToVotePluginRepo;
-    PluginRepo lockToApprovePluginRepo;
     address lockToVotePluginSetup;
-    address lockToApprovePluginSetup;
 
     modifier broadcast() {
         uint256 privKey = vm.envUint("DEPLOYMENT_PRIVATE_KEY");
@@ -47,7 +44,6 @@ contract DeployNewPluginRepoScript is Script {
         maintainer = vm.envAddress("PLUGIN_REPO_MAINTAINER_ADDRESS");
         pluginRepoFactory = PluginRepoFactory(vm.envAddress("PLUGIN_REPO_FACTORY_ADDRESS"));
         ltvEnsSubdomain = vm.envString("LOCK_TO_VOTE_ENS_SUBDOMAIN");
-        ltaEnsSubdomain = vm.envString("LOCK_TO_APPROVE_ENS_SUBDOMAIN");
 
         vm.label(maintainer, "Maintainer");
         vm.label(address(pluginRepoFactory), "PluginRepoFactory");
@@ -56,12 +52,9 @@ contract DeployNewPluginRepoScript is Script {
     function run() public broadcast {
         // Deploy the plugin setup's
         prepareLockToVote();
-        prepareLockToApprove();
 
         vm.label(address(lockToVotePluginRepo), "LockToVotePluginRepo");
-        vm.label(address(lockToApprovePluginRepo), "LockToApprovePluginRepo");
         vm.label(lockToVotePluginSetup, "LockToVotePluginSetup");
-        vm.label(lockToApprovePluginSetup, "LockToApprovePluginSetup");
 
         printDeployment();
 
@@ -84,28 +77,13 @@ contract DeployNewPluginRepoScript is Script {
         );
     }
 
-    function prepareLockToApprove() internal {
-        lockToApprovePluginSetup = address(new LockToApprovePluginSetup());
-
-        // Use a random value if empty
-        if (bytes(ltaEnsSubdomain).length == 0) {
-            ltaEnsSubdomain = string.concat("lock-to-approve-plugin-", vm.toString(block.timestamp));
-        }
-
-        lockToApprovePluginRepo = pluginRepoFactory.createPluginRepoWithFirstVersion(
-            ltaEnsSubdomain, address(lockToApprovePluginSetup), maintainer, " ", " "
-        );
-    }
-
     function printDeployment() internal view {
         console.log("Plugin setup's");
         console.log("- LockToVotePluginSetup:       ", lockToVotePluginSetup);
-        console.log("- LockToApprovePluginSetup:    ", lockToApprovePluginSetup);
         console.log("");
 
         console.log("Plugin repositories");
         console.log("- LockToVote plugin repository:     ", address(lockToVotePluginRepo));
-        console.log("- LockToApprove plugin repository:  ", address(lockToApprovePluginRepo));
         console.log("- Maintainer:                       ", address(maintainer));
         console.log("");
     }
@@ -113,10 +91,8 @@ contract DeployNewPluginRepoScript is Script {
     function writeJsonArtifacts() internal {
         string memory artifacts = "output";
         artifacts.serialize("lockToVotePluginRepo", address(lockToVotePluginRepo));
-        artifacts.serialize("lockToApprovePluginRepo", address(lockToApprovePluginRepo));
         artifacts.serialize("pluginRepoMaintainer", maintainer);
         artifacts.serialize("lockToVoteEnsDomain", string.concat(ltvEnsSubdomain, ".plugin.dao.eth"));
-        artifacts = artifacts.serialize("lockToApproveEnsDomain", string.concat(ltaEnsSubdomain, ".plugin.dao.eth"));
 
         string memory networkName = vm.envString("NETWORK_NAME");
         string memory filePath = string.concat(

@@ -3,7 +3,6 @@ pragma solidity ^0.8.13;
 
 import {ILockManager, LockManagerSettings, PluginMode} from "../interfaces/ILockManager.sol";
 import {ILockToGovernBase} from "../interfaces/ILockToGovernBase.sol";
-import {ILockToApprove} from "../interfaces/ILockToApprove.sol";
 import {ILockToVote} from "../interfaces/ILockToVote.sol";
 import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -82,26 +81,6 @@ abstract contract LockManagerBase is ILockManager {
     }
 
     /// @inheritdoc ILockManager
-    function lockAndApprove(uint256 _proposalId) public virtual {
-        if (settings.pluginMode != PluginMode.Approval) {
-            revert InvalidPluginMode();
-        }
-
-        _lock(_incomingTokenBalance());
-        _approve(_proposalId);
-    }
-
-    /// @inheritdoc ILockManager
-    function lockAndApprove(uint256 _proposalId, uint256 _amount) public virtual {
-        if (settings.pluginMode != PluginMode.Approval) {
-            revert InvalidPluginMode();
-        }
-
-        _lock(_amount);
-        _approve(_proposalId);
-    }
-
-    /// @inheritdoc ILockManager
     function lockAndVote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) public virtual {
         if (settings.pluginMode != PluginMode.Voting) {
             revert InvalidPluginMode();
@@ -119,15 +98,6 @@ abstract contract LockManagerBase is ILockManager {
 
         _lock(_amount);
         _vote(_proposalId, _voteOption);
-    }
-
-    /// @inheritdoc ILockManager
-    function approve(uint256 _proposalId) public virtual {
-        if (settings.pluginMode != PluginMode.Approval) {
-            revert InvalidPluginMode();
-        }
-
-        _approve(_proposalId);
     }
 
     /// @inheritdoc ILockManager
@@ -151,10 +121,7 @@ abstract contract LockManagerBase is ILockManager {
         virtual
         returns (bool)
     {
-        if (settings.pluginMode == PluginMode.Voting) {
-            return ILockToVote(address(plugin)).canVote(_proposalId, _voter, _voteOption);
-        }
-        return ILockToApprove(address(plugin)).canApprove(_proposalId, _voter);
+        return ILockToVote(address(plugin)).canVote(_proposalId, _voter, _voteOption);
     }
 
     /// @inheritdoc ILockManager
@@ -207,11 +174,6 @@ abstract contract LockManagerBase is ILockManager {
         }
         // Is it the right type of plugin?
         else if (
-            settings.pluginMode == PluginMode.Approval
-                && !IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToApprove).interfaceId)
-        ) {
-            revert InvalidPlugin();
-        } else if (
             settings.pluginMode == PluginMode.Voting
                 && !IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToVote).interfaceId)
         ) {
@@ -248,14 +210,6 @@ abstract contract LockManagerBase is ILockManager {
     /// @param _amount The amount of tokens that the recipient will get
     function _doUnlockTransfer(address _recipient, uint256 _amount) internal virtual;
 
-    function _approve(uint256 _proposalId) internal virtual {
-        uint256 _currentVotingPower = getLockedBalance(msg.sender);
-
-        /// @dev The voting power value is checked within plugin.approve()
-
-        ILockToApprove(address(plugin)).approve(_proposalId, msg.sender, _currentVotingPower);
-    }
-
     function _vote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) internal virtual {
         uint256 _currentVotingPower = getLockedBalance(msg.sender);
 
@@ -282,11 +236,7 @@ abstract contract LockManagerBase is ILockManager {
             }
 
             if (plugin.usedVotingPower(_proposalId, msg.sender) > 0) {
-                if (settings.pluginMode == PluginMode.Voting) {
-                    ILockToVote(address(plugin)).clearVote(_proposalId, msg.sender);
-                } else {
-                    ILockToApprove(address(plugin)).clearApproval(_proposalId, msg.sender);
-                }
+                ILockToVote(address(plugin)).clearVote(_proposalId, msg.sender);
             }
 
             unchecked {

@@ -17,14 +17,6 @@ LockManagerTest:
       - when: Calling setPluginAddress() with an address that does not support ILockToGovernBase
         then:
           - it: Should revert with InvalidPlugin
-      - given: The pluginMode is Approval
-        and:
-          - when: Calling setPluginAddress() with a plugin that supports ILockToGovernBase but not ILockToApprove
-            then:
-              - it: Should revert with InvalidPlugin
-          - when: Calling setPluginAddress() with a valid Approval plugin
-            then:
-              - it: Should set the plugin address
       - given: The pluginMode is Voting
         and:
           - when: Calling setPluginAddress() with a plugin that supports ILockToGovernBase but not ILockToVote
@@ -62,12 +54,6 @@ LockManagerTest:
     and:
       - given: A plugin is set and a proposal is active
         and:
-          - when: Calling approve()
-            then:
-              - it: Should revert with InvalidPluginMode
-          - when: Calling lockAndApprove()
-            then:
-              - it: Should revert with InvalidPluginMode
           - given: The user has no locked balance
             and:
               - when: Calling vote()
@@ -100,48 +86,6 @@ LockManagerTest:
                     then:
                       - it: Should call vote() on the plugin with the new, larger balance
 
-  - given: pluginMode is Approval
-    and:
-      - given: A plugin is set and a proposal is active
-        and:
-          - when: Calling vote()
-            then:
-              - it: Should revert with InvalidPluginMode
-          - when: Calling lockAndVote()
-            then:
-              - it: Should revert with InvalidPluginMode
-          - given: The user has no locked balance
-            and:
-              - when: Calling approve()
-                then:
-                  - it: Should revert with NoBalance
-              - given: The user has no token allowance for the LockManager
-                and:
-                  - when: Calling lockAndApprove()
-                    then:
-                      - it: Should revert with NoBalance
-              - given: The user has a token allowance for the LockManager
-                and:
-                  - when: Calling lockAndApprove()
-                    then:
-                      - it: Should first lock the tokens by transferring the full allowance
-                      - it: Should then call approve() on the plugin with the new balance
-          - given: The user has a locked balance
-            and:
-              - when: Calling approve() for the first time on a proposal
-                then:
-                  - it: Should call approve() on the plugin with the user's full locked balance
-              - given: The user has already approved the proposal with their current balance
-                and:
-                  - when: Calling approve() again
-                    then:
-                      - it: Should revert with ApprovalForbidden
-              - given: The user locks more tokens
-                and:
-                  - when: Calling approve() again
-                    then:
-                      - it: Should call approve() on the plugin with the new, larger balance
-
   - given: A user wants to unlock tokens
     and:
       - given: The user has no locked balance
@@ -164,23 +108,7 @@ LockManagerTest:
                   - it: Should transfer the locked balance back to the user
                   - it: Should set the user's lockedBalances to 0
                   - it: Should emit a BalanceUnlocked event
-          - given: The user has approvals on open proposals
-            and:
-              - when: Calling unlock()
-                then:
-                  - it: Should call clearApproval() on the plugin for each active proposal
-                  - it: Should transfer the locked balance back to the user
-                  - it: Should set the user's lockedBalances to 0
-                  - it: Should emit a BalanceUnlocked event
           - given: The user only has votes on proposals that are now closed or ended
-            comment: The contract should garbage-collect the closed proposal during the check
-            and:
-              - when: Calling unlock()
-                then:
-                  - it: Should not attempt to clear votes for the closed proposal
-                  - it: Should remove the closed proposal from knownProposalIds
-                  - it: Should succeed and transfer the locked balance back to the user
-          - given: The user only has approvals on proposals that are now closed or ended
             comment: The contract should garbage-collect the closed proposal during the check
             and:
               - when: Calling unlock()
@@ -226,11 +154,6 @@ LockManagerTest:
               - when: Calling canVote()
                 then:
                   - it: Should proxy the call to the plugin's canVote() and return its result
-          - given: pluginMode is Approval
-            and:
-              - when: Calling canVote()
-                then:
-                  - it: Should proxy the call to the plugin's canApprove() and return its result
       - given: The contract has several known proposal IDs
         and:
           - when: Calling knownProposalIdAt() with a valid index

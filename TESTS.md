@@ -7,7 +7,6 @@ LockManagerTest
 ├── Given The contract is being deployed
 │   ├── When Deploying with valid parameters and a nonzero underlying token
 │   │   ├── It Should set the DAO address correctly
-│   │   ├── It Should set the unlockMode correctly
 │   │   ├── It Should set the pluginMode correctly
 │   │   ├── It Should set the token address correctly
 │   │   ├── It Should set the underlying token address correctly
@@ -17,11 +16,6 @@ LockManagerTest
 ├── Given The plugin address has not been set yet
 │   ├── When Calling setPluginAddress with an address that does not support ILockToGovernBase
 │   │   └── It Should revert with InvalidPlugin
-│   ├── Given The pluginMode is Approval
-│   │   ├── When Calling setPluginAddress with a plugin that supports ILockToGovernBase but not ILockToApprove
-│   │   │   └── It Should revert with InvalidPlugin
-│   │   └── When Calling setPluginAddress with a valid Approval plugin
-│   │       └── It Should set the plugin address
 │   └── Given The pluginMode is Voting
 │       ├── When Calling setPluginAddress with a plugin that supports ILockToGovernBase but not ILockToVote
 │       │   └── It Should revert with InvalidPlugin
@@ -41,10 +35,6 @@ LockManagerTest
 │           └── It Should emit a BalanceLocked event with the correct user and amount
 ├── Given pluginMode is Voting
 │   └── Given A plugin is set and a proposal is active
-│       ├── When Calling approve
-│       │   └── It Should revert with InvalidPluginMode
-│       ├── When Calling lockAndApprove
-│       │   └── It Should revert with InvalidPluginMode
 │       ├── Given The user has no locked balance
 │       │   ├── When Calling vote
 │       │   │   └── It Should revert with NoBalance
@@ -64,75 +54,25 @@ LockManagerTest
 │           └── Given The user locks more tokens
 │               └── When Calling vote again
 │                   └── It Should call vote() on the plugin with the new, larger balance
-├── Given pluginMode is Approval
-│   └── Given A plugin is set and a proposal is active 2
-│       ├── When Calling vote 2
-│       │   └── It Should revert with InvalidPluginMode
-│       ├── When Calling lockAndVote 3
-│       │   └── It Should revert with InvalidPluginMode
-│       ├── Given The user has no locked balance 2
-│       │   ├── When Calling approve 2
-│       │   │   └── It Should revert with NoBalance
-│       │   ├── Given The user has no token allowance for the LockManager 2
-│       │   │   └── When Calling lockAndApprove 2
-│       │   │       └── It Should revert with NoBalance
-│       │   └── Given The user has a token allowance for the LockManager 2
-│       │       └── When Calling lockAndApprove 3
-│       │           ├── It Should first lock the tokens by transferring the full allowance
-│       │           └── It Should then call approve() on the plugin with the new balance
-│       └── Given The user has a locked balance 2
-│           ├── When Calling approve for the first time on a proposal
-│           │   └── It Should call approve() on the plugin with the user's full locked balance
-│           ├── Given The user has already approved the proposal with their current balance
-│           │   └── When Calling approve again
-│           │       └── It Should revert with ApprovalForbidden
-│           └── Given The user locks more tokens 2
-│               └── When Calling approve again 2
-│                   └── It Should call approve() on the plugin with the new, larger balance
 ├── Given A user wants to unlock tokens
-│   ├── Given The user has no locked balance 3
+│   ├── Given The user has no locked balance 2
 │   │   └── When Calling unlock
 │   │       └── It Should revert with NoBalance
-│   └── Given The user has a locked balance 3
-│       ├── Given unlockMode is Strict
-│       │   ├── Given The user has no active votes on any open proposals
-│       │   │   └── When Calling unlock 2
-│       │   │       ├── It Should transfer the locked balance back to the user
-│       │   │       ├── It Should set the user's lockedBalances to 0
-│       │   │       └── It Should emit a BalanceUnlocked event
-│       │   ├── Given The user has an active vote on at least one open proposal
-│       │   │   └── When Calling unlock 3
-│       │   │       └── It Should revert with LocksStillActive
-│       │   └── Given The user only has votes on proposals that are now closed // The contract should garbage-collect the closed proposal during the check
-│       │       └── When Calling unlock 4
-│       │           ├── It Should succeed and transfer the locked balance back to the user
-│       │           └── It Should remove the closed proposal from knownProposalIds
-│       └── Given unlockMode is Default
-│           ├── Given The user has no active votes on any open proposals 2
-│           │   └── When Calling unlock 5
-│           │       └── It Should succeed and transfer the locked balance back to the user
-│           ├── Given The user has votes on open proposals
-│           │   └── When Calling unlock 6
-│           │       ├── It Should call clearVote() on the plugin for each active proposal
-│           │       ├── It Should transfer the locked balance back to the user
-│           │       ├── It Should set the user's lockedBalances to 0
-│           │       └── It Should emit a BalanceUnlocked event
-│           ├── Given The user has approvals on open proposals
-│           │   └── When Calling unlock 7
-│           │       ├── It Should call clearApproval() on the plugin for each active proposal
-│           │       ├── It Should transfer the locked balance back to the user
-│           │       ├── It Should set the user's lockedBalances to 0
-│           │       └── It Should emit a BalanceUnlocked event
-│           ├── Given The user only has votes on proposals that are now closed or ended // The contract should garbage-collect the closed proposal during the check
-│           │   └── When Calling unlock 8
-│           │       ├── It Should not attempt to clear votes for the closed proposal
-│           │       ├── It Should remove the closed proposal from knownProposalIds
-│           │       └── It Should succeed and transfer the locked balance back to the user
-│           └── Given The user only has approvals on proposals that are now closed or ended // The contract should garbage-collect the closed proposal during the check
-│               └── When Calling unlock 9
-│                   ├── It Should not attempt to clear votes for the closed proposal
-│                   ├── It Should remove the closed proposal from knownProposalIds
-│                   └── It Should succeed and transfer the locked balance back to the user
+│   └── Given The user has a locked balance 2
+│       ├── Given The user has no active votes on any open proposals
+│       │   └── When Calling unlock 2
+│       │       └── It Should succeed and transfer the locked balance back to the user
+│       ├── Given The user has votes on open proposals
+│       │   └── When Calling unlock 3
+│       │       ├── It Should call clearVote() on the plugin for each active proposal
+│       │       ├── It Should transfer the locked balance back to the user
+│       │       ├── It Should set the user's lockedBalances to 0
+│       │       └── It Should emit a BalanceUnlocked event
+│       └── Given The user only has votes on proposals that are now closed or ended // The contract should garbage-collect the closed proposal during the check
+│           └── When Calling unlock 4
+│               ├── It Should not attempt to clear votes for the closed proposal
+│               ├── It Should remove the closed proposal from knownProposalIds
+│               └── It Should succeed and transfer the locked balance back to the user
 ├── Given The plugin has been set
 │   ├── Given The caller is not the registered plugin
 │   │   ├── When Calling proposalCreated
@@ -151,189 +91,15 @@ LockManagerTest
 │       └── When Calling proposalEnded with a nonexistent proposal ID
 │           └── It Should do nothing
 └── Given The contract is initialized
-    ├── Given A nonzero underlying token was provided in the constructor
-    │   └── When Calling underlyingToken
-    │       └── It Should return the address of the underlying token
-    ├── Given A zeroaddress underlying token was provided in the constructor
-    │   └── When Calling underlyingToken 2
-    │       └── It Should return the address of the main token
     ├── Given A plugin is set and a proposal exists
-    │   ├── Given pluginMode is Voting 2
-    │   │   └── When Calling canVote
-    │   │       └── It Should proxy the call to the plugin's canVote() and return its result
-    │   └── Given pluginMode is Approval 2
-    │       └── When Calling canVote 2
-    │           └── It Should proxy the call to the plugin's canApprove() and return its result
+    │   └── Given pluginMode is Voting 2
+    │       └── When Calling canVote
+    │           └── It Should proxy the call to the plugin's canVote() and return its result
     └── Given The contract has several known proposal IDs
         ├── When Calling knownProposalIdAt with a valid index
         │   └── It Should return the correct proposal ID at that index
         └── When Calling knownProposalIdAt with an outofbounds index
             └── It Should revert
-```
-
-```
-LockToApproveTest
-├── When deploying the contract
-│   ├── It should disable the initializers
-│   └── It should initialize normally
-├── Given a deployed contract
-│   └── It should refuse to initialize again
-├── Given a new proxy
-│   └── Given calling initialize
-│       ├── It should set the DAO address
-│       ├── It should define the approval settings
-│       ├── It should define the target config
-│       ├── It should define the plugin metadata
-│       └── It should define the lock manager
-├── When calling updateSettings
-│   ├── When updateSettings without the permission
-│   │   └── It should revert
-│   └── When updateSettings with the permission
-│       └── It should update the values
-├── When calling supportsInterface
-│   ├── It does not support the empty interface
-│   ├── It supports IERC165Upgradeable
-│   ├── It supports IMembership
-│   └── It supports ILockToApprove
-├── Given Proposal not created
-│   ├── Given No proposal creation permission
-│   │   └── When Calling createProposal no perm
-│   │       └── It Should revert
-│   ├── Given Proposal creation permission granted
-│   │   ├── When Calling createProposal empty dates
-│   │   │   ├── It Should register the new proposal
-│   │   │   ├── It Should assign a unique proposalId to it
-│   │   │   ├── It Should register the given parameters
-│   │   │   ├── It Should start immediately
-│   │   │   ├── It Should end after proposalDuration
-│   │   │   ├── It Should emit an event
-│   │   │   └── It Should call proposalCreated on the manager
-│   │   ├── When Calling createProposal explicit dates
-│   │   │   ├── It Should start at the given startDate
-│   │   │   ├── It Should revert if endDate is before proposalDuration
-│   │   │   ├── It Should end on the given endDate
-│   │   │   ├── It Should call proposalCreated on the manager
-│   │   │   └── It Should emit an event
-│   │   └── When Calling createProposal with duplicate data
-│   │       ├── It Should revert
-│   │       └── It Different data should produce different proposalId's
-│   ├── When Calling the getters not created
-│   │   ├── It getProposal should return empty values
-│   │   ├── It isProposalOpen should return false
-│   │   ├── It canApprove should return false
-│   │   ├── It hasSucceeded should return false
-│   │   └── It canExecute should return false
-│   └── When Calling the rest of methods
-│       └── It Should revert, even with the required permissions
-├── Given Proposal created
-│   ├── When Calling getProposal
-│   │   └── It Should return the right values
-│   ├── When Calling isProposalOpen
-│   │   └── It Should return true
-│   ├── When Calling canApprove
-│   │   └── It Should return true when there is balance left to allocate
-│   ├── Given No lock manager permission
-│   │   ├── When Calling approve
-│   │   │   └── It Reverts, regardless of the balance
-│   │   └── When Calling clearApproval
-│   │       └── It Reverts, regardless of the balance
-│   ├── Given Lock manager permission is granted
-│   │   ├── Given Proposal created unstarted
-│   │   │   └── It Calling approve should revert, with or without balance
-│   │   └── Given Proposal created and started
-│   │       ├── When Calling approve no new locked balance
-│   │       │   └── It Should revert
-│   │       ├── When Calling approve new locked balance
-│   │       │   ├── It Should increase the tally by the new amount
-│   │       │   └── It Should emit an event
-│   │       ├── When Calling clearApproval no approve balance
-│   │       │   └── It Should do nothing
-│   │       └── When Calling clearApproval with approve balance
-│   │           ├── It Should unassign the current approver's approval
-│   │           ├── It Should decrease the proposal tally by the right amount
-│   │           ├── It Should emit an event
-│   │           └── It usedVotingPower should return the right value
-│   ├── When Calling hasSucceeded canExecute created
-│   │   ├── It hasSucceeded should return false
-│   │   └── It canExecute should return false
-│   └── When Calling execute created
-│       └── It Should revert, even with the required permission
-├── Given Proposal defeated
-│   ├── When Calling the getters defeated
-│   │   ├── It getProposal should return the right values
-│   │   ├── It isProposalOpen should return false
-│   │   ├── It canApprove should return false
-│   │   ├── It hasSucceeded should return false
-│   │   └── It canExecute should return false
-│   ├── When Calling approve or clearApproval defeated
-│   │   ├── It Should revert for approve, despite having the permission
-│   │   └── It Should do nothing for clearApproval
-│   └── When Calling execute defeated
-│       └── It Should revert, with or without permission
-├── Given Proposal passed
-│   ├── When Calling the getters passed
-│   │   ├── It getProposal should return the right values
-│   │   ├── It isProposalOpen should return false
-│   │   ├── It canApprove should return false
-│   │   ├── It hasSucceeded should return true
-│   │   └── It canExecute should return true
-│   ├── When Calling approve or clearApproval passed
-│   │   └── It Should revert, despite having the permission
-│   ├── Given No execute proposal permission
-│   │   └── When Calling execute no perm
-│   │       └── It Should revert
-│   └── Given Execute proposal permission
-│       └── When Calling execute passed
-│           ├── It Should execute the actions of the proposal on the target
-│           ├── It Should call proposalEnded on the LockManager
-│           └── It Should emit an event
-├── Given Proposal executed
-│   ├── When Calling the getters executed
-│   │   ├── It getProposal should return the right values
-│   │   ├── It isProposalOpen should return false
-│   │   ├── It canApprove should return false
-│   │   ├── It hasSucceeded should return false
-│   │   └── It canExecute should return false
-│   ├── When Calling approve or clearApproval executed
-│   │   └── It Should revert, despite having the permission
-│   └── When Calling execute executed
-│       └── It Should revert regardless of the permission
-├── When Underlying token is not defined
-│   └── It Should use the lockable token's balance to compute the approval ratio
-├── When Underlying token is defined
-│   └── It Should use the underlying token's balance to compute the approval ratio
-├── When Calling isMember
-│   ├── It Should return true when the sender has positive balance or locked tokens
-│   └── It Should return false otherwise
-├── When Calling customProposalParamsABI
-│   └── It Should return the right value
-├── Given Update approval settings permission granted
-│   └── When Calling updatePluginSettings granted
-│       ├── It Should set the new values
-│       └── It Settings() should return the right values
-└── Given No update approval settings permission
-    └── When Calling updatePluginSettings not granted
-        └── It Should revert
-```
-
-```
-LockToApprovePluginSetupTest
-├── When deploying a new instance
-│   └── It completes without errors
-├── When preparing an installation
-│   ├── When passing an invalid token contract
-│   │   └── It should revert
-│   ├── It should return the plugin address
-│   ├── It should return a list with the 3 helpers
-│   ├── It all plugins use the same implementation
-│   ├── It the plugin has the given settings
-│   ├── It should set the address of the lockManager on the plugin
-│   ├── It the plugin should have the right lockManager address
-│   └── It the list of permissions should match
-└── When preparing an uninstallation
-    ├── Given a list of helpers with more or less than 3
-    │   └── It should revert
-    └── It generates a correct list of permission changes
 ```
 
 ```
@@ -494,11 +260,9 @@ LockToVoteTest
 │   ├── Given early execution mode 3
 │   │   └── It should revert
 │   ├── Given standard voting mode 3
-│   │   ├── It should deallocate the current voting power
-│   │   └── It should allocate that voting power into the new vote option
+│   │   └── It should revert
 │   └── Given vote replacement mode 3
-│       ├── It should deallocate the current voting power
-│       └── It should allocate that voting power into the new vote option
+│       └── It should deallocate the current voting power
 ├── When calling getVote
 │   ├── Given the vote exists
 │   │   └── It should return the right data
@@ -512,8 +276,8 @@ LockToVoteTest
 │   │   ├── It canExecute() should return false
 │   │   ├── It isSupportThresholdReachedEarly() should return false
 │   │   ├── It isSupportThresholdReached() should return false
-│   │   ├── It isMinVotingPowerReached() should return false
-│   │   ├── It isMinApprovalReached() should return false
+│   │   ├── It isMinVotingPowerReached() should return true
+│   │   ├── It isMinApprovalReached() should return true
 │   │   └── It usedVotingPower() should return 0 for all voters
 │   ├── Given it has not started
 │   │   ├── It getProposal() returns the right values
@@ -531,7 +295,7 @@ LockToVoteTest
 │   │   ├── It hasSucceeded() should return false
 │   │   ├── It canExecute() should return false
 │   │   ├── It isSupportThresholdReachedEarly() should return false
-│   │   ├── It isSupportThresholdReached() should return false
+│   │   ├── It isSupportThresholdReached() should return true
 │   │   ├── It isMinVotingPowerReached() should return false
 │   │   ├── It isMinApprovalReached() should return false
 │   │   └── It usedVotingPower() should return the appropriate values
@@ -591,7 +355,9 @@ LockToVoteTest
 │   │   │   │   │   │   │   └── It hasSucceeded() should return true
 │   │   │   │   │   │   └── Given the proposal does not allow early execution
 │   │   │   │   │   │       ├── It canExecute() should return false
-│   │   │   │   │   │       └── It hasSucceeded() should return false
+│   │   │   │   │   │       ├── It hasSucceeded() should return false
+│   │   │   │   │   │       ├── It canExecute() should return true when ended
+│   │   │   │   │   │       └── It hasSucceeded() should return true when ended
 │   │   │   │   │   ├── Given isSupportThresholdReached is reached
 │   │   │   │   │   │   ├── It canExecute() should return false before endDate
 │   │   │   │   │   │   ├── It hasSucceeded() should return false before endDate
@@ -646,13 +412,8 @@ LockToVoteTest
 │   └── It Should return the right value
 ├── When Calling lockManager
 │   └── It Should return the right address
-├── When Calling token
-│   └── It Should return the right address
-└── When Calling underlyingToken
-    ├── Given Underlying token is not defined
-    │   └── It Should use the (lockable) token's balance to compute the approval ratio
-    └── Given Underlying token is defined
-        └── It Should use the underlying token's balance to compute the approval ratio
+└── When Calling token
+    └── It Should return the right address
 ```
 
 ```
@@ -687,3 +448,4 @@ MinVotingPowerConditionTest
         ├── It should return true when 'who' holds the minimum voting power
         └── It should return false when 'who' holds less than the minimum voting power
 ```
+
