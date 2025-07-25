@@ -3,6 +3,7 @@
 pragma solidity ^0.8.8;
 
 import {ILockToGovernBase} from "../interfaces/ILockToGovernBase.sol";
+import {ILockManager} from "../interfaces/ILockManager.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPermissionCondition} from "@aragon/osx-commons-contracts/src/permission/condition/IPermissionCondition.sol";
@@ -16,6 +17,9 @@ contract MinVotingPowerCondition is PermissionCondition {
     /// @notice The address of the `ILockToGovernBase` plugin used to fetch the settings from.
     ILockToGovernBase public immutable plugin;
 
+    /// @notice The address of the LockManager used by the plugin.
+    ILockManager public immutable lockManager;
+
     /// @notice The `IERC20` token interface used to check token balance.
     IERC20 public immutable token;
 
@@ -24,6 +28,7 @@ contract MinVotingPowerCondition is PermissionCondition {
     constructor(ILockToGovernBase _plugin) {
         plugin = _plugin;
         token = plugin.token();
+        lockManager = plugin.lockManager();
     }
 
     /// @inheritdoc IPermissionCondition
@@ -37,12 +42,9 @@ contract MinVotingPowerCondition is PermissionCondition {
     {
         (_where, _data, _permissionId);
 
-        uint256 minProposerVotingPower_ = plugin.minProposerVotingPower();
+        uint256 _currentBalance = token.balanceOf(_who) + lockManager.lockedBalances(_who);
+        uint256 _minProposerVotingPower = plugin.minProposerVotingPower();
 
-        if (token.balanceOf(_who) < minProposerVotingPower_) {
-            return false;
-        }
-
-        return true;
+        return _currentBalance >= _minProposerVotingPower;
     }
 }
