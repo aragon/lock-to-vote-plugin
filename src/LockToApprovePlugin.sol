@@ -92,9 +92,9 @@ contract LockToApprovePlugin is
         ^ this.currentTokenSupply.selector ^ this.proposalDuration.selector ^ this.minApprovalRatio.selector
         ^ this.getProposal.selector ^ this.updateApprovalSettings.selector ^ this.createProposal.selector;
 
-    ApprovalSettings public settings;
-
     mapping(uint256 => Proposal) proposals;
+
+    ApprovalSettings public settings;
 
     event ApprovalCast(uint256 proposalId, address voter, uint256 newVotingPower);
     event ApprovalCleared(uint256 proposalId, address voter);
@@ -527,5 +527,5 @@ contract LockToApprovePlugin is
     /// new variables without shifting down storage in the inheritance chain
     /// (see [OpenZeppelin's guide about storage gaps]
     /// (https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 }
