@@ -43,7 +43,7 @@ abstract contract LockToGovernBase is ILockToGovernBase, IMembership, ERC165Upgr
 
     /// @inheritdoc IMembership
     function isMember(address _account) external view returns (bool) {
-        if (lockManager.lockedBalances(_account) > 0) return true;
+        if (lockManager.getLockedBalance(_account) > 0) return true;
 
         IERC20 _token = token();
         if (address(_token) != address(0)) {
