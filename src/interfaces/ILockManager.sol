@@ -39,19 +39,35 @@ interface ILockManager {
     /// @notice Locks the balance currently allowed by msg.sender on this contract
     function lock() external;
 
+    /// @notice Locks the given amount from msg.sender on this contract
+    /// @param amount How many tokens the contract should lock
+    function lock(uint256 amount) external;
+
     /// @notice Locks the balance currently allowed by msg.sender on this contract and registers an approval on the target plugin
     /// @param proposalId The ID of the proposal where the approval will be registered
     function lockAndApprove(uint256 proposalId) external;
 
+    /// @notice Locks the given amount from msg.sender on this contract and registers an approval on the target plugin
+    /// @param proposalId The ID of the proposal where the approval will be registered
+    /// @param amount How many tokens the contract should lock and use for voting
+    function lockAndApprove(uint256 proposalId, uint256 amount) external;
+
     /// @notice Locks the balance currently allowed by msg.sender on this contract and registers the given vote on the target plugin
     /// @param proposalId The ID of the proposal where the vote will be registered
+    /// @param vote The vote to cast (Yes, No, Abstain)
     function lockAndVote(uint256 proposalId, IMajorityVoting.VoteOption vote) external;
+
+    /// @notice Locks the given amount from msg.sender on this contract and registers the given vote on the target plugin
+    /// @param proposalId The ID of the proposal where the vote will be registered
+    /// @param vote The vote to cast (Yes, No, Abstain)
+    /// @param amount How many tokens the contract should lock and use for voting
+    function lockAndVote(uint256 proposalId, IMajorityVoting.VoteOption vote, uint256 amount) external;
 
     /// @notice Uses the locked balance to place an approval on the given proposal for the registered plugin
     /// @param proposalId The ID of the proposal where the approval will be registered
     function approve(uint256 proposalId) external;
 
-    /// @notice Uses the locked balance to place the given vote on the given proposal for the registered plugin
+    /// @notice Uses the locked balance to vote on the given proposal for the registered plugin
     /// @param proposalId The ID of the proposal where the vote will be registered
     function vote(uint256 proposalId, IMajorityVoting.VoteOption vote) external;
 
@@ -70,7 +86,7 @@ interface ILockManager {
         view
         returns (bool);
 
-    /// @notice If the mode allows it, releases all active locks placed on active proposals and transfers msg.sender's locked balance back. Depending on the current mode, it withdraws only if no locks are being used in active proposals.
+    /// @notice If the governance plugin allows it, releases all active locks placed on active proposals and transfers msg.sender's locked balance back. Depending on the current mode, it withdraws only if no locks are being used in active proposals.
     function unlock() external;
 
     /// @notice Called by the lock to vote plugin whenever a proposal is created. It instructs the manager to start tracking the given proposal.

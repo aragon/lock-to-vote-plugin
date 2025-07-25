@@ -73,7 +73,12 @@ abstract contract LockManagerBase is ILockManager {
 
     /// @inheritdoc ILockManager
     function lock() public virtual {
-        _lock();
+        _lock(_incomingTokenBalance());
+    }
+
+    /// @inheritdoc ILockManager
+    function lock(uint256 _amount) public virtual {
+        _lock(_amount);
     }
 
     /// @inheritdoc ILockManager
@@ -82,8 +87,17 @@ abstract contract LockManagerBase is ILockManager {
             revert InvalidPluginMode();
         }
 
-        _lock();
+        _lock(_incomingTokenBalance());
+        _approve(_proposalId);
+    }
 
+    /// @inheritdoc ILockManager
+    function lockAndApprove(uint256 _proposalId, uint256 _amount) public virtual {
+        if (settings.pluginMode != PluginMode.Approval) {
+            revert InvalidPluginMode();
+        }
+
+        _lock(_amount);
         _approve(_proposalId);
     }
 
@@ -93,8 +107,17 @@ abstract contract LockManagerBase is ILockManager {
             revert InvalidPluginMode();
         }
 
-        _lock();
+        _lock(_incomingTokenBalance());
+        _vote(_proposalId, _voteOption);
+    }
 
+    /// @inheritdoc ILockManager
+    function lockAndVote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption, uint256 _amount) public virtual {
+        if (settings.pluginMode != PluginMode.Voting) {
+            revert InvalidPluginMode();
+        }
+
+        _lock(_amount);
         _vote(_proposalId, _voteOption);
     }
 
@@ -144,7 +167,7 @@ abstract contract LockManagerBase is ILockManager {
         lockedBalances[msg.sender] = 0;
 
         // Withdraw
-        _transfer(msg.sender, _refundableBalance);
+        _doUnlockTransfer(msg.sender, _refundableBalance);
         emit BalanceUnlocked(msg.sender, _refundableBalance);
     }
 
@@ -195,14 +218,28 @@ abstract contract LockManagerBase is ILockManager {
 
     // Internal
 
-    /// @notice Transfers the requested amount of tokens to the given recipient
-    /// @param _recipient The address that will receive the locked tokens back
-    /// @param _amount The amount of tokens that the recipient will get
-    function _transfer(address _recipient, uint256 _amount) internal virtual;
+    /// @notice Returns the amount of tokens that LockManager receives or can transfer from msg.sender
+    function _incomingTokenBalance() internal view virtual returns (uint256);
 
     /// @notice Takes the user's tokens and registers the received amount.
-    /// @dev The override needs to emit the event.
-    function _lock() internal virtual;
+    function _lock(uint256 _amount) internal virtual {
+        if (_amount == 0) {
+            revert NoBalance();
+        }
+
+        _doLockTransfer(_amount);
+        lockedBalances[msg.sender] += _amount;
+        emit BalanceLocked(msg.sender, _amount);
+    }
+
+    /// @notice Triggers the transfer needed in order to complete the token locking flow.
+    ///     Reverts if the requested amount cannot be locked.
+    function _doLockTransfer(uint256 _amount) internal virtual;
+
+    /// @notice Transfers the requested amount of tokens to the recipient
+    /// @param _recipient The address that will receive the locked tokens back
+    /// @param _amount The amount of tokens that the recipient will get
+    function _doUnlockTransfer(address _recipient, uint256 _amount) internal virtual;
 
     function _approve(uint256 _proposalId) internal virtual {
         uint256 _currentVotingPower = lockedBalances[msg.sender];
