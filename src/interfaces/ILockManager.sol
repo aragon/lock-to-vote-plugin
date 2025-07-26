@@ -7,14 +7,14 @@ import {IMajorityVoting} from "./IMajorityVoting.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice Defines wether the voting plugin expects approvals or votes
+///     Placeholder for future plugin variants
 enum PluginMode {
-    Approval,
     Voting
 }
 
 /// @notice The struct containing the LockManager helper settings. They are immutable after deployed.
 struct LockManagerSettings {
-    /// @notice Wether the plugins expects approvals or votes
+    /// @notice The type of governance plugin expected
     PluginMode pluginMode;
 }
 
@@ -43,15 +43,6 @@ interface ILockManager {
     /// @param amount How many tokens the contract should lock
     function lock(uint256 amount) external;
 
-    /// @notice Locks the balance currently allowed by msg.sender on this contract and registers an approval on the target plugin
-    /// @param proposalId The ID of the proposal where the approval will be registered
-    function lockAndApprove(uint256 proposalId) external;
-
-    /// @notice Locks the given amount from msg.sender on this contract and registers an approval on the target plugin
-    /// @param proposalId The ID of the proposal where the approval will be registered
-    /// @param amount How many tokens the contract should lock and use for voting
-    function lockAndApprove(uint256 proposalId, uint256 amount) external;
-
     /// @notice Locks the balance currently allowed by msg.sender on this contract and registers the given vote on the target plugin
     /// @param proposalId The ID of the proposal where the vote will be registered
     /// @param vote The vote to cast (Yes, No, Abstain)
@@ -62,10 +53,6 @@ interface ILockManager {
     /// @param vote The vote to cast (Yes, No, Abstain)
     /// @param amount How many tokens the contract should lock and use for voting
     function lockAndVote(uint256 proposalId, IMajorityVoting.VoteOption vote, uint256 amount) external;
-
-    /// @notice Uses the locked balance to place an approval on the given proposal for the registered plugin
-    /// @param proposalId The ID of the proposal where the approval will be registered
-    function approve(uint256 proposalId) external;
 
     /// @notice Uses the locked balance to vote on the given proposal for the registered plugin
     /// @param proposalId The ID of the proposal where the vote will be registered

@@ -6,7 +6,6 @@ import {DaoBuilder} from "./builders/DaoBuilder.sol";
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {createProxyAndCall} from "../src/util/proxy.sol";
-import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
 import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
@@ -20,7 +19,6 @@ import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
 contract LockManagerERC20Test is TestBase {
     DaoBuilder builder;
     DAO dao;
-    LockToApprovePlugin ltaPlugin;
     LockToVotePlugin ltvPlugin;
     LockManagerERC20 lockManager;
     IERC20 lockableToken;
@@ -31,7 +29,6 @@ contract LockManagerERC20Test is TestBase {
     event ProposalEnded(uint256 proposalId);
 
     error NoBalance();
-    error ApprovalForbidden(uint256 proposalId, address voter);
     error VoteCastForbidden(uint256 proposalId, address account);
     error SetPluginAddressForbidden();
     error InvalidPluginMode();
@@ -42,9 +39,9 @@ contract LockManagerERC20Test is TestBase {
         vm.roll(100);
 
         builder = new DaoBuilder();
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) = builder.withTokenHolder(alice, 1 ether)
-            .withTokenHolder(bob, 10 ether).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether)
-            .withApprovalPlugin().build();
+        (dao, ltvPlugin, lockManager, lockableToken) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(
+            bob, 10 ether
+        ).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).build();
     }
 
     modifier givenTheContractIsBeingDeployed() {
@@ -52,7 +49,7 @@ contract LockManagerERC20Test is TestBase {
     }
 
     modifier givenThePluginAddressHasNotBeenSetYet() {
-        lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Approval), lockableToken);
+        lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Voting), lockableToken);
         _;
     }
 
@@ -65,47 +62,9 @@ contract LockManagerERC20Test is TestBase {
         lockManager.setPluginAddress(ILockToGovernBase(address(dao)));
     }
 
-    modifier givenThePluginModeIsApproval() {
-        // The default setup is Approval mode, so no changes needed
-        _;
-    }
-
-    function test_WhenCallingSetPluginAddressWithAPluginThatSupportsILockToGovernBaseButNotILockToApprove()
-        external
-        givenThePluginAddressHasNotBeenSetYet
-        givenThePluginModeIsApproval
-    {
-        // It Should revert with InvalidPlugin
-        (,, LockToVotePlugin votingPlugin,,) = builder.withVotingPlugin().build();
-
-        vm.expectRevert(LockManagerBase.InvalidPlugin.selector);
-        lockManager.setPluginAddress(votingPlugin);
-    }
-
-    function test_WhenCallingSetPluginAddressWithAValidApprovalPlugin()
-        external
-        givenThePluginAddressHasNotBeenSetYet
-        givenThePluginModeIsApproval
-    {
-        // It Should set the plugin address
-        assertEq(address(lockManager.plugin()), address(0));
-        lockManager.setPluginAddress(ltaPlugin);
-        assertEq(address(lockManager.plugin()), address(ltaPlugin));
-    }
-
     modifier givenThePluginModeIsVoting() {
-        lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Voting), lockableToken);
+        // The default setup is Voting mode, so no changes needed
         _;
-    }
-
-    function test_WhenCallingSetPluginAddressWithAPluginThatSupportsILockToGovernBaseButNotILockToVote()
-        external
-        givenThePluginAddressHasNotBeenSetYet
-        givenThePluginModeIsVoting
-    {
-        // It Should revert with InvalidPlugin
-        vm.expectRevert(LockManagerBase.InvalidPlugin.selector);
-        lockManager.setPluginAddress(ltaPlugin);
     }
 
     function test_WhenCallingSetPluginAddressWithAValidVotingPlugin()
@@ -114,7 +73,7 @@ contract LockManagerERC20Test is TestBase {
         givenThePluginModeIsVoting
     {
         // It Should set the plugin address
-        (,, LockToVotePlugin votingPlugin,,) = builder.withVotingPlugin().build();
+        (, LockToVotePlugin votingPlugin,,) = builder.withVotingPlugin().build();
 
         assertEq(address(lockManager.plugin()), address(0));
         lockManager.setPluginAddress(votingPlugin);
@@ -129,7 +88,7 @@ contract LockManagerERC20Test is TestBase {
     function test_WhenCallingSetPluginAddressAgain() external givenThePluginAddressHasAlreadyBeenSet {
         // It Should revert with SetPluginAddressForbidden
         vm.expectRevert(SetPluginAddressForbidden.selector);
-        lockManager.setPluginAddress(ltaPlugin);
+        lockManager.setPluginAddress(ltvPlugin);
     }
 
     modifier givenAUserWantsToLockTokens() {
@@ -184,28 +143,13 @@ contract LockManagerERC20Test is TestBase {
     }
 
     modifier givenVotingPluginIsActive() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVotingPlugin().withTokenHolder(alice, 1 ether).build();
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
         vm.prank(address(ltvPlugin));
         lockManager.proposalCreated(proposalId);
         _;
-    }
-
-    function test_WhenCallingApprove() external givenVotingPluginIsActive {
-        // It Should revert with InvalidPluginMode
-        vm.expectRevert(InvalidPluginMode.selector);
-        vm.prank(alice);
-        lockManager.approve(proposalId);
-    }
-
-    function test_WhenCallingLockAndApprove() external givenVotingPluginIsActive {
-        // It Should revert with InvalidPluginMode
-        vm.prank(alice);
-        lockableToken.approve(address(lockManager), 1 ether);
-        vm.expectRevert(InvalidPluginMode.selector);
-        lockManager.lockAndApprove(proposalId);
     }
 
     modifier givenTheUserHasNoLockedBalance() {
@@ -336,7 +280,7 @@ contract LockManagerERC20Test is TestBase {
     {
         // It Should call vote() on the plugin with the new, larger balance
         // Note: For this to work, votingMode must be VoteReplacement
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 2 ether).build();
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -367,124 +311,6 @@ contract LockManagerERC20Test is TestBase {
         lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
     }
 
-    modifier givenApprovalPluginIsActive() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
-            builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
-        Action[] memory _actions = new Action[](0);
-        proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
-        vm.prank(address(ltaPlugin));
-        lockManager.proposalCreated(proposalId);
-        _;
-    }
-
-    function test_WhenCallingVote2() external givenApprovalPluginIsActive {
-        // It Should revert with InvalidPluginMode
-        vm.prank(alice);
-        vm.expectRevert(InvalidPluginMode.selector);
-        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
-    }
-
-    function test_WhenCallingLockAndVote3() external givenApprovalPluginIsActive {
-        // It Should revert with InvalidPluginMode
-        vm.prank(alice);
-        lockableToken.approve(address(lockManager), 1 ether);
-
-        vm.prank(alice);
-        vm.expectRevert(InvalidPluginMode.selector);
-        lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
-    }
-
-    function test_WhenCallingApprove2() external givenApprovalPluginIsActive givenTheUserHasNoLockedBalance {
-        // It Should revert with NoBalance
-        vm.prank(david);
-        vm.expectRevert(abi.encodeWithSelector(ApprovalForbidden.selector, proposalId, david));
-        lockManager.approve(proposalId);
-    }
-
-    function test_WhenCallingLockAndApprove2()
-        external
-        givenApprovalPluginIsActive
-        givenTheUserHasNoLockedBalance
-        givenTheUserHasNoTokenAllowanceForTheLockManager
-    {
-        // It Should revert with NoBalance
-        vm.prank(david);
-        vm.expectRevert(NoBalance.selector);
-        lockManager.lockAndApprove(proposalId);
-    }
-
-    function test_WhenCallingLockAndApprove3()
-        external
-        givenApprovalPluginIsActive
-        givenTheUserHasNoLockedBalance
-        givenTheUserHasATokenAllowanceForTheLockManager
-    {
-        // It Should first lock the tokens by transferring the full allowance
-        // It Should then call approve() on the plugin with the new balance
-
-        uint256 allowance = lockableToken.allowance(alice, address(lockManager));
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-
-        vm.prank(alice);
-        vm.expectCall(
-            address(ltaPlugin), abi.encodeWithSelector(ltaPlugin.approve.selector, proposalId, alice, allowance)
-        );
-        lockManager.lockAndApprove(proposalId);
-
-        assertEq(lockManager.getLockedBalance(alice), allowance, "Locked balance incorrect");
-        assertEq(lockableToken.balanceOf(alice), initialBalance - allowance, "User balance not transferred");
-    }
-
-    function test_WhenCallingApproveForTheFirstTimeOnAProposal()
-        external
-        givenApprovalPluginIsActive
-        givenTheUserHasALockedBalance
-    {
-        // It Should call approve() on the plugin with the user's full locked balance
-        uint256 lockedBalance = lockManager.getLockedBalance(alice);
-        vm.expectCall(
-            address(ltaPlugin), abi.encodeWithSelector(ltaPlugin.approve.selector, proposalId, alice, lockedBalance)
-        );
-        vm.prank(alice);
-        lockManager.approve(proposalId);
-    }
-
-    modifier givenTheUserHasAlreadyApprovedTheProposalWithTheirCurrentBalance() {
-        uint256 lockedBalance = lockManager.getLockedBalance(alice);
-        vm.prank(alice);
-        lockManager.approve(proposalId);
-        assertEq(ltaPlugin.usedVotingPower(proposalId, alice), lockedBalance);
-        _;
-    }
-
-    function test_WhenCallingApproveAgain()
-        external
-        givenApprovalPluginIsActive
-        givenTheUserHasALockedBalance
-        givenTheUserHasAlreadyApprovedTheProposalWithTheirCurrentBalance
-    {
-        // It Should revert with ApprovalForbidden
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(ApprovalForbidden.selector, proposalId, alice));
-        lockManager.approve(proposalId);
-    }
-
-    function test_WhenCallingApproveAgain2()
-        external
-        givenApprovalPluginIsActive
-        givenTheUserHasALockedBalance
-        givenTheUserHasAlreadyApprovedTheProposalWithTheirCurrentBalance
-        givenTheUserLocksMoreTokens
-    {
-        // It Should call approve() on the plugin with the new, larger balance
-        uint256 newLockedBalance = lockManager.getLockedBalance(alice);
-        vm.expectCall(
-            address(ltaPlugin), abi.encodeWithSelector(ltaPlugin.approve.selector, proposalId, alice, newLockedBalance)
-        );
-        vm.prank(alice);
-        lockManager.approve(proposalId);
-    }
-
     modifier givenAUserWantsToUnlockTokens() {
         _;
     }
@@ -502,8 +328,7 @@ contract LockManagerERC20Test is TestBase {
     }
 
     modifier givenTheUserHasALockedBalance3() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
-            builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
+        (dao, ltvPlugin, lockManager, lockableToken) = builder.withTokenHolder(alice, 1 ether).build();
 
         vm.prank(alice);
         lockableToken.approve(address(lockManager), 1 ether);
@@ -535,7 +360,7 @@ contract LockManagerERC20Test is TestBase {
     }
 
     modifier givenTheUserHasVotesOnOpenProposals() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
 
         Action[] memory _actions = new Action[](0);
@@ -569,42 +394,8 @@ contract LockManagerERC20Test is TestBase {
         assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
     }
 
-    modifier givenTheUserHasApprovalsOnOpenProposals() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
-            builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
-
-        Action[] memory _actions = new Action[](0);
-        proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
-        vm.prank(address(ltaPlugin));
-        lockManager.proposalCreated(proposalId);
-
-        vm.prank(alice);
-        lockableToken.approve(address(lockManager), 1 ether);
-        vm.prank(alice);
-        lockManager.lockAndApprove(proposalId);
-        _;
-    }
-
-    function test_WhenCallingUnlock7() external givenAUserWantsToUnlockTokens givenTheUserHasApprovalsOnOpenProposals {
-        // It Should call clearApproval() on the plugin for each active proposal
-        // It Should transfer the locked balance back to the user
-        // It Should set the user's lockedBalances to 0
-        // It Should emit a BalanceUnlocked event
-        uint256 lockedAmount = lockManager.getLockedBalance(alice);
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-
-        vm.prank(alice);
-        vm.expectCall(address(ltaPlugin), abi.encodeWithSelector(ltaPlugin.clearApproval.selector, proposalId, alice));
-        vm.expectEmit(true, true, true, true);
-        emit BalanceUnlocked(alice, lockedAmount);
-        lockManager.unlock();
-
-        assertEq(lockManager.getLockedBalance(alice), 0);
-        assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
-    }
-
     modifier givenTheUserOnlyHasVotesOnProposalsThatAreNowClosedOrEnded() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -636,47 +427,6 @@ contract LockManagerERC20Test is TestBase {
         vm.prank(alice);
         lockManager.unlock();
         assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 1 ether);
-
-        assertEq(lockManager.getLockedBalance(alice), 0);
-        assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
-        vm.expectRevert();
-        lockManager.knownProposalIdAt(0);
-    }
-
-    modifier givenTheUserOnlyHasApprovalsOnProposalsThatAreNowClosedOrEnded() {
-        (dao, ltaPlugin, ltvPlugin, lockManager, lockableToken) =
-            builder.withApprovalPlugin().withTokenHolder(alice, 1 ether).build();
-
-        Action[] memory _actions = new Action[](0);
-        proposalId = ltaPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
-        vm.prank(address(ltaPlugin));
-        lockManager.proposalCreated(proposalId);
-
-        vm.prank(alice);
-        lockableToken.approve(address(lockManager), 1 ether);
-        vm.prank(alice);
-        lockManager.lockAndApprove(proposalId);
-
-        vm.warp(block.timestamp + ltaPlugin.proposalDuration() + 1 days);
-        assertFalse(ltaPlugin.isProposalOpen(proposalId));
-        _;
-    }
-
-    function test_WhenCallingUnlock9()
-        external
-        givenAUserWantsToUnlockTokens
-        givenTheUserOnlyHasApprovalsOnProposalsThatAreNowClosedOrEnded
-    {
-        // It Should not attempt to clear votes for the closed proposal
-        // It Should remove the closed proposal from knownProposalIds
-        // It Should succeed and transfer the locked balance back to the user
-        uint256 lockedAmount = lockManager.getLockedBalance(alice);
-        uint256 initialBalance = lockableToken.balanceOf(alice);
-
-        assertEq(ltaPlugin.usedVotingPower(proposalId, alice), 1 ether);
-        vm.prank(alice);
-        lockManager.unlock();
-        assertEq(ltaPlugin.usedVotingPower(proposalId, alice), 1 ether);
 
         assertEq(lockManager.getLockedBalance(alice), 0);
         assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
@@ -797,15 +547,8 @@ contract LockManagerERC20Test is TestBase {
         lockManager.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes);
     }
 
-    function test_WhenCallingCanVote2() external givenApprovalPluginIsActive {
-        // It Should proxy the call to the plugin's canApprove() and return its result
-        vm.prank(alice);
-        vm.expectCall(address(ltaPlugin), abi.encodeWithSelector(ltaPlugin.canApprove.selector, proposalId, alice));
-        lockManager.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes);
-    }
-
     modifier givenTheContractHasSeveralKnownProposalIDs() {
-        vm.startPrank(address(ltaPlugin));
+        vm.startPrank(address(ltvPlugin));
         lockManager.proposalCreated(101);
         lockManager.proposalCreated(102);
         lockManager.proposalCreated(103);

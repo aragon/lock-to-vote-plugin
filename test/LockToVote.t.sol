@@ -6,7 +6,6 @@ import {DaoBuilder} from "./builders/DaoBuilder.sol";
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {createProxyAndCall} from "../src/util/proxy.sol";
-import {LockToApprovePlugin} from "../src/LockToApprovePlugin.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
 import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
@@ -60,7 +59,7 @@ contract LockToVoteTest is TestBase {
         vm.roll(100);
 
         builder = new DaoBuilder();
-        (dao,, ltvPlugin, lockManager, lockableToken) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(
+        (dao, ltvPlugin, lockManager, lockableToken) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(
             bob, 10 ether
         ).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).withVotingPlugin().withProposer(alice).build(
         );
@@ -102,7 +101,7 @@ contract LockToVoteTest is TestBase {
     }
 
     modifier givenANewProxy() {
-        (dao,,,, lockableToken) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(bob, 10 ether).withTokenHolder(
+        (dao,,, lockableToken) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(bob, 10 ether).withTokenHolder(
             carol, 10 ether
         ).withTokenHolder(david, 15 ether).build();
 
@@ -262,7 +261,7 @@ contract LockToVoteTest is TestBase {
         // It emits an event
         vm.expectEmit(true, true, true, true);
         emit ProposalCreated(
-            51703031024600542814281184006963496482512851097809162320591821604992295899344,
+            7835924699308567771993176782677466443726840862277041205897480900284296603105,
             alice,
             uint64(block.timestamp),
             uint64(block.timestamp + 10 days),
@@ -279,7 +278,7 @@ contract LockToVoteTest is TestBase {
 
     function test_GivenMinimumVotingPowerAboveZero() external whenCallingCreateProposal givenCreatePermission {
         // Re-setup with condition
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             new DaoBuilder().withTokenHolder(alice, 1 ether).withVotingPlugin().build();
 
         // Revoke unconditional permission for alice (default proposer in my setUp)
@@ -370,7 +369,7 @@ contract LockToVoteTest is TestBase {
     }
 
     function _testCanVoteFirstTime(MajorityVotingBase.VotingMode mode) internal {
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             new DaoBuilder().withVotingPlugin().withTokenHolder(alice, 1 ether).withProposer(alice).build();
         MajorityVotingBase.VotingSettings memory settings = ltvPlugin.getVotingSettings();
         settings.votingMode = mode;
@@ -405,7 +404,7 @@ contract LockToVoteTest is TestBase {
         givenNonEmptyVote
         givenVotingAgain
     {
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withStandardVoting().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
 
         vm.prank(alice);
@@ -428,7 +427,7 @@ contract LockToVoteTest is TestBase {
         givenNonEmptyVote
         givenVotingAgain
     {
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVoteReplacement().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
 
         vm.prank(alice);
@@ -451,7 +450,7 @@ contract LockToVoteTest is TestBase {
         givenNonEmptyVote
         givenVotingAgain
     {
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withEarlyExecution().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
 
         vm.prank(alice);
@@ -464,7 +463,7 @@ contract LockToVoteTest is TestBase {
     }
 
     function test_GivenEmptyVote() external whenCallingCanVote givenTheProposalIsOpen {
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVoteReplacement().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
 
         vm.prank(alice);
@@ -475,7 +474,7 @@ contract LockToVoteTest is TestBase {
     }
 
     function test_GivenTheProposalEnded() external whenCallingCanVote {
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withStandardVoting().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
 
         vm.prank(alice);
@@ -491,7 +490,7 @@ contract LockToVoteTest is TestBase {
 
         // It should return false, regardless of the voting mode
 
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVoteReplacement().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
 
         vm.prank(alice);
@@ -505,7 +504,7 @@ contract LockToVoteTest is TestBase {
 
         // 2
 
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withEarlyExecution().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
 
         vm.prank(alice);
@@ -545,7 +544,7 @@ contract LockToVoteTest is TestBase {
     }
 
     modifier givenStandardVotingMode2() {
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withStandardVoting().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
 
         _;
@@ -721,7 +720,7 @@ contract LockToVoteTest is TestBase {
     }
 
     modifier givenVoteReplacementMode2() {
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVoteReplacement().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
 
         _;
@@ -951,7 +950,7 @@ contract LockToVoteTest is TestBase {
     }
 
     modifier givenEarlyExecutionMode2() {
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withEarlyExecution().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
 
         _;
@@ -1151,7 +1150,7 @@ contract LockToVoteTest is TestBase {
         // It the proposal should be marked as executed
         // It should emit an event
 
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
             .withProposer(alice).withTokenHolder(alice, 50 ether).withTokenHolder(bob, 50 ether).withSupportThresholdRatio(
             500_000
         ).build();
@@ -1203,7 +1202,7 @@ contract LockToVoteTest is TestBase {
     function test_GivenTheVoterHasNoPriorVotingPower() external whenCallingClearvote {
         // It should do nothing
 
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             new DaoBuilder().withVoteReplacement().withVotingPlugin().withProposer(alice).build();
 
         assertEq(lockableToken.balanceOf(alice), 0);
@@ -1227,7 +1226,7 @@ contract LockToVoteTest is TestBase {
     function test_RevertGiven_TheProposalIsNotOpen() external whenCallingClearvote {
         // It should revert
 
-        (dao,, ltvPlugin, lockManager, lockableToken) =
+        (dao, ltvPlugin, lockManager, lockableToken) =
             new DaoBuilder().withStandardVoting().withVotingPlugin().withProposer(alice).build();
 
         assertEq(lockableToken.balanceOf(alice), 0);
@@ -1250,7 +1249,7 @@ contract LockToVoteTest is TestBase {
     function test_RevertGiven_EarlyExecutionMode3() external whenCallingClearvote {
         // It should revert
 
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
             .withProposer(alice).withTokenHolder(alice, 50 ether).build();
 
         assertEq(lockableToken.balanceOf(alice), 50 ether);
@@ -1275,7 +1274,7 @@ contract LockToVoteTest is TestBase {
     function test_GivenStandardVotingMode3() external whenCallingClearvote {
         // It should revert
 
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
             .withProposer(alice).withTokenHolder(alice, 50 ether).build();
 
         assertEq(lockableToken.balanceOf(alice), 50 ether);
@@ -1300,7 +1299,7 @@ contract LockToVoteTest is TestBase {
     function test_GivenVoteReplacementMode3() external whenCallingClearvote {
         // It should deallocate the current voting power
 
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVoteReplacement().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVoteReplacement().withVotingPlugin()
             .withProposer(alice).withTokenHolder(alice, 50 ether).build();
 
         assertEq(lockableToken.balanceOf(alice), 50 ether);
@@ -1322,7 +1321,7 @@ contract LockToVoteTest is TestBase {
     }
 
     modifier whenCallingGetVote() {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVoteReplacement().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVoteReplacement().withVotingPlugin()
             .withProposer(alice).withTokenHolder(alice, 50 ether).build();
 
         _;
@@ -1378,7 +1377,7 @@ contract LockToVoteTest is TestBase {
     }
 
     function test_GivenItDoesNotExist() external whenCallingTheProposalGetters {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withProposer(alice).build();
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withProposer(alice).build();
 
         // It getProposal() returns empty values
         (
@@ -1870,7 +1869,7 @@ contract LockToVoteTest is TestBase {
         whenCallingTheProposalGetters
         givenItDidNotPassAfterEndDate
     {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withSupportThresholdRatio(
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withSupportThresholdRatio(
             500_000
         ).withProposer(alice).withTokenHolder(alice, 5 ether).withTokenHolder(bob, 10 ether).build();
 
@@ -1948,9 +1947,8 @@ contract LockToVoteTest is TestBase {
         givenItDidNotPassAfterEndDate
     {
         // It isMinApprovalReached() should return false
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withMinApprovalRatio(
-            500_000
-        ).withTokenHolder(alice, 10 ether).withTokenHolder(bob, 90 ether).withProposer(alice) // 50%
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withMinApprovalRatio(500_000)
+            .withTokenHolder(alice, 10 ether).withTokenHolder(bob, 90 ether).withProposer(alice) // 50%
             .build();
 
         // Total supply is 100 ether. Min approval is 50 ether.
@@ -1973,9 +1971,8 @@ contract LockToVoteTest is TestBase {
         givenItDidNotPassAfterEndDate
     {
         // It isMinApprovalReached() should return true
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withMinApprovalRatio(
-            100_000
-        ).withMinParticipationRatio(100_000).withSupportThresholdRatio(500_000).withTokenHolder(alice, 10 ether)
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withMinApprovalRatio(100_000)
+            .withMinParticipationRatio(100_000).withSupportThresholdRatio(500_000).withTokenHolder(alice, 10 ether)
             .withTokenHolder(bob, 90 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
 
@@ -2000,9 +1997,8 @@ contract LockToVoteTest is TestBase {
     }
 
     function test_GivenItHasPassedAfterEndDate() external whenCallingTheProposalGetters givenItHasPassedAfterEndDate {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withMinApprovalRatio(
-            100_000
-        ).withMinParticipationRatio(100_000).withSupportThresholdRatio(500_000).withTokenHolder(alice, 10 ether)
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withMinApprovalRatio(100_000)
+            .withMinParticipationRatio(100_000).withSupportThresholdRatio(500_000).withTokenHolder(alice, 10 ether)
             .withTokenHolder(bob, 90 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
 
@@ -2060,9 +2056,8 @@ contract LockToVoteTest is TestBase {
         whenCallingTheProposalGetters
         givenItHasPassedAfterEndDate
     {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withMinApprovalRatio(
-            100_000
-        ).withMinParticipationRatio(100_000).withSupportThresholdRatio(500_000).withTokenHolder(alice, 10 ether)
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withMinApprovalRatio(100_000)
+            .withMinParticipationRatio(100_000).withSupportThresholdRatio(500_000).withTokenHolder(alice, 10 ether)
             .withTokenHolder(bob, 90 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
 
@@ -2080,9 +2075,8 @@ contract LockToVoteTest is TestBase {
         whenCallingTheProposalGetters
         givenItHasPassedAfterEndDate
     {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withMinApprovalRatio(
-            100_000
-        ).withMinParticipationRatio(100_000).withSupportThresholdRatio(500_000).withTokenHolder(alice, 10 ether)
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVotingPlugin().withMinApprovalRatio(100_000)
+            .withMinParticipationRatio(100_000).withSupportThresholdRatio(500_000).withTokenHolder(alice, 10 ether)
             .withTokenHolder(bob, 90 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
 
@@ -2103,7 +2097,7 @@ contract LockToVoteTest is TestBase {
     }
 
     function test_GivenItHasPassedEarly() external whenCallingTheProposalGetters givenItHasPassedEarly {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
             .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
@@ -2156,7 +2150,7 @@ contract LockToVoteTest is TestBase {
     }
 
     function test_GivenTheProposalHasNotBeenExecuted2() external whenCallingTheProposalGetters givenItHasPassedEarly {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
             .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
@@ -2170,7 +2164,7 @@ contract LockToVoteTest is TestBase {
     }
 
     function test_GivenTheProposalHasBeenExecuted2() external whenCallingTheProposalGetters givenItHasPassedEarly {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
             .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
@@ -2219,7 +2213,7 @@ contract LockToVoteTest is TestBase {
         givenMinApprovalIsReached
         givenIsSupportThresholdReachedEarlyWasReachedBeforeEndDate
     {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
             .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
@@ -2244,7 +2238,7 @@ contract LockToVoteTest is TestBase {
         givenIsSupportThresholdReachedEarlyWasReachedBeforeEndDate
     {
         // 1
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
             .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice) // No early execution
             .build();
@@ -2267,7 +2261,7 @@ contract LockToVoteTest is TestBase {
         assertTrue(ltvPlugin.hasSucceeded(proposalId));
 
         // 2
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVoteReplacement().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVoteReplacement().withVotingPlugin()
             .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice) // No early execution
             .build();
@@ -2298,7 +2292,7 @@ contract LockToVoteTest is TestBase {
         givenMinVotingPowerIsReached
         givenMinApprovalIsReached
     {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
             .withMinApprovalRatio(10_000).withMinParticipationRatio(10_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 10 ether).withTokenHolder(bob, 90 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
@@ -2328,7 +2322,7 @@ contract LockToVoteTest is TestBase {
         givenMinVotingPowerIsReached
         givenMinApprovalIsReached
     {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
             .withMinApprovalRatio(10_000).withMinParticipationRatio(10_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 10 ether).withTokenHolder(bob, 10 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
@@ -2353,7 +2347,7 @@ contract LockToVoteTest is TestBase {
         givenTheProposalIsNotExecuted
         givenMinVotingPowerIsReached
     {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
             .withMinApprovalRatio(200_000).withMinParticipationRatio(10_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 10 ether).withTokenHolder(bob, 90 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
@@ -2376,7 +2370,7 @@ contract LockToVoteTest is TestBase {
         givenTheProposalExists
         givenTheProposalIsNotExecuted
     {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
             .withMinApprovalRatio(10_000).withMinParticipationRatio(200_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 10 ether).withTokenHolder(bob, 90 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
@@ -2394,7 +2388,7 @@ contract LockToVoteTest is TestBase {
     }
 
     function test_GivenTheProposalIsExecuted() external whenCallingCanExecuteAndHasSucceeded givenTheProposalExists {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
             .withMinApprovalRatio(10_000).withMinParticipationRatio(10_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 10 ether).withTokenHolder(bob, 90 ether).withProposer(alice).build();
         dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
@@ -2428,7 +2422,7 @@ contract LockToVoteTest is TestBase {
     }
 
     function test_RevertGiven_TheCallerNoPermissionToCallExecute() external whenCallingExecute {
-        (dao,, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()
             .withMinApprovalRatio(10_000).withMinParticipationRatio(10_000).withSupportThresholdRatio(500_000)
             .withTokenHolder(alice, 10 ether).withProposer(alice).build();
 
