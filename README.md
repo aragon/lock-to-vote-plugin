@@ -48,20 +48,24 @@ lockManager.lockAndVote(proposalId, VoteOption.Yes);
 // Or lock first, vote later
 token.approve(address(lockManager), 0.5 ether);
 lockManager.lock();
-lockManager.lockAndApprove(proposalId);
+lockManager.vote(proposalId);
 
 // Deposit more tokens and vote with the new balance
 token.approve(address(lockManager), 5 ether);
-lockManager.lockAndApprove(proposalId);
+lockManager.lockAndVote(proposalId);
 
-// Unlock your tokens (if the unlock mode allows it)
+// Unlock your tokens (if the plugin voting mode allows it)
 lockManager.unlock();
 ```
 
 ### Token unlocking
 
-- **Strict Mode**: Unlock only after all associated proposals conclude
-- **Early Unlock**: Unlock anytime by revoking votes via clearApproval()/clearVote()
+Users can unlock their tokens as long as `LockToVote` allows it. For this:
+
+- Either, the plugin `votingMode` is `VoteReplacement`, or
+- The token holder has no votes allocated to any active proposal
+
+Otherwise, the `unlock()` will revert until the proposals with votes have ended.
 
 ## Get Started
 
