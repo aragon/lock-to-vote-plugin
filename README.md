@@ -3,15 +3,14 @@
 [![Built with Foundry](https://img.shields.io/badge/Built%20with-Foundry-FF6E3D?logo=ethereum)](https://book.getfoundry.sh/)
 
 **An OSx governance plugin, enabling immediate voting through token locking**
+
 Built on Aragon OSx's modular framework, LockToVote redefines DAO participation by eliminating the need for *ahead of time* token snapshots with an [IVotes](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/governance/utils/IVotes.sol) compatible token. Any vanilla ERC20 can now be used to participate in DAO governance.
 
-## Two flavours
+## Overview
 
 ![Overview](./img/overview.png)
 
-### `LockToVote`
-
-Versatile majority voting plugin with configurable modes:
+`LockToVote` is a versatile majority voting plugin with configurable modes:
 - **Multi-option voting**: Vote Yes/No/Abstain
 - **Three voting modes**:
   - **Vote Replacement**: Update your vote option mid-proposal, unlock early
@@ -23,18 +22,24 @@ Versatile majority voting plugin with configurable modes:
 
 ### Core Components
 
-1. **LockManager**: The custodial contract managing token locks and allowing to vote in multiple proposals with a single lock
-   - `LockManagerBase` contains the common logic, while `LockManagerERC20` includes the specific implementation to manage ERC20 token locks.
-   - `lock()` deposits the current ERC20 allowance into the contract and updates the cumulative locked balance
-   - `vote()` allow users to use the currently locked balance on a given proposal
-   - Locking and voting can be done at once with `lockAndVote()`
-   - To prevent unlocking with votes on active proposals, it keeps track of them via the `proposalCreated()` and `proposalEnded()` hooks
+#### LockManager
 
-2. **LockToVote**: Governance plugin where successful proposals can be executed on the DAO
-   - Handles `IMajorityVoting.VoteOption` votes (Yes/No/Abstain)
-   - `vote()` allocates the current voting power into the selected voite option
-   - `clearVote()`: Depending on the voting mode, revoke the current allocation and trigger the corresponding tally updates
-   - `execute()` makes the DAO execute the given (successful) proposal's actions
+The custodial contract managing token locks and allowing to vote in multiple proposals with a single lock
+
+- `LockManagerBase` contains the common logic, while `LockManagerERC20` includes the specific implementation to manage ERC20 token locks.
+- `lock()` deposits the current ERC20 allowance into the contract and updates the cumulative locked balance
+- `vote()` allow users to use the currently locked balance on a given proposal
+- Locking and voting can be done at once with `lockAndVote()`
+- To prevent unlocking with votes on active proposals, it keeps track of them via the `proposalCreated()` and `proposalEnded()` hooks
+
+#### LockToVote
+
+Governance plugin where successful proposals can be executed on the DAO
+
+- Handles `IMajorityVoting.VoteOption` votes (Yes/No/Abstain)
+- `vote()` allocates the current voting power into the selected voite option
+- `clearVote()`: Depending on the voting mode, revoke the current allocation and trigger the corresponding tally updates
+- `execute()` makes the DAO execute the given (successful) proposal's actions
 
 ### Proposal Lifecycle
 
