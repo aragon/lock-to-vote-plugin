@@ -19,7 +19,7 @@ The source code of LockToVote has been [audited by Spearbit](./audit/report-cant
 `LockToVote` is a versatile majority voting plugin with configurable modes:
 
 - **Multi-option voting**: Vote Yes/No/Abstain
-- **Three voting modes**:
+- **Two voting modes**:
   - **Vote Replacement**: Update your vote option mid-proposal
   - **Standard Mode**: Traditional voting with append-only allocations
 - **Customizable thresholds**: Minimum participation, support threshold, and a certain approval tally
