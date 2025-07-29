@@ -2,10 +2,8 @@
 
 [![Built with Foundry](https://img.shields.io/badge/Built%20with-Foundry-FF6E3D?logo=ethereum)](https://book.getfoundry.sh/)
 
-NOTE: This repository is a work in progress, **not ready for production use yet**.
-
-**A gas-efficient pair of governance plugins, enabling immediate voting through token locking**
-Built on Aragon OSx's modular framework, LockToVote and LockToApprove redefine DAO participation by eliminating the need for ahead of time token snapshots with an [IVotes](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/governance/utils/IVotes.sol) compatible token. Any vanilla ERC20 can now be used to participate in DAO governance.
+**An OSx governance plugin, enabling immediate voting through token locking**
+Built on Aragon OSx's modular framework, LockToVote redefines DAO participation by eliminating the need for *ahead of time* token snapshots with an [IVotes](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/governance/utils/IVotes.sol) compatible token. Any vanilla ERC20 can now be used to participate in DAO governance.
 
 ## Two flavours
 
@@ -13,49 +11,35 @@ Built on Aragon OSx's modular framework, LockToVote and LockToApprove redefine D
 
 ### `LockToVote`
 
-Feature rich voting with configurable modes, built for nuanced governance scenarios:
+Versatile majority voting plugin with configurable modes:
 - **Multi-option voting**: Vote Yes/No/Abstain
 - **Three voting modes**:
-  - **Vote Replacement**: Update your vote option mid-proposal
-  - **Early Execution**: Automatically execute proposals when thresholds are mathematically secured
+  - **Vote Replacement**: Update your vote option mid-proposal, unlock early
+  - **Early Execution**: Automatically execute proposals when thresholds are mathematically irreversible
   - **Standard Mode**: Traditional voting with append-only allocations
-- **Parameterized thresholds**: Enforce a minimum participation, a certain support threshold, and a certain approval tally
-
-### `LockToApprove`
-
-Simple binary approvals, designed for proposals requiring straightforward consent:
-- **Weighted approvals or vetoes**: Token holders lock funds to approve or object to proposals
-- **Gas friendly tokens**: Avoids the overhead of tracking past token balances (ideal for ERC20 tokens without `IVotes` support)
+- **Customizable thresholds**: Minimum participation, support threshold, and a certain approval tally
 
 ## Architecture Overview
 
 ### Core Components
 
-1. **LockManager**
-   The custodial contract managing token locks and allowing to vote in multiple proposals with a single lock:
-   - `UnlockMode` (Strict/Early) wether a token lock can be withdrawn at any time or only after all proposals with votes have ended
-   - `lock()` deposits the current ERC20 allowance and allows the user to vote with it
-   - `vote()`, `approve()` allow users to use the currently locked balance on a given proposal
-   - Locking and voting can be batched through `lockAndApprove()`/`lockAndVote()`
-   - It keeps track of the currently active proposals via `proposalCreated()` and `proposalEnded()` hooks
+1. **LockManager**: The custodial contract managing token locks and allowing to vote in multiple proposals with a single lock
+   - `LockManagerBase` contains the common logic, while `LockManagerERC20` includes the specific implementation to manage ERC20 token locks.
+   - `lock()` deposits the current ERC20 allowance into the contract and updates the cumulative locked balance
+   - `vote()` allow users to use the currently locked balance on a given proposal
+   - Locking and voting can be done at once with `lockAndVote()`
+   - To prevent unlocking with votes on active proposals, it keeps track of them via the `proposalCreated()` and `proposalEnded()` hooks
 
-2. **LockToApprove**
-   Implements binary approval logic:
-   - `approve()`: Allocate locked tokens to support proposals
-   - `clearApproval()`: Revoke the current allocation and trigger the corresponding tally updates
-   - `canApprove()`
-
-3. **LockToVote**
-   Flexible voting implementation:
+2. **LockToVote**: Governance plugin where successful proposals can be executed on the DAO
    - Handles `IMajorityVoting.VoteOption` votes (Yes/No/Abstain)
-   - `vote()` allocates the current voting power into
-   the selected voite option
+   - `vote()` allocates the current voting power into the selected voite option
    - `clearVote()`: Depending on the voting mode, revoke the current allocation and trigger the corresponding tally updates
-   - `canVote()`
+   - `execute()` makes the DAO execute the given (successful) proposal's actions
 
 ### Proposal Lifecycle
 
 ```solidity
+// Allow the LockManager to take our tokens
 token.approve(address(lockManager), 0.1 ether);
 
 // Lock the available tokens and vote immediately
@@ -64,21 +48,24 @@ lockManager.lockAndVote(proposalId, VoteOption.Yes);
 // Or lock first, vote later
 token.approve(address(lockManager), 0.5 ether);
 lockManager.lock();
-lockManager.lockAndApprove(proposalId);
+lockManager.vote(proposalId);
 
 // Deposit more tokens and vote with the new balance
 token.approve(address(lockManager), 5 ether);
-lockManager.lockAndApprove(proposalId);
+lockManager.lockAndVote(proposalId);
 
-// Unlock your tokens (if the unlock mode allows it)
+// Unlock your tokens (if the plugin voting mode allows it)
 lockManager.unlock();
 ```
 
 ### Token unlocking
 
-- **Strict Mode**: Unlock only after all associated proposals conclude
-- **Early Unlock**: Unlock anytime by revoking votes via clearApproval()/clearVote()
+Users can unlock their tokens as long as `LockToVote` allows it. For this:
 
+- Either, the plugin `votingMode` is `VoteReplacement`, or
+- The token holder has no votes allocated to any active proposal
+
+Otherwise, the `unlock()` will revert until the proposals with votes have ended.
 
 ## Get Started
 
