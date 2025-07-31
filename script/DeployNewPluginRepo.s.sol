@@ -84,6 +84,7 @@ contract DeployNewPluginRepoScript is Script {
 
         console.log("Plugin repositories");
         console.log("- LockToVote plugin repository:     ", address(lockToVotePluginRepo));
+        console.log("- LockToVote repo ENS:              ", string.concat(ltvEnsSubdomain, ".plugin.dao.eth"));
         console.log("- Maintainer:                       ", address(maintainer));
         console.log("");
     }
