@@ -8,8 +8,8 @@ import {DAOFactory} from "@aragon/osx/src/framework/dao/DAOFactory.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {PermissionManager} from "@aragon/osx/src/core/permission/PermissionManager.sol";
 import {PluginRepo} from "@aragon/osx/src/framework/plugin/repo/PluginRepo.sol";
-import {PluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/PluginSetup.sol";
 import {LockToVotePluginSetup} from "../../src/setup/LockToVotePluginSetup.sol";
+import {TestToken} from "../mocks/TestToken.sol";
 
 contract ForkBuilder is ForkTestBase {
     // Add your own parameters here
@@ -26,7 +26,7 @@ contract ForkBuilder is ForkTestBase {
 
     /// @dev Creates a DAO with the given orchestration settings.
     /// @dev The setup is done on block/timestamp 0 and tests should be made on block/timestamp 1 or later.
-    function build() public returns (DAO dao, PluginRepo repo, PluginSetup pluginSetup) {
+    function build() public returns (DAO dao, PluginRepo repo, LockToVotePluginSetup pluginSetup, TestToken token) {
         // DAO settings
         DAOFactory.DAOSettings memory daoSettings =
             DAOFactory.DAOSettings({trustedForwarder: address(0), daoURI: "http://host/", subdomain: "", metadata: ""});
@@ -56,10 +56,14 @@ contract ForkBuilder is ForkTestBase {
             pluginEnsSubdomain, address(pluginSetup), pluginRepoMaintainerAddress, " ", " "
         );
 
+        // Token
+        token = new TestToken();
+
         // Labels
         vm.label(address(dao), "DAO");
         vm.label(address(pluginSetup), "PluginSetup");
         vm.label(address(repo), "PluginRepo");
+        vm.label(address(token), "Token");
         vm.label(pluginRepoMaintainerAddress, "Maintainer");
 
         // Moving forward to avoid collisions

@@ -3,7 +3,7 @@
 Below is the graphical summary of the tests described within [test/*.t.yaml](./test)
 
 ```
-LockManagerTest
+LockManagerERC20Test
 ├── Given The contract is being deployed
 │   ├── When Deploying with valid parameters and a nonzero underlying token
 │   │   ├── It Should set the DAO address correctly
@@ -452,6 +452,8 @@ MinVotingPowerConditionTest
 ```
 PluginSetupForkTest
 └── Given The deployer can install plugins
+    ├── When Preparing and applying an installation
+    │   └── It Successfully sets the appropriate permissions
     ├── When Installing a plugin without a minimum proposer voting power
     │   ├── It Anyone with the permission can create proposals
     │   ├── It Should revert when creating a proposal without permission
