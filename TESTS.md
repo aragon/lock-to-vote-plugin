@@ -425,3 +425,16 @@ MinVotingPowerConditionTest
         └── It the voting power required should be proportional to the amount of proposals created
 ```
 
+```
+PluginSetupForkTest
+└── Given The deployer can install plugins
+    ├── When Installing a plugin without a minimum proposer voting power
+    │   ├── It Anyone with the permission can create proposals
+    │   ├── It Should revert when creating a proposal without permission
+    │   └── It Anyone with the permission can execute proposals
+    └── When Installing a plugin with a minimum proposer voting power
+        ├── It Anyone with the permission and enough voting power can create proposals
+        ├── It Should revert otherwise
+        └── It Anyone with the permission can execute proposals
+```
+
