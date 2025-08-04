@@ -1,4 +1,4 @@
-LockManagerTest:
+LockManagerERC20Test:
   - given: The contract is being deployed
     and:
       - when: Deploying with valid parameters and a non-zero underlying token

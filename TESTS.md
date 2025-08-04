@@ -449,3 +449,16 @@ MinVotingPowerConditionTest
         └── It should return false when 'who' holds less than the minimum voting power
 ```
 
+```
+PluginSetupForkTest
+└── Given The deployer can install plugins
+    ├── When Installing a plugin without a minimum proposer voting power
+    │   ├── It Anyone with the permission can create proposals
+    │   ├── It Should revert when creating a proposal without permission
+    │   └── It Anyone with the permission can execute proposals
+    └── When Installing a plugin with a minimum proposer voting power
+        ├── It Anyone with the permission and enough voting power can create proposals
+        ├── It Should revert otherwise
+        └── It Anyone with the permission can execute proposals
+```
+
