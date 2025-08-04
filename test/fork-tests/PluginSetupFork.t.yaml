@@ -1,6 +1,9 @@
 PluginSetupForkTest:
   - given: The deployer can install plugins
     and:
+      - when: Preparing and applying an installation
+        then:
+          - it: Successfully sets the appropriate permissions
       - when: Installing a plugin without a minimum proposer voting power
         then:
           - it: Anyone with the permission can create proposals

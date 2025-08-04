@@ -428,6 +428,8 @@ MinVotingPowerConditionTest
 ```
 PluginSetupForkTest
 └── Given The deployer can install plugins
+    ├── When Preparing and applying an installation
+    │   └── It Successfully sets the appropriate permissions
     ├── When Installing a plugin without a minimum proposer voting power
     │   ├── It Anyone with the permission can create proposals
     │   ├── It Should revert when creating a proposal without permission
