@@ -116,10 +116,7 @@ contract PluginSetupForkTest is ForkTestBase {
         }
     }
 
-    function test_WhenInstallingAPluginWithoutAMinimumProposerVotingPower()
-        external
-        givenTheDeployerCanInstallPlugins
-    {
+    function test_WhenInstallingWithoutAMinimumProposerVotingPower() external givenTheDeployerCanInstallPlugins {
         // INSTALLATION
         // Prepare installation data using the token
         bytes memory installData;
@@ -215,7 +212,15 @@ contract PluginSetupForkTest is ForkTestBase {
         plugin.execute(proposalId);
     }
 
-    function test_WhenInstallingAPluginWithAMinimumProposerVotingPower() external givenTheDeployerCanInstallPlugins {
+    modifier givenInstallingWithAMinimumProposerVotingPower() {
+        _;
+    }
+
+    function test_WhenTheProposerIsANYADDR()
+        external
+        givenTheDeployerCanInstallPlugins
+        givenInstallingWithAMinimumProposerVotingPower
+    {
         // INSTALLATION
         // Prepare installation data using the token
         bytes memory installData;
@@ -271,7 +276,7 @@ contract PluginSetupForkTest is ForkTestBase {
         token.mint(randomWallet, 1);
         Action[] memory actions = new Action[](0);
 
-        // It Anyone with the permission (and enough voting power) can create proposals
+        // It Anyone with enough voting power can create proposals
         token.mint(alice, 15 ether);
 
         vm.prank(alice);
@@ -307,6 +312,105 @@ contract PluginSetupForkTest is ForkTestBase {
 
         // It Anyone with the permission can execute (passed) proposals
         vm.prank(alice);
+        plugin.execute(proposalId);
+    }
+
+    function test_WhenTheProposerIsNotANYADDR()
+        external
+        givenTheDeployerCanInstallPlugins
+        givenInstallingWithAMinimumProposerVotingPower
+    {
+        // INSTALLATION
+        // Prepare installation data using the token
+        bytes memory installData;
+        {
+            LockToVotePluginSetup.InstallationParameters memory installParams = LockToVotePluginSetup
+                .InstallationParameters({
+                token: token,
+                votingSettings: MajorityVotingBase.VotingSettings({
+                    votingMode: MajorityVotingBase.VotingMode.Standard,
+                    supportThresholdRatio: 500_000, // 50%
+                    minParticipationRatio: 100_000, // 10%
+                    minApprovalRatio: 200_000, // 20%
+                    proposalDuration: 1 hours,
+                    minProposerVotingPower: 10 ether // MIN VOTING POWER
+                }),
+                pluginMetadata: "ipfs://...",
+                createProposalCaller: alice, // Alice can propose
+                executeCaller: bob, // Bob can execute passed proposals
+                targetConfig: IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call})
+            });
+
+            installData = pluginSetup.encodeInstallationParams(installParams);
+        }
+
+        // Prepare and apply the installation
+        IPluginSetup.PreparedSetupData memory preparedSetupData;
+        address pluginAddr;
+        {
+            PluginSetupRef memory setupRef = PluginSetupRef({versionTag: getLatestTag(repo), pluginSetupRepo: repo});
+            PluginSetupProcessor.PrepareInstallationParams memory prepareInstallParams =
+                PluginSetupProcessor.PrepareInstallationParams({pluginSetupRef: setupRef, data: installData});
+
+            // PREPARE
+            (pluginAddr, preparedSetupData) =
+                pluginSetupProcessor.prepareInstallation(address(dao), prepareInstallParams);
+
+            vm.label(pluginAddr, "NewPlugin");
+
+            // APPLY
+            PluginSetupProcessor.ApplyInstallationParams memory applyInstallParams = PluginSetupProcessor
+                .ApplyInstallationParams({
+                pluginSetupRef: setupRef,
+                plugin: pluginAddr,
+                permissions: preparedSetupData.permissions,
+                helpersHash: hashHelpers(preparedSetupData.helpers)
+            });
+            pluginSetupProcessor.applyInstallation(address(dao), applyInstallParams);
+        }
+
+        LockToVotePlugin plugin = LockToVotePlugin(pluginAddr);
+        ILockManager lockManager = plugin.lockManager();
+
+        Action[] memory actions = new Action[](0);
+
+        // It Anyone with the permission and enough voting power can create proposals
+        token.mint(alice, 15 ether);
+        token.mint(bob, 12 ether);
+
+        vm.prank(alice);
+        uint256 proposalId = plugin.createProposal("ipfs://1234", actions, 0, 0, bytes(""));
+
+        // It Should revert otherwise
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DaoUnauthorized.selector, address(dao), address(pluginAddr), bob, plugin.CREATE_PROPOSAL_PERMISSION_ID()
+            )
+        );
+        vm.prank(bob); // Enough tokens, but no permission
+        plugin.createProposal("ipfs://2345", actions, 0, 0, bytes(""));
+
+        // Can't execute proposals that haven't passed
+        vm.warp(block.timestamp + 1 hours);
+
+        vm.expectRevert();
+        vm.prank(alice);
+        plugin.execute(proposalId);
+
+        // New proposal
+        vm.prank(alice);
+        proposalId = plugin.createProposal("ipfs://3456", actions, 0, 0, bytes(""));
+
+        // Make the proposal pass
+        vm.prank(alice);
+        token.approve(address(lockManager), 15 ether);
+        vm.prank(alice);
+        lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+        vm.warp(block.timestamp + 1 hours);
+
+        // It Anyone with the permission can execute (passed) proposals
+        vm.prank(bob);
         plugin.execute(proposalId);
     }
 }

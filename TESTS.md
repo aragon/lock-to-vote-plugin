@@ -454,13 +454,18 @@ PluginSetupForkTest
 └── Given The deployer can install plugins
     ├── When Preparing and applying an installation
     │   └── It Successfully sets the appropriate permissions
-    ├── When Installing a plugin without a minimum proposer voting power
+    ├── When Installing without a minimum proposer voting power
     │   ├── It Anyone with the permission can create proposals
     │   ├── It Should revert when creating a proposal without permission
     │   └── It Anyone with the permission can execute proposals
-    └── When Installing a plugin with a minimum proposer voting power
-        ├── It Anyone with the permission and enough voting power can create proposals
-        ├── It Should revert otherwise
-        └── It Anyone with the permission can execute proposals
+    └── Given Installing with a minimum proposer voting power
+        ├── When The proposer is ANYADDR
+        │   ├── It Anyone with enough voting power can create proposals
+        │   ├── It Should revert otherwise
+        │   └── It Anyone with the permission can execute proposals
+        └── When The proposer is not ANYADDR
+            ├── It Anyone with the permission and enough voting power can create proposals
+            ├── It Should revert otherwise
+            └── It Anyone with the permission can execute proposals
 ```
 
