@@ -365,7 +365,6 @@ contract LockToVoteTest is TestBase {
         // It should happen in all voting modes
         _testCanVoteFirstTime(MajorityVotingBase.VotingMode.Standard);
         _testCanVoteFirstTime(MajorityVotingBase.VotingMode.VoteReplacement);
-        _testCanVoteFirstTime(MajorityVotingBase.VotingMode.EarlyExecution);
     }
 
     function _testCanVoteFirstTime(MajorityVotingBase.VotingMode mode) internal {
@@ -443,25 +442,6 @@ contract LockToVoteTest is TestBase {
         assertTrue(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.No));
     }
 
-    function test_GivenEarlyExecutionMode()
-        external
-        whenCallingCanVote
-        givenTheProposalIsOpen
-        givenNonEmptyVote
-        givenVotingAgain
-    {
-        (dao, ltvPlugin, lockManager, lockableToken) =
-            builder.withEarlyExecution().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
-
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-
-        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
-
-        // It should return false
-        assertFalse(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes));
-    }
-
     function test_GivenEmptyVote() external whenCallingCanVote givenTheProposalIsOpen {
         (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVoteReplacement().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
@@ -492,20 +472,6 @@ contract LockToVoteTest is TestBase {
 
         (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVoteReplacement().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
-
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-        _lock(alice, 1 ether);
-        assertTrue(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes));
-
-        vm.warp(block.timestamp + ltvPlugin.proposalDuration() + 1);
-        assertFalse(ltvPlugin.canVote(proposalId, alice, IMajorityVoting.VoteOption.Yes));
-        assertFalse(ltvPlugin.canVote(proposalId, bob, IMajorityVoting.VoteOption.Yes));
-
-        // 2
-
-        (dao, ltvPlugin, lockManager, lockableToken) =
-            builder.withEarlyExecution().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
 
         vm.prank(alice);
         proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
@@ -949,252 +915,6 @@ contract LockToVoteTest is TestBase {
         assertEq(tally.abstain, aliceBalance + 0.2 ether);
     }
 
-    modifier givenEarlyExecutionMode2() {
-        (dao, ltvPlugin, lockManager, lockableToken) =
-            builder.withEarlyExecution().withVotingPlugin().withProposer(alice).withTokenHolder(alice, 1 ether).build();
-
-        _;
-    }
-
-    modifier givenVotingTheFirstTime3() {
-        _;
-    }
-
-    function test_GivenHasLockedBalance3() external whenCallingVote givenEarlyExecutionMode2 givenVotingTheFirstTime3 {
-        // It should set the right voter's usedVotingPower
-        // It should set the right tally of the voted option
-        // It should set the right total voting power
-
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-
-        _lock(alice, 1 ether);
-
-        uint256 aliceBalance = lockManager.getLockedBalance(alice);
-
-        // It should emit an event
-        vm.expectEmit(true, true, true, true);
-        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance);
-
-        vm.prank(alice);
-        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
-
-        // It should set the right voter's usedVotingPower
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
-
-        // It should set the right tally of the voted option
-        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
-        assertEq(tally.yes, aliceBalance);
-
-        // It should set the right total voting power
-        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
-    }
-
-    function test_RevertGiven_NoLockedBalance3()
-        external
-        whenCallingVote
-        givenEarlyExecutionMode2
-        givenVotingTheFirstTime3
-    {
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-
-        vm.prank(bob);
-        vm.expectRevert();
-        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
-
-        // It should keep the right voter's usedVotingPower
-        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0);
-
-        // It should set the right tally
-        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
-        assertEq(tally.yes + tally.no + tally.abstain, 0);
-    }
-
-    modifier givenVotingTheSameOption3() {
-        _;
-    }
-
-    function test_RevertGiven_VotingWithTheSameLockedBalance5()
-        external
-        whenCallingVote
-        givenEarlyExecutionMode2
-        givenVotingTheSameOption3
-    {
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-
-        _lock(alice, 1 ether);
-
-        uint256 aliceBalance = lockManager.getLockedBalance(alice);
-        vm.prank(alice);
-        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
-
-        // It should revert
-        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
-        vm.prank(alice);
-        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
-
-        //
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
-
-        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
-        assertEq(tally.yes, aliceBalance);
-
-        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
-    }
-
-    function test_GivenVotingWithMoreLockedBalance5()
-        external
-        whenCallingVote
-        givenEarlyExecutionMode2
-        givenVotingTheSameOption3
-    {
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-
-        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
-
-        uint256 aliceBalance = lockManager.getLockedBalance(alice);
-
-        _lock(alice, 0.5 ether);
-        // It should emit an event
-        vm.expectEmit(true, true, true, true);
-        emit IMajorityVoting.VoteCast(proposalId, alice, IMajorityVoting.VoteOption.Yes, aliceBalance + 0.5 ether);
-        vm.prank(alice);
-        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
-
-        // It should increase the voter's usedVotingPower
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance + 0.5 ether);
-
-        // It should increase the right tally of the voted option
-        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
-        assertEq(tally.yes, aliceBalance + 0.5 ether);
-
-        // It should increase the right total voting power
-        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance + 0.5 ether);
-    }
-
-    modifier givenVotingAnotherOption3() {
-        _;
-    }
-
-    function test_RevertGiven_VotingWithTheSameLockedBalance6()
-        external
-        whenCallingVote
-        givenEarlyExecutionMode2
-        givenVotingAnotherOption3
-    {
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-
-        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
-
-        uint256 aliceBalance = lockManager.getLockedBalance(alice);
-        _lock(alice, 0.5 ether);
-
-        // It should revert
-        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
-        vm.prank(alice);
-        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
-
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
-
-        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
-        assertEq(tally.yes, aliceBalance);
-        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
-    }
-
-    function test_RevertGiven_VotingWithMoreLockedBalance6()
-        external
-        whenCallingVote
-        givenEarlyExecutionMode2
-        givenVotingAnotherOption3
-    {
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-
-        _vote(alice, IMajorityVoting.VoteOption.Yes, 0.5 ether);
-
-        uint256 aliceBalance = lockManager.getLockedBalance(alice);
-        _lock(alice, 0.5 ether);
-
-        // It should revert
-        vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, alice));
-        vm.prank(alice);
-        lockManager.vote(proposalId, IMajorityVoting.VoteOption.No);
-
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), aliceBalance);
-
-        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
-        assertEq(tally.yes, aliceBalance);
-        assertEq(tally.yes + tally.no + tally.abstain, aliceBalance);
-    }
-
-    modifier givenTheVoteMakesTheProposalPass() {
-        _;
-    }
-
-    function test_GivenTheCallerHasPermissionToCallExecute()
-        external
-        whenCallingVote
-        givenEarlyExecutionMode2
-        givenTheVoteMakesTheProposalPass
-    {
-        // It hasSucceeded() should return true
-        // It canExecute() should return true
-        // It isSupportThresholdReachedEarly() should return true
-        // It isMinVotingPowerReached() should return true
-        // It isMinApprovalReached() should return true
-        // It should execute the proposal
-        // It the proposal should be marked as executed
-        // It should emit an event
-
-        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
-            .withProposer(alice).withTokenHolder(alice, 50 ether).withTokenHolder(bob, 50 ether).withSupportThresholdRatio(
-            500_000
-        ).build();
-        dao.grant(address(ltvPlugin), address(lockManager), ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
-
-        assertEq(lockableToken.balanceOf(alice), 50 ether);
-        assertEq(lockableToken.balanceOf(bob), 50 ether);
-        assertEq(lockableToken.totalSupply(), 100 ether);
-
-        vm.deal(address(dao), 1 ether);
-        actions.push(Action({to: david, value: 1 ether, data: bytes("")}));
-
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-
-        _vote(alice, IMajorityVoting.VoteOption.Yes, 50 ether);
-        _lock(bob, 0.01 ether);
-
-        vm.prank(bob);
-        vm.expectEmit();
-        emit ProposalExecuted(proposalId);
-        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
-
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 50 ether);
-        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0.01 ether);
-
-        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
-        assertEq(tally.yes, 50.01 ether);
-        assertEq(tally.yes + tally.no + tally.abstain, 50.01 ether);
-
-        assertTrue(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
-        assertTrue(ltvPlugin.isMinVotingPowerReached(proposalId));
-        assertTrue(ltvPlugin.isMinApprovalReached(proposalId));
-        assertTrue(ltvPlugin.hasSucceeded(proposalId));
-        assertFalse(ltvPlugin.canExecute(proposalId));
-
-        (bool open, bool executed,,,,,) = ltvPlugin.getProposal(proposalId);
-        assertFalse(open);
-        assertTrue(executed);
-
-        assertEq(address(dao).balance, 0);
-        assertEq(david.balance, 1 ether);
-    }
-
     modifier whenCallingClearvote() {
         _;
     }
@@ -1244,31 +964,6 @@ contract LockToVoteTest is TestBase {
         (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId + 1);
         assertEq(tally.yes, 0);
         assertEq(tally.yes + tally.no + tally.abstain, 0);
-    }
-
-    function test_RevertGiven_EarlyExecutionMode3() external whenCallingClearvote {
-        // It should revert
-
-        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
-            .withProposer(alice).withTokenHolder(alice, 50 ether).build();
-
-        assertEq(lockableToken.balanceOf(alice), 50 ether);
-        assertEq(lockableToken.totalSupply(), 50 ether);
-
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-
-        _vote(alice, IMajorityVoting.VoteOption.Yes, 50 ether);
-
-        vm.prank(address(lockManager));
-        vm.expectRevert(abi.encodeWithSelector(VoteRemovalForbidden.selector, proposalId, alice));
-        ltvPlugin.clearVote(proposalId, alice);
-
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 50 ether);
-
-        (,,, MajorityVotingBase.Tally memory tally,,,) = ltvPlugin.getProposal(proposalId);
-        assertEq(tally.yes, 50 ether);
-        assertEq(tally.yes + tally.no + tally.abstain, 50 ether);
     }
 
     function test_GivenStandardVotingMode3() external whenCallingClearvote {
@@ -1453,9 +1148,6 @@ contract LockToVoteTest is TestBase {
         vm.expectRevert(abi.encodeWithSelector(NonexistentProposal.selector, proposalId + 54321));
         ltvPlugin.canExecute(proposalId + 54321);
 
-        // It isSupportThresholdReachedEarly() should return false
-        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId + 54321));
-
         // It isSupportThresholdReached() should return false
         assertFalse(ltvPlugin.isSupportThresholdReached(proposalId + 54321));
 
@@ -1517,9 +1209,6 @@ contract LockToVoteTest is TestBase {
 
         // It canExecute() should return false
         assertFalse(ltvPlugin.canExecute(proposalId));
-
-        // It isSupportThresholdReachedEarly() should return false
-        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
 
         // It isSupportThresholdReached() should return false
         assertFalse(ltvPlugin.isSupportThresholdReached(proposalId));
@@ -1584,9 +1273,6 @@ contract LockToVoteTest is TestBase {
 
         // It canExecute() should return false
         assertFalse(ltvPlugin.canExecute(proposalId));
-
-        // It isSupportThresholdReachedEarly() should return false
-        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
 
         // It isSupportThresholdReached() should return true
         assertTrue(ltvPlugin.isSupportThresholdReached(proposalId));
@@ -1661,9 +1347,6 @@ contract LockToVoteTest is TestBase {
         // It canExecute() should return false
         assertFalse(ltvPlugin.canExecute(proposalId));
 
-        // It isSupportThresholdReachedEarly() should return false
-        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
-
         // It isSupportThresholdReached() should return true
         assertTrue(ltvPlugin.isSupportThresholdReached(proposalId));
 
@@ -1732,9 +1415,6 @@ contract LockToVoteTest is TestBase {
 
         // It canExecute() should return false
         assertFalse(ltvPlugin.canExecute(proposalId));
-
-        // It isSupportThresholdReachedEarly() should return false
-        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
 
         // It isSupportThresholdReached() should return false
         assertFalse(ltvPlugin.isSupportThresholdReached(proposalId));
@@ -1805,9 +1485,6 @@ contract LockToVoteTest is TestBase {
         // It canExecute() should return false
         assertFalse(ltvPlugin.canExecute(proposalId));
 
-        // It isSupportThresholdReachedEarly() should return false
-        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
-
         // It isSupportThresholdReached() should return true
         assertTrue(ltvPlugin.isSupportThresholdReached(proposalId));
 
@@ -1876,9 +1553,6 @@ contract LockToVoteTest is TestBase {
 
         // It canExecute() should return false
         assertFalse(ltvPlugin.canExecute(proposalId));
-
-        // It isSupportThresholdReachedEarly() should return false
-        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
 
         // It isSupportThresholdReached() should return true
         assertTrue(ltvPlugin.isSupportThresholdReached(proposalId));
@@ -1953,9 +1627,6 @@ contract LockToVoteTest is TestBase {
 
         // It canExecute() should return false
         assertFalse(ltvPlugin.canExecute(proposalId));
-
-        // It isSupportThresholdReachedEarly() should return false
-        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
 
         // It isSupportThresholdReached() should return false
         assertFalse(ltvPlugin.isSupportThresholdReached(proposalId));
@@ -2066,9 +1737,6 @@ contract LockToVoteTest is TestBase {
         // It hasSucceeded() should return true
         assertTrue(ltvPlugin.hasSucceeded(proposalId));
 
-        // It isSupportThresholdReachedEarly() should return false (because total supply is large)
-        assertFalse(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
-
         // It isSupportThresholdReached() should return true
         assertTrue(ltvPlugin.isSupportThresholdReached(proposalId));
 
@@ -2124,94 +1792,6 @@ contract LockToVoteTest is TestBase {
         assertFalse(ltvPlugin.canExecute(proposalId));
     }
 
-    modifier givenItHasPassedEarly() {
-        _;
-    }
-
-    function test_GivenItHasPassedEarly() external whenCallingTheProposalGetters givenItHasPassedEarly {
-        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
-            .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
-            .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice).build();
-        dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
-
-        vm.deal(address(dao), 1 ether);
-        actions.push(Action({to: david, value: 1 ether, data: bytes("")}));
-
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-
-        _vote(alice, IMajorityVoting.VoteOption.Yes, 51 ether);
-        uint64 creationTimestamp = uint64(block.timestamp);
-
-        // It getProposal() returns the right values
-        (
-            bool open,
-            bool executed,
-            MajorityVotingBase.ProposalParameters memory params,
-            MajorityVotingBase.Tally memory tally,
-            Action[] memory pActions,
-            ,
-        ) = ltvPlugin.getProposal(proposalId);
-        assertTrue(open);
-        assertFalse(executed);
-        assertEq(params.startDate, creationTimestamp);
-        assertEq(tally.yes, 51 ether);
-        assertEq(pActions.length, 1);
-
-        // It isProposalOpen() returns true
-        assertTrue(ltvPlugin.isProposalOpen(proposalId));
-
-        // It hasSucceeded() should return true
-        assertTrue(ltvPlugin.hasSucceeded(proposalId));
-
-        // It isSupportThresholdReachedEarly() should return true
-        assertTrue(ltvPlugin.isSupportThresholdReachedEarly(proposalId));
-
-        // It isSupportThresholdReached() should return true
-        assertTrue(ltvPlugin.isSupportThresholdReached(proposalId));
-
-        // It isMinVotingPowerReached() should return true
-        assertTrue(ltvPlugin.isMinVotingPowerReached(proposalId));
-
-        // It isMinApprovalReached() should return true
-        assertTrue(ltvPlugin.isMinApprovalReached(proposalId));
-
-        // It usedVotingPower() should return the appropriate values
-        assertEq(ltvPlugin.usedVotingPower(proposalId, alice), 51 ether);
-        assertEq(ltvPlugin.usedVotingPower(proposalId, bob), 0);
-    }
-
-    function test_GivenTheProposalHasNotBeenExecuted2() external whenCallingTheProposalGetters givenItHasPassedEarly {
-        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
-            .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
-            .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice).build();
-        dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
-
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-        _vote(alice, IMajorityVoting.VoteOption.Yes, 51 ether);
-
-        // It canExecute() should return true
-        assertTrue(ltvPlugin.canExecute(proposalId));
-    }
-
-    function test_GivenTheProposalHasBeenExecuted2() external whenCallingTheProposalGetters givenItHasPassedEarly {
-        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
-            .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
-            .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice).build();
-        dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
-
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-        _vote(alice, IMajorityVoting.VoteOption.Yes, 51 ether);
-
-        vm.prank(alice);
-        ltvPlugin.execute(proposalId);
-
-        // It canExecute() should return false
-        assertFalse(ltvPlugin.canExecute(proposalId));
-    }
-
     modifier whenCallingCanExecuteAndHasSucceeded() {
         _;
     }
@@ -2232,34 +1812,6 @@ contract LockToVoteTest is TestBase {
         _;
     }
 
-    modifier givenIsSupportThresholdReachedEarlyWasReachedBeforeEndDate() {
-        _;
-    }
-
-    function test_GivenTheProposalAllowsEarlyExecution()
-        external
-        whenCallingCanExecuteAndHasSucceeded
-        givenTheProposalExists
-        givenTheProposalIsNotExecuted
-        givenMinVotingPowerIsReached
-        givenMinApprovalIsReached
-        givenIsSupportThresholdReachedEarlyWasReachedBeforeEndDate
-    {
-        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withEarlyExecution().withVotingPlugin()
-            .withMinApprovalRatio(500_000).withMinParticipationRatio(500_000).withSupportThresholdRatio(500_000)
-            .withTokenHolder(alice, 51 ether).withTokenHolder(bob, 49 ether).withProposer(alice).build();
-        dao.grant(address(ltvPlugin), alice, ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
-
-        vm.prank(alice);
-        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
-        _vote(alice, IMajorityVoting.VoteOption.Yes, 51 ether);
-
-        // It canExecute() should return true
-        assertTrue(ltvPlugin.canExecute(proposalId));
-        // It hasSucceeded() should return true
-        assertTrue(ltvPlugin.hasSucceeded(proposalId));
-    }
-
     function test_GivenTheProposalDoesNotAllowEarlyExecution()
         external
         whenCallingCanExecuteAndHasSucceeded
@@ -2267,7 +1819,6 @@ contract LockToVoteTest is TestBase {
         givenTheProposalIsNotExecuted
         givenMinVotingPowerIsReached
         givenMinApprovalIsReached
-        givenIsSupportThresholdReachedEarlyWasReachedBeforeEndDate
     {
         // 1
         (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withStandardVoting().withVotingPlugin()

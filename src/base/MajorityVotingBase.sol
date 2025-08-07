@@ -71,52 +71,6 @@ import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 /// The contract allows votes to be replaced. Voters can vote multiple times
 /// and only the latest voteOption is tallied.
 ///
-/// ### Early Execution
-///
-/// This contract allows a proposal to be executed early,
-/// iff the vote outcome cannot change anymore by more people voting.
-/// Accordingly, vote replacement and early execution are mutually exclusive options.
-/// The outcome cannot change anymore
-/// iff the support threshold is met even if all remaining votes are no votes.
-/// We call this number the worst-case number of no votes and define it as
-///
-/// $$N_\text{no, worst-case} = N_\text{no} + \texttt{remainingVotes}$$
-///
-/// where
-///
-/// $$\texttt{remainingVotes} =
-/// N_\text{total}-\underbrace{(N_\text{yes}+N_\text{no}+N_\text{abstain})}_{\text{turnout}}.$$
-///
-/// We can use this quantity to calculate the worst-case support that would be obtained
-/// if all remaining votes are casted with no:
-///
-/// $$
-/// \begin{align*}
-///   \texttt{worstCaseSupport}
-///   &= \frac{N_\text{yes}}{N_\text{yes} + (N_\text{no, worst-case})} \\[3mm]
-///   &= \frac{N_\text{yes}}{N_\text{yes} + (N_\text{no} + \texttt{remainingVotes})} \\[3mm]
-///   &= \frac{N_\text{yes}}{N_\text{yes} +  N_\text{no} + N_\text{total}
-///      - (N_\text{yes} + N_\text{no} + N_\text{abstain})} \\[3mm]
-///   &= \frac{N_\text{yes}}{N_\text{total} - N_\text{abstain}}
-/// \end{align*}
-/// $$
-///
-/// In analogy, we can modify [the support criterion](#the-support-criterion)
-/// from above to allow for early execution:
-///
-/// $$
-/// \begin{align*}
-///   (1 - \texttt{supportThresholdRatio}) \cdot N_\text{yes}
-///   &> \texttt{supportThresholdRatio} \cdot  N_\text{no, worst-case} \\[3mm]
-///   &> \texttt{supportThresholdRatio} \cdot (N_\text{no} + \texttt{remainingVotes}) \\[3mm]
-///   &> \texttt{supportThresholdRatio} \cdot (N_\text{no}
-///     + N_\text{total}-(N_\text{yes}+N_\text{no}+N_\text{abstain})) \\[3mm]
-///   &> \texttt{supportThresholdRatio} \cdot (N_\text{total} - N_\text{yes} - N_\text{abstain})
-/// \end{align*}
-/// $$
-///
-/// Accordingly, early execution is possible when the vote is open,
-///     the modified support criterion, and the particicpation criterion are met.
 /// @dev This contract implements the `IMajorityVoting` interface.
 /// @custom:security-contact sirt@aragon.org
 abstract contract MajorityVotingBase is
@@ -130,26 +84,21 @@ abstract contract MajorityVotingBase is
     using SafeCastUpgradeable for uint256;
 
     /// @notice The different voting modes available.
-    /// @param Standard In standard mode, early execution and vote replacement are disabled.
-    /// @param EarlyExecution In early execution mode, a proposal can be executed
-    ///     early before the end date if the vote outcome cannot mathematically change by more voters voting.
+    /// @param Standard In standard mode, the voting power can be increased but votes cannot be replaced.
     /// @param VoteReplacement In vote replacement mode, voters can change their vote
     ///     multiple times and only the latest vote option is tallied.
     enum VotingMode {
         Standard,
-        EarlyExecution,
         VoteReplacement
     }
 
     /// @notice A container for the majority voting settings that will be applied as parameters on proposal creation.
     /// @param votingMode A parameter to select the vote mode.
-    ///     In standard mode (0), early execution and vote replacement are disabled.
-    ///     In early execution mode (1), a proposal can be executed early before the end date
-    ///     if the vote outcome cannot mathematically change by more voters voting.
-    ///     In vote replacement mode (2), voters can change their vote multiple times
+    ///     In standard mode (0), the voting power can be increased but votes cannot be replaced.
+    ///     In vote replacement mode (1), voters can change their vote multiple times
     ///     and only the latest vote option is tallied.
     /// @param supportThresholdRatio The support threshold ratio.
-    ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    ///     Its value has to be in the interval [0, 10^6) defined by `RATIO_BASE = 10**6`.
     /// @param minParticipationRatio The minimum participation ratio.
     ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     /// @param minApprovalRatio The minimum ratio of approvals the proposal needs to succeed.
@@ -372,19 +321,6 @@ abstract contract MajorityVotingBase is
     }
 
     /// @inheritdoc IMajorityVoting
-    function isSupportThresholdReachedEarly(uint256 _proposalId) public view virtual returns (bool) {
-        Proposal storage proposal_ = proposals[_proposalId];
-
-        uint256 noVotesWorstCase = currentTokenSupply() - proposal_.tally.yes - proposal_.tally.abstain;
-
-        // The code below implements the formula of the
-        // early execution support criterion explained in the top of this file.
-        // `(1 - supportThreshold) * N_yes > supportThreshold *  N_no,worst-case`
-        return (RATIO_BASE - proposal_.parameters.supportThresholdRatio) * proposal_.tally.yes
-            > proposal_.parameters.supportThresholdRatio * noVotesWorstCase;
-    }
-
-    /// @inheritdoc IMajorityVoting
     function isMinVotingPowerReached(uint256 _proposalId) public view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
@@ -517,27 +453,12 @@ abstract contract MajorityVotingBase is
     function _hasSucceeded(uint256 _proposalId) internal view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        // Support threshold, depending on the status and mode
         if (_isProposalOpen(proposal_)) {
-            // If the proposal is still open and the voting mode is not EarlyExecution,
-            // success cannot be determined until the voting period ends.
-            if (proposal_.parameters.votingMode != VotingMode.EarlyExecution) {
-                return false;
-            }
-            // For EarlyExecution, check if the support threshold
-            // has been reached early to determine success while proposal is still open.
-            else if (!isSupportThresholdReachedEarly(_proposalId)) {
-                return false;
-            }
-        } else {
-            // Normal execution
-            if (!isSupportThresholdReached(_proposalId)) {
-                return false;
-            }
-        }
-
-        // Check the rest
-        if (!isMinVotingPowerReached(_proposalId)) {
+            // Success cannot be determined until the voting period ends.
+            return false;
+        } else if (!isSupportThresholdReached(_proposalId)) {
+            return false;
+        } else if (!isMinVotingPowerReached(_proposalId)) {
             return false;
         } else if (!isMinApprovalReached(_proposalId)) {
             return false;
@@ -559,12 +480,8 @@ abstract contract MajorityVotingBase is
         } else if (!_hasSucceeded(_proposalId)) {
             return false;
         }
-        /// @dev Handling the case of Standard and VoteReplacement voting modes
         /// @dev Enforce waiting until endDate, which is not covered by _hasSucceeded()
-        else if (
-            proposal_.parameters.votingMode != VotingMode.EarlyExecution
-                && block.timestamp.toUint64() < proposal_.parameters.endDate
-        ) {
+        else if (block.timestamp.toUint64() < proposal_.parameters.endDate) {
             return false;
         }
 

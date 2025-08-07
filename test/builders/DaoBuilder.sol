@@ -64,11 +64,6 @@ contract DaoBuilder is Test {
         return this;
     }
 
-    function withEarlyExecution() public returns (DaoBuilder) {
-        votingMode = MajorityVotingBase.VotingMode.EarlyExecution;
-        return this;
-    }
-
     function withSupportThresholdRatio(uint32 newSupportThresholdRatio) public returns (DaoBuilder) {
         supportThresholdRatio = newSupportThresholdRatio;
         return this;

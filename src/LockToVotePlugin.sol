@@ -206,10 +206,6 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         }
 
         emit VoteCast(_proposalId, _voter, _voteOption, _newVotingPower);
-
-        if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
-            _attemptEarlyExecution(_proposalId, _msgSender());
-        }
     }
 
     /// @inheritdoc ILockToVote
@@ -281,7 +277,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         } else if (_voteOption == VoteOption.None) {
             return false;
         }
-        // Standard voting + early execution
+        // Standard voting
         else if (proposal_.parameters.votingMode != VotingMode.VoteReplacement) {
             // Lowering the existing voting power (or the same) is not allowed
             if (_newVotingPower <= _currentVotingPower) {
@@ -308,16 +304,6 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         }
 
         return true;
-    }
-
-    function _attemptEarlyExecution(uint256 _proposalId, address _voteCaller) internal {
-        if (!_canExecute(_proposalId)) {
-            return;
-        } else if (!dao().hasPermission(address(this), _voteCaller, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
-            return;
-        }
-
-        _execute(_proposalId);
     }
 
     function _execute(uint256 _proposalId) internal override {
