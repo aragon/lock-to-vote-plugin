@@ -245,7 +245,7 @@ contract LockManagerERC20Test is TestBase {
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
         vm.prank(address(ltvPlugin));
-        lockManager.proposalCreated(proposalId);
+        lockManager.proposalCreated(proposalId, address(this));
         _;
     }
 
@@ -383,7 +383,7 @@ contract LockManagerERC20Test is TestBase {
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
 
         vm.prank(address(ltvPlugin));
-        lockManager.proposalCreated(proposalId);
+        lockManager.proposalCreated(proposalId, address(this));
 
         vm.prank(alice);
         lockableToken.approve(address(lockManager), 0.5 ether);
@@ -463,7 +463,7 @@ contract LockManagerERC20Test is TestBase {
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
         vm.prank(address(ltvPlugin));
-        lockManager.proposalCreated(proposalId);
+        lockManager.proposalCreated(proposalId, address(this));
 
         vm.prank(alice);
         lockableToken.approve(address(lockManager), 1 ether);
@@ -497,7 +497,7 @@ contract LockManagerERC20Test is TestBase {
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
         vm.prank(address(ltvPlugin));
-        lockManager.proposalCreated(proposalId);
+        lockManager.proposalCreated(proposalId, address(this));
 
         vm.prank(alice);
         lockableToken.approve(address(lockManager), 1 ether);
@@ -548,7 +548,11 @@ contract LockManagerERC20Test is TestBase {
         // It Should revert with InvalidPluginAddress
         vm.prank(bob);
         vm.expectRevert(InvalidPluginAddress.selector);
-        lockManager.proposalCreated(1);
+        lockManager.proposalCreated(1, address(this));
+
+        vm.prank(bob);
+        vm.expectRevert(InvalidPluginAddress.selector);
+        lockManager.proposalCreated(1, alice);
     }
 
     function test_WhenCallingProposalEnded() external givenThePluginHasBeenSet givenTheCallerIsNotTheRegisteredPlugin {
@@ -569,13 +573,13 @@ contract LockManagerERC20Test is TestBase {
     {
         // It Should add the proposal ID to knownProposalIds
         vm.prank(address(lockManager.plugin()));
-        lockManager.proposalCreated(123);
+        lockManager.proposalCreated(123, address(this));
         assertEq(lockManager.knownProposalIdAt(0), 123);
     }
 
     modifier givenAProposalIDIsAlreadyKnown() {
         vm.prank(address(lockManager.plugin()));
-        lockManager.proposalCreated(123);
+        lockManager.proposalCreated(123, address(this));
         _;
     }
 
@@ -588,7 +592,7 @@ contract LockManagerERC20Test is TestBase {
         // It Should not change the set of known proposals
         uint256 initialLength = lockManager.knownProposalIdsLength();
         vm.prank(address(lockManager.plugin()));
-        lockManager.proposalCreated(123);
+        lockManager.proposalCreated(123, address(this));
         assertEq(lockManager.knownProposalIdsLength(), initialLength);
     }
 
@@ -646,9 +650,9 @@ contract LockManagerERC20Test is TestBase {
 
     modifier givenTheContractHasSeveralKnownProposalIDs() {
         vm.startPrank(address(ltvPlugin));
-        lockManager.proposalCreated(101);
-        lockManager.proposalCreated(102);
-        lockManager.proposalCreated(103);
+        lockManager.proposalCreated(101, address(this));
+        lockManager.proposalCreated(102, address(this));
+        lockManager.proposalCreated(103, address(this));
         vm.stopPrank();
 
         _;

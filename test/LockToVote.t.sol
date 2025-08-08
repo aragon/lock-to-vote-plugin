@@ -281,6 +281,8 @@ contract LockToVoteTest is TestBase {
         (dao, ltvPlugin, lockManager, lockableToken) =
             new DaoBuilder().withTokenHolder(alice, 1 ether).withVotingPlugin().build();
 
+        _lock(alice, 1 ether);
+
         // Revoke unconditional permission for alice (default proposer in my setUp)
         dao.revoke(address(ltvPlugin), alice, ltvPlugin.CREATE_PROPOSAL_PERMISSION_ID());
 
@@ -296,7 +298,7 @@ contract LockToVoteTest is TestBase {
         dao.grantWithCondition(address(ltvPlugin), alice, ltvPlugin.CREATE_PROPOSAL_PERMISSION_ID(), condition);
 
         // It should revert when the creator has not enough balance
-        // Alice has 1 ether, min is 2 ether.
+        // Alice locked 1 ether, min is 2 ether.
         vm.expectRevert(
             abi.encodeWithSelector(
                 DaoUnauthorized.selector,
@@ -311,6 +313,8 @@ contract LockToVoteTest is TestBase {
 
         // It should succeed when the creator has enough balance
         TestToken(address(lockableToken)).mint(alice, 1 ether); // now alice has 2 ether
+        _lock(alice, 1 ether);
+
         vm.prank(alice);
         ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
     }

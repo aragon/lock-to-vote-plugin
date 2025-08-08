@@ -27,6 +27,9 @@ abstract contract LockManagerBase is ILockManager {
     /// @dev NOTE: Executed proposals will be actively reported, but defeated proposals will need to be garbage collected over time.
     EnumerableSet.UintSet internal knownProposalIds;
 
+    /// @notice Keeps track of who created each known proposalId
+    mapping(uint256 => address) internal knownProposalIdCreators;
+
     /// @notice The address that can define the plugin address, once, after the deployment
     address immutable pluginSetter;
 
@@ -72,6 +75,21 @@ abstract contract LockManagerBase is ILockManager {
     /// @notice Returns the number of known proposalID's
     function knownProposalIdsLength() public view virtual returns (uint256) {
         return knownProposalIds.length();
+    }
+
+    /// @notice Returns how many of the known proposalID's were created by the given address
+    /// @param _creator The address to use for filtering
+    function activeProposalsCreatedBy(address _creator) public view virtual returns (uint256 _result) {
+        uint256 _proposalCount = knownProposalIds.length();
+        for (uint256 _i; _i < _proposalCount; _i++) {
+            uint256 _proposalId = knownProposalIds.at(_i);
+            if (knownProposalIdCreators[_proposalId] != _creator) {
+                continue;
+            } else if (!plugin.isProposalOpen(_proposalId)) {
+                continue;
+            }
+            _result++;
+        }
     }
 
     /// @inheritdoc ILockManager
@@ -148,15 +166,16 @@ abstract contract LockManagerBase is ILockManager {
     }
 
     /// @inheritdoc ILockManager
-    function proposalCreated(uint256 _proposalId) public virtual {
+    function proposalCreated(uint256 _proposalId, address _creator) public virtual {
         if (msg.sender != address(plugin)) {
             revert InvalidPluginAddress();
         }
 
         // @dev Not checking for duplicate proposalId's
-        // @dev Both plugins already enforce unicity
+        // @dev The plugin already enforces unicity
 
         knownProposalIds.add(_proposalId);
+        knownProposalIdCreators[_proposalId] = _creator;
     }
 
     /// @inheritdoc ILockManager

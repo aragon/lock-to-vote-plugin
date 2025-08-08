@@ -35,6 +35,10 @@ interface ILockManager {
     /// @notice Returns the currently locked balance that the given account has on the contract.
     function getLockedBalance(address account) external view returns (uint256);
 
+    /// @notice Returns how many active proposalID's were created by the given address
+    /// @param _creator The address to use for filtering
+    function activeProposalsCreatedBy(address _creator) external view returns (uint256 _result);
+
     /// @notice Locks the balance currently allowed by msg.sender on this contract
     /// NOTE: Tokens locked and not allocated into a proposal are treated in the same way as the rest.
     /// They can only be unlocked when all active proposals with votes have ended.
@@ -81,7 +85,8 @@ interface ILockManager {
 
     /// @notice Called by the lock to vote plugin whenever a proposal is created. It instructs the manager to start tracking the given proposal.
     /// @param proposalId The ID of the proposal that msg.sender is reporting as created.
-    function proposalCreated(uint256 proposalId) external;
+    /// @param creator The address that .
+    function proposalCreated(uint256 proposalId, address creator) external;
 
     /// @notice Called by the lock to vote plugin whenever a proposal is executed (or ended). It instructs the manager to remove the proposal from the list of active proposal locks.
     /// @param proposalId The ID of the proposal that msg.sender is reporting as done.

@@ -79,40 +79,49 @@ contract MinVotingPowerConditionTest is TestBase {
 
         // It should return false when 'who' holds less than the minimum voting power
         assertFalse(
-            condition.isGranted(address(0x0), alice, bytes32(0x0), ""), // Alice has 1 ether
+            condition.isGranted(address(0x0), alice, bytes32(0x0), ""), // Alice has 1 ether, 0 locked
             "Should return false for user with less than min power"
         );
+
         vm.startPrank(alice);
         token.approve(address(ltvPlugin.lockManager()), 0.5 ether);
         ltvPlugin.lockManager().lock();
         assertFalse(
-            condition.isGranted(address(0x0), alice, bytes32(0x0), ""), // Alice has 0.5+0.5 ether
+            condition.isGranted(address(0x0), alice, bytes32(0x0), ""), // Alice has 0.5 ether locked
             "Should return false for alice"
         );
 
         // It should return true when 'who' holds the minimum voting power
-        assertTrue(
-            condition.isGranted(address(0x0), bob, bytes32(0x0), ""), // Bob has 10 ether
-            "Should return true for user with exact min power"
+        assertFalse(
+            condition.isGranted(address(0x0), bob, bytes32(0x0), ""), // Bob has 10 ether, 0 locked
+            "Should return false for user with no tokens locked"
         );
         vm.startPrank(bob);
+        token.approve(address(ltvPlugin.lockManager()), 9.5 ether);
+        ltvPlugin.lockManager().lock();
+        assertFalse(
+            condition.isGranted(address(0x0), bob, bytes32(0x0), ""), // Bob has 0.5 ether, 9.5 locked
+            "Should return false for user with less than minPower locked"
+        );
         token.approve(address(ltvPlugin.lockManager()), 0.5 ether);
         ltvPlugin.lockManager().lock();
         assertTrue(
-            condition.isGranted(address(0x0), bob, bytes32(0x0), ""), // Bob has 9.5+0.5 ether
-            "Should return true for bob"
+            condition.isGranted(address(0x0), bob, bytes32(0x0), ""), // Bob has 10 ether, 0 locked
+            "Should return true for user with exact min power"
         );
 
-        assertTrue(
-            condition.isGranted(address(0x0), david, bytes32(0x0), ""), // David has 15 ether
-            "Should return true for user with more than min power"
+        // 2
+        assertFalse(
+            condition.isGranted(address(0x0), david, bytes32(0x0), ""), // David has 15 ether, 0 locked
+            "Should return false for user with less than min power"
         );
+
         vm.startPrank(david);
-        token.approve(address(ltvPlugin.lockManager()), 5.5 ether);
+        token.approve(address(ltvPlugin.lockManager()), 12 ether);
         ltvPlugin.lockManager().lock();
         assertTrue(
-            condition.isGranted(address(0x0), david, bytes32(0x0), ""), // David has 9.5+5.5 ether
-            "Should return true for david"
+            condition.isGranted(address(0x0), david, bytes32(0x0), ""), // David has 12 ether locked
+            "Should return false for user with more than min power"
         );
     }
 }
