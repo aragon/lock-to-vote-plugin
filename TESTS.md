@@ -140,6 +140,10 @@ LockToVoteTest
 │   │   └── It Settings() should return the right values
 │   └── Given the caller has no permission to call updateVotingSettings
 │       └── It Should revert
+├── When calling setTargetConfig
+│   └── Given the caller has no permission to call setTargetConfig
+│       ├── It should revert if the new target is the pugin
+│       └── It should revert if the new target is the LockManager
 ├── When calling supportsInterface
 │   ├── It does not support the empty interface
 │   ├── It supports IERC165Upgradeable

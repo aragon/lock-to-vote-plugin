@@ -26,6 +26,12 @@ LockToVoteTest:
       - given: the caller has no permission to call updateVotingSettings
         and:
           - it: Should revert
+  - when: calling setTargetConfig()
+    and:
+      - given: the caller has no permission to call setTargetConfig()
+        and:
+          - it: should revert if the new target is the pugin
+          - it: should revert if the new target is the LockManager
 
   # ERC165
   - when: calling supportsInterface
