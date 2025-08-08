@@ -28,7 +28,7 @@ abstract contract LockManagerBase is ILockManager {
     EnumerableSet.UintSet internal knownProposalIds;
 
     /// @notice Keeps track of who created each known proposalId
-    mapping(uint256 => address) internal knownProposalIdCreators;
+    mapping(uint256 => address) public knownProposalIdCreators;
 
     /// @notice The address that can define the plugin address, once, after the deployment
     address immutable pluginSetter;

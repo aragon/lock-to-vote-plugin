@@ -41,7 +41,7 @@ contract LockManagerERC20Test is TestBase {
         builder = new DaoBuilder();
         (dao, ltvPlugin, lockManager, lockableToken) = builder.withTokenHolder(alice, 1 ether).withTokenHolder(
             bob, 10 ether
-        ).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).build();
+        ).withTokenHolder(carol, 10 ether).withTokenHolder(david, 15 ether).withProposer(address(this)).build();
     }
 
     modifier givenTheContractIsBeingDeployed() {
@@ -572,14 +572,38 @@ contract LockManagerERC20Test is TestBase {
         givenTheCallerIsTheRegisteredPlugin
     {
         // It Should add the proposal ID to knownProposalIds
-        vm.prank(address(lockManager.plugin()));
-        lockManager.proposalCreated(123, address(this));
-        assertEq(lockManager.knownProposalIdAt(0), 123);
+        // Should register the creator
+        // activeProposalsCreatedBy() should increase for the creator
+
+        assertEq(lockManager.knownProposalIdCreators(123), address(0));
+        assertEq(lockManager.activeProposalsCreatedBy(address(this)), 0);
+
+        // 1
+        proposalId = ltvPlugin.createProposal(bytes(""), new Action[](0), 0, 0, bytes(""));
+        vm.roll(block.number + 1);
+
+        assertEq(lockManager.knownProposalIdAt(0), proposalId);
+        assertEq(lockManager.knownProposalIdCreators(proposalId), address(this));
+        assertEq(lockManager.activeProposalsCreatedBy(address(this)), 1);
+
+        proposalId = ltvPlugin.createProposal(bytes(""), new Action[](0), 0, 0, bytes(""));
+        vm.roll(block.number + 1);
+
+        assertEq(lockManager.knownProposalIdAt(1), proposalId);
+        assertEq(lockManager.knownProposalIdCreators(proposalId), address(this));
+        assertEq(lockManager.activeProposalsCreatedBy(address(this)), 2);
+
+        proposalId = ltvPlugin.createProposal(bytes(""), new Action[](0), 0, 0, bytes(""));
+        vm.roll(block.number + 1);
+
+        assertEq(lockManager.knownProposalIdAt(2), proposalId);
+        assertEq(lockManager.knownProposalIdCreators(proposalId), address(this));
+        assertEq(lockManager.activeProposalsCreatedBy(address(this)), 3);
     }
 
     modifier givenAProposalIDIsAlreadyKnown() {
-        vm.prank(address(lockManager.plugin()));
-        lockManager.proposalCreated(123, address(this));
+        proposalId = ltvPlugin.createProposal(bytes(""), new Action[](0), 0, 0, bytes(""));
+
         _;
     }
 
@@ -589,11 +613,22 @@ contract LockManagerERC20Test is TestBase {
         givenTheCallerIsTheRegisteredPlugin
         givenAProposalIDIsAlreadyKnown
     {
+        assertEq(lockManager.activeProposalsCreatedBy(address(this)), 1);
+
         // It Should not change the set of known proposals
+        // activeProposalsCreatedBy() should remain the same for the creator
+
         uint256 initialLength = lockManager.knownProposalIdsLength();
+
         vm.prank(address(lockManager.plugin()));
-        lockManager.proposalCreated(123, address(this));
+        lockManager.proposalCreated(proposalId, address(this));
         assertEq(lockManager.knownProposalIdsLength(), initialLength);
+        assertEq(lockManager.activeProposalsCreatedBy(address(this)), 1);
+
+        vm.prank(address(lockManager.plugin()));
+        lockManager.proposalCreated(proposalId, address(this));
+        assertEq(lockManager.knownProposalIdsLength(), initialLength);
+        assertEq(lockManager.activeProposalsCreatedBy(address(this)), 1);
     }
 
     function test_WhenCallingProposalEndedWithThatProposalID()
@@ -602,15 +637,20 @@ contract LockManagerERC20Test is TestBase {
         givenTheCallerIsTheRegisteredPlugin
         givenAProposalIDIsAlreadyKnown
     {
+        assertEq(lockManager.activeProposalsCreatedBy(address(this)), 1);
+
         // It Should remove the proposal ID from knownProposalIds
         // It Should emit a ProposalEnded event
+        // activeProposalsCreatedBy() should decrease for the creator
+
         vm.expectEmit(true, false, false, true);
-        emit ProposalEnded(123);
+        emit ProposalEnded(proposalId);
         vm.prank(address(lockManager.plugin()));
-        lockManager.proposalEnded(123);
+        lockManager.proposalEnded(proposalId);
 
         vm.expectRevert();
         lockManager.knownProposalIdAt(0);
+        assertEq(lockManager.activeProposalsCreatedBy(address(this)), 0);
     }
 
     function test_WhenCallingProposalEndedWithANonexistentProposalID()

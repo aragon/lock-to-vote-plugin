@@ -148,15 +148,19 @@ LockManagerTest:
           - when: Calling proposalCreated() with a new proposal ID
             then:
               - it: Should add the proposal ID to knownProposalIds
+              - it: Should register the creator
+              - it: activeProposalsCreatedBy() should increase for the creator
           - given: A proposal ID is already known
             and:
               - when: Calling proposalCreated() with that same ID
                 then:
                   - it: Should not change the set of known proposals
+                  - it: activeProposalsCreatedBy() should remain the same for the creator
               - when: Calling proposalEnded() with that proposal ID
                 then:
                   - it: Should remove the proposal ID from knownProposalIds
                   - it: Should emit a ProposalEnded event
+                  - it: activeProposalsCreatedBy() should decrease for the creator
           - when: Calling proposalEnded() with a non-existent proposal ID
             then:
               - it: Should do nothing
