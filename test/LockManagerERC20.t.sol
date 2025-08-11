@@ -48,6 +48,14 @@ contract LockManagerERC20Test is TestBase {
         _;
     }
 
+    function test_WhenDeployingWithValidParameters() external givenTheContractIsBeingDeployed {
+        // It Should set the DAO address correctly
+        // It Should set the pluginMode correctly
+        // It Should set the token address correctly
+        // It Should initialize the plugin address to address(0)
+        vm.skip(true);
+    }
+
     modifier givenThePluginAddressHasNotBeenSetYet() {
         lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Voting), lockableToken);
         _;
@@ -76,6 +84,15 @@ contract LockManagerERC20Test is TestBase {
     modifier givenThePluginModeIsVoting() {
         // The default setup is Voting mode, so no changes needed
         _;
+    }
+
+    function test_WhenCallingSetPluginAddressWithAPluginThatSupportsILockToGovernBaseButNotILockToVote()
+        external
+        givenThePluginAddressHasNotBeenSetYet
+        givenThePluginModeIsVoting
+    {
+        // It Should revert with InvalidPlugin
+        vm.skip(true);
     }
 
     function test_WhenCallingSetPluginAddressWithAValidVotingPlugin()
@@ -239,7 +256,11 @@ contract LockManagerERC20Test is TestBase {
         lockManager.lock(1 ether);
     }
 
-    modifier givenVotingPluginIsActive() {
+    modifier givenPluginModeIsVoting() {
+        _;
+    }
+
+    modifier givenAPluginIsSetAndAProposalIsActive() {
         (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVotingPlugin().withTokenHolder(alice, 1 ether).build();
         Action[] memory _actions = new Action[](0);
@@ -255,7 +276,12 @@ contract LockManagerERC20Test is TestBase {
         _;
     }
 
-    function test_WhenCallingVote() external givenVotingPluginIsActive givenTheUserHasNoLockedBalance {
+    function test_WhenCallingVote()
+        external
+        givenPluginModeIsVoting
+        givenAPluginIsSetAndAProposalIsActive
+        givenTheUserHasNoLockedBalance
+    {
         // It Should revert with NoBalance
         vm.prank(david);
         vm.expectRevert(abi.encodeWithSelector(VoteCastForbidden.selector, proposalId, david));
@@ -269,7 +295,8 @@ contract LockManagerERC20Test is TestBase {
 
     function test_WhenCallingLockAndVote()
         external
-        givenVotingPluginIsActive
+        givenPluginModeIsVoting
+        givenAPluginIsSetAndAProposalIsActive
         givenTheUserHasNoLockedBalance
         givenTheUserHasNoTokenAllowanceForTheLockManager
     {
@@ -288,7 +315,8 @@ contract LockManagerERC20Test is TestBase {
 
     function test_WhenCallingLockAndVote2()
         external
-        givenVotingPluginIsActive
+        givenPluginModeIsVoting
+        givenAPluginIsSetAndAProposalIsActive
         givenTheUserHasNoLockedBalance
         givenTheUserHasATokenAllowanceForTheLockManager
     {
@@ -323,7 +351,8 @@ contract LockManagerERC20Test is TestBase {
 
     function test_WhenCallingVoteForTheFirstTimeOnAProposal()
         external
-        givenVotingPluginIsActive
+        givenPluginModeIsVoting
+        givenAPluginIsSetAndAProposalIsActive
         givenTheUserHasALockedBalance
     {
         // It Should call vote() on the plugin with the user's full locked balance
@@ -349,7 +378,8 @@ contract LockManagerERC20Test is TestBase {
 
     function test_WhenCallingVoteAgainWithTheSameParameters()
         external
-        givenVotingPluginIsActive
+        givenPluginModeIsVoting
+        givenAPluginIsSetAndAProposalIsActive
         givenTheUserHasALockedBalance
         givenTheUserHasAlreadyVotedOnTheProposalWithTheirCurrentBalance
     {
@@ -370,9 +400,9 @@ contract LockManagerERC20Test is TestBase {
 
     function test_WhenCallingVoteAgain()
         external
-        givenVotingPluginIsActive
+        givenPluginModeIsVoting
+        givenAPluginIsSetAndAProposalIsActive
         givenTheUserHasALockedBalance
-        givenTheUserHasAlreadyVotedOnTheProposalWithTheirCurrentBalance
         givenTheUserLocksMoreTokens
     {
         // It Should call vote() on the plugin with the new, larger balance
@@ -412,19 +442,19 @@ contract LockManagerERC20Test is TestBase {
         _;
     }
 
-    modifier givenTheUserHasNoLockedBalance3() {
+    modifier givenTheUserHasNoLockedBalance2() {
         assertEq(lockManager.getLockedBalance(alice), 0);
         _;
     }
 
-    function test_WhenCallingUnlock() external givenAUserWantsToUnlockTokens givenTheUserHasNoLockedBalance3 {
+    function test_WhenCallingUnlock() external givenAUserWantsToUnlockTokens givenTheUserHasNoLockedBalance2 {
         // It Should revert with NoBalance
         vm.prank(alice);
         vm.expectRevert(NoBalance.selector);
         lockManager.unlock();
     }
 
-    modifier givenTheUserHasALockedBalance3() {
+    modifier givenTheUserHasALockedBalance2() {
         (dao, ltvPlugin, lockManager, lockableToken) = builder.withTokenHolder(alice, 1 ether).build();
 
         vm.prank(alice);
@@ -434,16 +464,16 @@ contract LockManagerERC20Test is TestBase {
         _;
     }
 
-    modifier givenTheUserHasNoActiveVotesOnAnyOpenProposals2() {
+    modifier givenNoVotesOnOpenProposalsAndNoActiveProposalsCreated() {
         // User has locked tokens but not voted/approved
         _;
     }
 
-    function test_WhenCallingUnlock5()
+    function test_WhenCallingUnlock2()
         external
         givenAUserWantsToUnlockTokens
-        givenTheUserHasALockedBalance3
-        givenTheUserHasNoActiveVotesOnAnyOpenProposals2
+        givenTheUserHasALockedBalance2
+        givenNoVotesOnOpenProposalsAndNoActiveProposalsCreated
     {
         // It Should succeed and transfer the locked balance back to the user
         uint256 lockedAmount = lockManager.getLockedBalance(alice);
@@ -472,7 +502,17 @@ contract LockManagerERC20Test is TestBase {
         _;
     }
 
-    function test_WhenCallingUnlock6() external givenAUserWantsToUnlockTokens givenTheUserHasVotesOnOpenProposals {
+    modifier givenStandardVotingMode() {
+        _;
+    }
+
+    function test_WhenCallingUnlock3()
+        external
+        givenAUserWantsToUnlockTokens
+        givenTheUserHasALockedBalance2
+        givenTheUserHasVotesOnOpenProposals
+        givenStandardVotingMode
+    {
         // It Should call clearVote() on the plugin for each active proposal
         // It Should transfer the locked balance back to the user
         // It Should set the user's lockedBalances to 0
@@ -489,6 +529,21 @@ contract LockManagerERC20Test is TestBase {
 
         assertEq(lockManager.getLockedBalance(alice), 0);
         assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
+    }
+
+    modifier givenVoteReplacementMode() {
+        _;
+    }
+
+    function test_WhenCallingUnlock4()
+        external
+        givenAUserWantsToUnlockTokens
+        givenTheUserHasALockedBalance2
+        givenTheUserHasVotesOnOpenProposals
+        givenVoteReplacementMode
+    {
+        // It Should revert with ProposalCreatedStillOpen
+        vm.skip(true);
     }
 
     modifier givenTheUserOnlyHasVotesOnProposalsThatAreNowClosedOrEnded() {
@@ -509,9 +564,10 @@ contract LockManagerERC20Test is TestBase {
         _;
     }
 
-    function test_WhenCallingUnlock8()
+    function test_WhenCallingUnlock5()
         external
         givenAUserWantsToUnlockTokens
+        givenTheUserHasALockedBalance2
         givenTheUserOnlyHasVotesOnProposalsThatAreNowClosedOrEnded
     {
         // It Should not attempt to clear votes for the closed proposal
@@ -674,11 +730,21 @@ contract LockManagerERC20Test is TestBase {
     }
 
     modifier givenAPluginIsSetAndAProposalExists() {
-        // This will be handled by more specific modifiers
+        proposalId = ltvPlugin.createProposal(bytes(""), new Action[](0), 0, 0, bytes(""));
+
         _;
     }
 
-    function test_WhenCallingCanVote() external givenVotingPluginIsActive {
+    modifier givenPluginModeIsVoting2() {
+        _;
+    }
+
+    function test_WhenCallingCanVote()
+        external
+        givenTheContractIsInitialized
+        givenAPluginIsSetAndAProposalExists
+        givenPluginModeIsVoting2
+    {
         // It Should proxy the call to the plugin's canVote() and return its result
         vm.prank(alice);
         vm.expectCall(

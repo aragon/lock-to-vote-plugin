@@ -1,16 +1,12 @@
-LockManagerTest:
+LockManagerERC20Test:
   - given: The contract is being deployed
     and:
-      - when: Deploying with valid parameters and a non-zero underlying token
+      - when: Deploying with valid parameters
         then:
           - it: Should set the DAO address correctly
           - it: Should set the pluginMode correctly
           - it: Should set the token address correctly
-          - it: Should set the underlying token address correctly
           - it: Should initialize the plugin address to address(0)
-      - when: Deploying with a zero-address for the underlying token
-        then:
-          - it: Should set the underlying token address to address(0)
 
   - given: The plugin address has not been set yet
     and:
@@ -111,19 +107,26 @@ LockManagerTest:
               - it: Should revert with NoBalance
       - given: The user has a locked balance
         and:
-          - given: The user has no active votes on any open proposals
+          - given: No votes on open proposals and no active proposals created
             and:
               - when: Calling unlock()
                 then:
                   - it: Should succeed and transfer the locked balance back to the user
           - given: The user has votes on open proposals
             and:
-              - when: Calling unlock()
-                then:
-                  - it: Should call clearVote() on the plugin for each active proposal
-                  - it: Should transfer the locked balance back to the user
-                  - it: Should set the user's lockedBalances to 0
-                  - it: Should emit a BalanceUnlocked event
+              - given: Standard voting mode
+                and:
+                  - when: Calling unlock()
+                    then:
+                      - it: Should call clearVote() on the plugin for each active proposal
+                      - it: Should transfer the locked balance back to the user
+                      - it: Should set the user's lockedBalances to 0
+                      - it: Should emit a BalanceUnlocked event
+              - given: Vote replacement mode
+                and:
+                  - when: Calling unlock()
+                    then:
+                      - it: Should revert with ProposalCreatedStillOpen
           - given: The user only has votes on proposals that are now closed or ended
             comment: The contract should garbage-collect the closed proposal during the check
             and:

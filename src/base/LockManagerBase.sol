@@ -61,6 +61,10 @@ abstract contract LockManagerBase is ILockManager {
     /// @notice Thrown when trying to define the address of the plugin after it already was
     error SetPluginAddressForbidden();
 
+    /// @notice Thrown when attempting to unlock with a created proposal that is still active
+    /// @param proposalId The ID the active proposal
+    error ProposalCreatedStillOpen(uint256 proposalId);
+
     /// @param _settings The operation mode of the contract (plugin mode)
     constructor(LockManagerSettings memory _settings) {
         settings.pluginMode = _settings.pluginMode;
@@ -153,10 +157,12 @@ abstract contract LockManagerBase is ILockManager {
             revert NoBalance();
         }
 
-        /// @dev The plugin may decide to revert if its voting mode doesn't allow for it
-        _withdrawActiveVotingPower();
+        /// @dev Withdraw the votes on active proposals
+        /// @dev The plugin should revert if the voting mode doesn't allow to withdraw votes
+        /// @dev Ensure that no active proposal was created by msg.sender
+        _ensureCleanGovernance();
 
-        // All votes clear
+        // All votes and proposals are clear
 
         lockedBalances[msg.sender] = 0;
 
@@ -243,7 +249,8 @@ abstract contract LockManagerBase is ILockManager {
         ILockToVote(address(plugin)).vote(_proposalId, msg.sender, _voteOption, _currentVotingPower);
     }
 
-    function _withdrawActiveVotingPower() internal virtual {
+    /// @notice Clears the votes (if possible) on all active proposals and ensures that msg.sender created none of the active proposals
+    function _ensureCleanGovernance() internal virtual {
         uint256 _proposalCount = knownProposalIds.length();
         for (uint256 _i; _i < _proposalCount;) {
             uint256 _proposalId = knownProposalIds.at(_i);
@@ -260,8 +267,15 @@ abstract contract LockManagerBase is ILockManager {
                 continue;
             }
 
+            // The proposal is open
+
             if (plugin.usedVotingPower(_proposalId, msg.sender) > 0) {
+                /// @dev The plugin should revert if the voting mode doesn't allow it
                 ILockToVote(address(plugin)).clearVote(_proposalId, msg.sender);
+            }
+
+            if (knownProposalIdCreators[_proposalId] == msg.sender) {
+                revert ProposalCreatedStillOpen(_proposalId);
             }
 
             unchecked {

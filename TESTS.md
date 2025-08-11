@@ -3,16 +3,13 @@
 Below is the graphical summary of the tests described within [test/*.t.yaml](./test)
 
 ```
-LockManagerTest
+LockManagerERC20Test
 ├── Given The contract is being deployed
-│   ├── When Deploying with valid parameters and a nonzero underlying token
-│   │   ├── It Should set the DAO address correctly
-│   │   ├── It Should set the pluginMode correctly
-│   │   ├── It Should set the token address correctly
-│   │   ├── It Should set the underlying token address correctly
-│   │   └── It Should initialize the plugin address to address(0)
-│   └── When Deploying with a zeroaddress for the underlying token
-│       └── It Should set the underlying token address to address(0)
+│   └── When Deploying with valid parameters
+│       ├── It Should set the DAO address correctly
+│       ├── It Should set the pluginMode correctly
+│       ├── It Should set the token address correctly
+│       └── It Should initialize the plugin address to address(0)
 ├── Given The plugin address has not been set yet
 │   ├── When Calling setPluginAddress with an address that does not support ILockToGovernBase
 │   │   └── It Should revert with InvalidPlugin
@@ -69,17 +66,21 @@ LockManagerTest
 │   │   └── When Calling unlock
 │   │       └── It Should revert with NoBalance
 │   └── Given The user has a locked balance 2
-│       ├── Given The user has no active votes on any open proposals
+│       ├── Given No votes on open proposals and no active proposals created
 │       │   └── When Calling unlock 2
 │       │       └── It Should succeed and transfer the locked balance back to the user
 │       ├── Given The user has votes on open proposals
-│       │   └── When Calling unlock 3
-│       │       ├── It Should call clearVote() on the plugin for each active proposal
-│       │       ├── It Should transfer the locked balance back to the user
-│       │       ├── It Should set the user's lockedBalances to 0
-│       │       └── It Should emit a BalanceUnlocked event
+│       │   ├── Given Standard voting mode
+│       │   │   └── When Calling unlock 3
+│       │   │       ├── It Should call clearVote() on the plugin for each active proposal
+│       │   │       ├── It Should transfer the locked balance back to the user
+│       │   │       ├── It Should set the user's lockedBalances to 0
+│       │   │       └── It Should emit a BalanceUnlocked event
+│       │   └── Given Vote replacement mode
+│       │       └── When Calling unlock 4
+│       │           └── It Should revert with ProposalCreatedStillOpen
 │       └── Given The user only has votes on proposals that are now closed or ended // The contract should garbage-collect the closed proposal during the check
-│           └── When Calling unlock 4
+│           └── When Calling unlock 5
 │               ├── It Should not attempt to clear votes for the closed proposal
 │               ├── It Should remove the closed proposal from knownProposalIds
 │               └── It Should succeed and transfer the locked balance back to the user
@@ -91,13 +92,17 @@ LockManagerTest
 │   │       └── It Should revert with InvalidPluginAddress
 │   └── Given The caller is the registered plugin
 │       ├── When Calling proposalCreated with a new proposal ID
-│       │   └── It Should add the proposal ID to knownProposalIds
+│       │   ├── It Should add the proposal ID to knownProposalIds
+│       │   ├── It Should register the creator
+│       │   └── It activeProposalsCreatedBy() should increase for the creator
 │       ├── Given A proposal ID is already known
 │       │   ├── When Calling proposalCreated with that same ID
-│       │   │   └── It Should not change the set of known proposals
+│       │   │   ├── It Should not change the set of known proposals
+│       │   │   └── It activeProposalsCreatedBy() should remain the same for the creator
 │       │   └── When Calling proposalEnded with that proposal ID
 │       │       ├── It Should remove the proposal ID from knownProposalIds
-│       │       └── It Should emit a ProposalEnded event
+│       │       ├── It Should emit a ProposalEnded event
+│       │       └── It activeProposalsCreatedBy() should decrease for the creator
 │       └── When Calling proposalEnded with a nonexistent proposal ID
 │           └── It Should do nothing
 └── Given The contract is initialized
@@ -400,8 +405,10 @@ MinVotingPowerConditionTest
 └── When calling isGranted
     ├── Given a plugin with zero minimum voting power
     │   └── It should return true
-    └── Given a plugin with a minimum voting power
-        ├── It should return true when 'who' holds the minimum voting power
-        └── It should return false when 'who' holds less than the minimum voting power
+    ├── Given a plugin with a minimum voting power
+    │   ├── It should return true when 'who' holds the minimum voting power
+    │   └── It should return false when 'who' holds less than the minimum voting power
+    └── Given the sender created many proposals
+        └── It the voting power required should be proportional to the amount of proposals created
 ```
 
