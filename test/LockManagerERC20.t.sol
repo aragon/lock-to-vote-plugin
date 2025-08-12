@@ -15,6 +15,8 @@ import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TestToken, TestERC20NoRevert} from "./mocks/TestToken.sol";
 import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
+import {LockToGovernBase} from "../src/base/LockToGovernBase.sol";
+import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
 
 contract LockManagerERC20Test is TestBase {
     DaoBuilder builder;
@@ -49,11 +51,15 @@ contract LockManagerERC20Test is TestBase {
     }
 
     function test_WhenDeployingWithValidParameters() external givenTheContractIsBeingDeployed {
-        // It Should set the DAO address correctly
         // It Should set the pluginMode correctly
         // It Should set the token address correctly
         // It Should initialize the plugin address to address(0)
-        vm.skip(true);
+
+        lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Voting), lockableToken);
+
+        assertEq(uint8(lockManager.settings()), uint8(PluginMode.Voting));
+        assertEq(address(lockManager.token()), address(lockableToken));
+        assertEq(address(lockManager.plugin()), address(0));
     }
 
     modifier givenThePluginAddressHasNotBeenSetYet() {
@@ -91,8 +97,11 @@ contract LockManagerERC20Test is TestBase {
         givenThePluginAddressHasNotBeenSetYet
         givenThePluginModeIsVoting
     {
+        MockNoILockToVotePlugin _plugin = new MockNoILockToVotePlugin();
+
         // It Should revert with InvalidPlugin
-        vm.skip(true);
+        vm.expectRevert(LockManagerBase.InvalidPlugin.selector);
+        lockManager.setPluginAddress(ILockToGovernBase(_plugin));
     }
 
     function test_WhenCallingSetPluginAddressWithAValidVotingPlugin()
@@ -486,9 +495,21 @@ contract LockManagerERC20Test is TestBase {
         assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
     }
 
+    modifier givenStandardVotingMode() {
+        builder.withVotingPlugin().withStandardVoting();
+
+        _;
+    }
+
+    modifier givenVoteReplacementMode() {
+        builder.withVotingPlugin().withVoteReplacement();
+
+        _;
+    }
+
     modifier givenTheUserHasVotesOnOpenProposals() {
-        (dao, ltvPlugin, lockManager, lockableToken) =
-            builder.withVotingPlugin().withVoteReplacement().withTokenHolder(alice, 1 ether).build();
+        // Voting mode is set above
+        (dao, ltvPlugin, lockManager, lockableToken) = builder.withTokenHolder(alice, 1 ether).build();
 
         Action[] memory _actions = new Action[](0);
         proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
@@ -502,16 +523,23 @@ contract LockManagerERC20Test is TestBase {
         _;
     }
 
-    modifier givenStandardVotingMode() {
-        _;
-    }
-
     function test_WhenCallingUnlock3()
         external
         givenAUserWantsToUnlockTokens
         givenTheUserHasALockedBalance2
-        givenTheUserHasVotesOnOpenProposals
         givenStandardVotingMode
+        givenTheUserHasVotesOnOpenProposals
+    {
+        // It Should revert
+        vm.skip(true);
+    }
+
+    function test_WhenCallingUnlock4()
+        external
+        givenAUserWantsToUnlockTokens
+        givenTheUserHasALockedBalance2
+        givenVoteReplacementMode
+        givenTheUserHasVotesOnOpenProposals
     {
         // It Should call clearVote() on the plugin for each active proposal
         // It Should transfer the locked balance back to the user
@@ -529,21 +557,6 @@ contract LockManagerERC20Test is TestBase {
 
         assertEq(lockManager.getLockedBalance(alice), 0);
         assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
-    }
-
-    modifier givenVoteReplacementMode() {
-        _;
-    }
-
-    function test_WhenCallingUnlock4()
-        external
-        givenAUserWantsToUnlockTokens
-        givenTheUserHasALockedBalance2
-        givenTheUserHasVotesOnOpenProposals
-        givenVoteReplacementMode
-    {
-        // It Should revert with ProposalCreatedStillOpen
-        vm.skip(true);
     }
 
     modifier givenTheUserOnlyHasVotesOnProposalsThatAreNowClosedOrEnded() {
@@ -785,5 +798,16 @@ contract LockManagerERC20Test is TestBase {
         lockManager.knownProposalIdAt(3);
         vm.expectRevert();
         lockManager.knownProposalIdAt(10);
+    }
+}
+
+// Helpers
+
+contract MockNoILockToVotePlugin is LockToVotePlugin {
+    /// @notice Checks if this or the parent contract supports an interface by its ID.
+    /// @param _interfaceId The ID of the interface.
+    /// @return Returns `true` if the interface is supported.
+    function supportsInterface(bytes4 _interfaceId) public view virtual override(LockToVotePlugin) returns (bool) {
+        return _interfaceId == type(ILockToGovernBase).interfaceId;
     }
 }

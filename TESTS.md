@@ -72,15 +72,19 @@ LockManagerERC20Test
 │       ├── Given The user has votes on open proposals
 │       │   ├── Given Standard voting mode
 │       │   │   └── When Calling unlock 3
-│       │   │       ├── It Should call clearVote() on the plugin for each active proposal
-│       │   │       ├── It Should transfer the locked balance back to the user
-│       │   │       ├── It Should set the user's lockedBalances to 0
-│       │   │       └── It Should emit a BalanceUnlocked event
+│       │   │       └── It Should revert
 │       │   └── Given Vote replacement mode
 │       │       └── When Calling unlock 4
-│       │           └── It Should revert with ProposalCreatedStillOpen
+│       │           ├── It Should call clearVote() on the plugin for each active proposal
+│       │           ├── It Should transfer the locked balance back to the user
+│       │           ├── It Should set the user's lockedBalances to 0
+│       │           └── It Should emit a BalanceUnlocked event
+│       ├── Given The user created active proposals
+│       │   └── When Calling unlock 5
+│       │       ├── It Should revert with ProposalCreatedStillOpen (standard voting)
+│       │       └── It Should revert with ProposalCreatedStillOpen (vote replacement)
 │       └── Given The user only has votes on proposals that are now closed or ended // The contract should garbage-collect the closed proposal during the check
-│           └── When Calling unlock 5
+│           └── When Calling unlock 6
 │               ├── It Should not attempt to clear votes for the closed proposal
 │               ├── It Should remove the closed proposal from knownProposalIds
 │               └── It Should succeed and transfer the locked balance back to the user
