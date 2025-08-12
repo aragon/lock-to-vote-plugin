@@ -212,6 +212,7 @@ LockToVoteTest:
         then:
           - it: getProposal() returns empty values
           - it: isProposalOpen() returns false
+          - it: isProposalEnded() returns false
           - it: hasSucceeded() should return false
           - it: canExecute() should return false
           - it: isSupportThresholdReached() should return false
@@ -222,6 +223,7 @@ LockToVoteTest:
         then:
           - it: getProposal() returns the right values
           - it: isProposalOpen() returns false
+          - it: isProposalEnded() returns false
           - it: hasSucceeded() should return false
           - it: canExecute() should return false
           - it: isSupportThresholdReached() should return false
@@ -232,6 +234,7 @@ LockToVoteTest:
         then:
           - it: getProposal() returns the right values
           - it: isProposalOpen() returns true
+          - it: isProposalEnded() returns false
           - it: hasSucceeded() should return false
           - it: canExecute() should return false
           - it: isSupportThresholdReached() should return true
@@ -242,6 +245,7 @@ LockToVoteTest:
         then:
           - it: getProposal() returns the right values
           - it: isProposalOpen() returns false
+          - it: isProposalEnded() returns true
           - it: hasSucceeded() should return false
           - it: canExecute() should return false
           - given: the support threshold was not achieved
@@ -267,13 +271,16 @@ LockToVoteTest:
         then:
           - it: getProposal() returns the right values
           - it: isProposalOpen() returns false
+          - it: isProposalEnded() returns true
           - it: hasSucceeded() should return false
           - given: The proposal has not been executed
             then:
               - it: canExecute() should return true
+              - it: isProposalEnded() returns true
           - given: The proposal has been executed
             then:
               - it: canExecute() should return false
+              - it: isProposalEnded() returns true
           - it: isSupportThresholdReached() should return true
           - it: isMinVotingPowerReached() should return true
           - it: isMinApprovalReached() should return true

@@ -222,7 +222,7 @@ abstract contract LockManagerBase is ILockManager {
         uint256 _proposalCount = knownProposalIds.length();
         for (uint256 _i; _i < _proposalCount;) {
             uint256 _proposalId = knownProposalIds.at(_i);
-            if (!plugin.isProposalOpen(_proposalId)) {
+            if (plugin.isProposalEnded(_proposalId)) {
                 knownProposalIds.remove(_proposalId);
                 _proposalCount = knownProposalIds.length();
 

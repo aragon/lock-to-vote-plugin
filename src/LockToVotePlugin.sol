@@ -237,6 +237,12 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         return _isProposalOpen(proposal_);
     }
 
+    /// @inheritdoc ILockToGovernBase
+    function isProposalEnded(uint256 _proposalId) external view returns (bool) {
+        Proposal storage proposal_ = proposals[_proposalId];
+        return _isProposalEnded(proposal_);
+    }
+
     /// @inheritdoc MajorityVotingBase
     function minProposerVotingPower() public view override(ILockToGovernBase, MajorityVotingBase) returns (uint256) {
         return MajorityVotingBase.minProposerVotingPower();
