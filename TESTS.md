@@ -33,11 +33,14 @@ LockManagerTest
 │   │       ├── It Should transfer the full allowance amount from the user
 │   │       ├── It Should increase the user's lockedBalances by the allowance amount
 │   │       └── It Should emit a BalanceLocked event with the correct user and amount
-│   └── When The user has approved the LockManager to spend more than the balance // Allowance is ∞
-│       └── When Calling lock 3
-│           ├── It Should transfer the full balance from the user
-│           ├── It Should increase the user's lockedBalances by the balance
-│           └── It Should emit a BalanceLocked event with the correct user and amount
+│   ├── When The user has approved the LockManager to spend more than the balance // Allowance is ∞
+│   │   └── When Calling lock 3
+│   │       ├── It Should transfer the full balance from the user
+│   │       ├── It Should increase the user's lockedBalances by the balance
+│   │       └── It Should emit a BalanceLocked event with the correct user and amount
+│   └── When The user tries to lock more than his balance
+│       └── When Calling lock 4
+│           └── It Should revert
 ├── Given pluginMode is Voting
 │   └── Given A plugin is set and a proposal is active
 │       ├── Given The user has no locked balance

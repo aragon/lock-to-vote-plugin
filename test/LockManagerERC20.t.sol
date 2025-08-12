@@ -177,6 +177,35 @@ contract LockManagerERC20Test is TestBase {
         );
     }
 
+    modifier whenTheUserTriesToLockMoreThanHisBalance() {
+        TestToken(address(lockableToken)).mint(bob, 1 ether);
+
+        vm.prank(bob);
+        lockableToken.approve(address(lockManager), 1 ether);
+
+        _;
+    }
+
+    function test_RevertWhen_CallingLock4()
+        external
+        givenAUserWantsToLockTokens
+        whenTheUserTriesToLockMoreThanHisBalance
+    {
+        // It Should revert
+
+        vm.prank(bob);
+        vm.expectRevert("ERC20: insufficient allowance");
+        lockManager.lock(100 ether);
+
+        vm.prank(bob);
+        vm.expectRevert("ERC20: insufficient allowance");
+        lockManager.lock(1.1 ether);
+
+        // OK
+        vm.prank(bob);
+        lockManager.lock(1 ether);
+    }
+
     modifier givenVotingPluginIsActive() {
         (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVotingPlugin().withTokenHolder(alice, 1 ether).build();
