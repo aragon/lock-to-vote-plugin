@@ -36,6 +36,7 @@ contract LockManagerERC20Test is TestBase {
     error InvalidPluginMode();
     error InvalidPluginAddress();
     error VoteRemovalForbidden(uint256 proposalId, address voter);
+    error ProposalCreatedStillOpen(uint256 proposalId);
 
     function setUp() public {
         vm.warp(1 days);
@@ -614,9 +615,33 @@ contract LockManagerERC20Test is TestBase {
         givenTheUserHasALockedBalance2
         givenTheUserCreatedActiveProposals
     {
+        vm.startPrank(alice);
+        Action[] memory _actions = new Action[](0);
+
         // It Should revert with ProposalCreatedStillOpen (standard voting)
+
+        (dao, ltvPlugin, lockManager, lockableToken) =
+            builder.withStandardVoting().withTokenHolder(alice, 1 ether).withProposer(alice).build();
+
+        lockableToken.approve(address(lockManager), 1 ether);
+        lockManager.lock();
+        proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
+        vm.expectRevert(abi.encodeWithSelector(ProposalCreatedStillOpen.selector, proposalId));
+        lockManager.unlock();
+
         // It Should revert with ProposalCreatedStillOpen (vote replacement)
-        vm.skip(true);
+        (dao, ltvPlugin, lockManager, lockableToken) =
+            builder.withVoteReplacement().withTokenHolder(alice, 1 ether).withProposer(alice).build();
+
+        lockableToken.approve(address(lockManager), 1 ether);
+        lockManager.lock();
+        proposalId = ltvPlugin.createProposal(bytes(""), _actions, 0, 0, bytes(""));
+
+        vm.expectRevert(abi.encodeWithSelector(ProposalCreatedStillOpen.selector, proposalId));
+        lockManager.unlock();
+
+        vm.stopPrank();
     }
 
     modifier givenThePluginHasBeenSet() {
