@@ -155,11 +155,9 @@ LockToVoteTest
 │   │   │       ├── Given standard voting mode
 │   │   │       │   ├── It should return true when voting the same with more balance
 │   │   │       │   └── It should return false otherwise
-│   │   │       ├── Given vote replacement mode
-│   │   │       │   ├── It should return true when the locked balance is higher
-│   │   │       │   └── It should return false otherwise
-│   │   │       └── Given early execution mode
-│   │   │           └── It should return false
+│   │   │       └── Given vote replacement mode
+│   │   │           ├── It should return true when the locked balance is higher
+│   │   │           └── It should return false otherwise
 │   │   └── Given empty vote
 │   │       └── It should return false
 │   ├── Given the proposal ended
@@ -193,71 +191,37 @@ LockToVoteTest
 │   │       │   └── It should revert
 │   │       └── Given Voting with more locked balance 2
 │   │           └── It should revert
-│   ├── Given vote replacement mode 2
-│   │   ├── Given Voting the first time 2
-│   │   │   ├── Given Has locked balance 2
-│   │   │   │   ├── It should set the right voter's usedVotingPower
-│   │   │   │   ├── It should set the right tally of the voted option
-│   │   │   │   ├── It should set the right total voting power
-│   │   │   │   └── It should emit an event
-│   │   │   └── Given No locked balance 2 // Redundant with canVote being false
-│   │   │       └── It should revert
-│   │   ├── Given Voting the same option 2
-│   │   │   ├── Given Voting with the same locked balance 3 // Redundant with canVote being false
-│   │   │   │   └── It should revert
-│   │   │   └── Given Voting with more locked balance 3
-│   │   │       ├── It should increase the voter's usedVotingPower
-│   │   │       ├── It should increase the tally of the voted option
-│   │   │       ├── It should increase the total voting power
-│   │   │       └── It should emit an event
-│   │   └── Given Voting another option 2
-│   │       ├── Given Voting with the same locked balance 4
-│   │       │   ├── It should deallocate the current voting power
-│   │       │   └── It should allocate that voting power into the new vote option
-│   │       └── Given Voting with more locked balance 4
-│   │           ├── It should deallocate the current voting power
-│   │           ├── It the voter's usedVotingPower should reflect the new balance
-│   │           ├── It should allocate to the tally of the voted option
-│   │           ├── It should update the total voting power
-│   │           └── It should emit an event
-│   └── Given early execution mode 2
-│       ├── Given Voting the first time 3
-│       │   ├── Given Has locked balance 3
+│   └── Given vote replacement mode 2
+│       ├── Given Voting the first time 2
+│       │   ├── Given Has locked balance 2
 │       │   │   ├── It should set the right voter's usedVotingPower
 │       │   │   ├── It should set the right tally of the voted option
 │       │   │   ├── It should set the right total voting power
 │       │   │   └── It should emit an event
-│       │   └── Given No locked balance 3 // Redundant with canVote being false
+│       │   └── Given No locked balance 2 // Redundant with canVote being false
 │       │       └── It should revert
-│       ├── Given Voting the same option 3
-│       │   ├── Given Voting with the same locked balance 5
+│       ├── Given Voting the same option 2
+│       │   ├── Given Voting with the same locked balance 3 // Redundant with canVote being false
 │       │   │   └── It should revert
-│       │   └── Given Voting with more locked balance 5
+│       │   └── Given Voting with more locked balance 3
 │       │       ├── It should increase the voter's usedVotingPower
 │       │       ├── It should increase the tally of the voted option
 │       │       ├── It should increase the total voting power
 │       │       └── It should emit an event
-│       ├── Given Voting another option 3
-│       │   ├── Given Voting with the same locked balance 6
-│       │   │   └── It should revert
-│       │   └── Given Voting with more locked balance 6
-│       │       └── It should revert
-│       └── Given the vote makes the proposal pass // partially redundant with canExecute() below
-│           └── Given the caller has permission to call execute
-│               ├── It hasSucceeded() should return true
-│               ├── It canExecute() should return true
-│               ├── It isSupportThresholdReachedEarly() should return true
-│               ├── It isMinVotingPowerReached() should return true
-│               ├── It isMinApprovalReached() should return true
-│               ├── It should execute the proposal
-│               ├── It the proposal should be marked as executed
+│       └── Given Voting another option 2
+│           ├── Given Voting with the same locked balance 4
+│           │   ├── It should deallocate the current voting power
+│           │   └── It should allocate that voting power into the new vote option
+│           └── Given Voting with more locked balance 4
+│               ├── It should deallocate the current voting power
+│               ├── It the voter's usedVotingPower should reflect the new balance
+│               ├── It should allocate to the tally of the voted option
+│               ├── It should update the total voting power
 │               └── It should emit an event
 ├── When calling clearvote
 │   ├── Given the voter has no prior voting power
 │   │   └── It should do nothing
 │   ├── Given the proposal is not open
-│   │   └── It should revert
-│   ├── Given early execution mode 3
 │   │   └── It should revert
 │   ├── Given standard voting mode 3
 │   │   └── It should revert
@@ -272,9 +236,9 @@ LockToVoteTest
 │   ├── Given it does not exist
 │   │   ├── It getProposal() returns empty values
 │   │   ├── It isProposalOpen() returns false
+│   │   ├── It isProposalEnded() returns false
 │   │   ├── It hasSucceeded() should return false
 │   │   ├── It canExecute() should return false
-│   │   ├── It isSupportThresholdReachedEarly() should return false
 │   │   ├── It isSupportThresholdReached() should return false
 │   │   ├── It isMinVotingPowerReached() should return true
 │   │   ├── It isMinApprovalReached() should return true
@@ -282,9 +246,9 @@ LockToVoteTest
 │   ├── Given it has not started
 │   │   ├── It getProposal() returns the right values
 │   │   ├── It isProposalOpen() returns false
+│   │   ├── It isProposalEnded() returns false
 │   │   ├── It hasSucceeded() should return false
 │   │   ├── It canExecute() should return false
-│   │   ├── It isSupportThresholdReachedEarly() should return false
 │   │   ├── It isSupportThresholdReached() should return false
 │   │   ├── It isMinVotingPowerReached() should return false
 │   │   ├── It isMinApprovalReached() should return false
@@ -292,9 +256,9 @@ LockToVoteTest
 │   ├── Given it has not passed yet
 │   │   ├── It getProposal() returns the right values
 │   │   ├── It isProposalOpen() returns true
+│   │   ├── It isProposalEnded() returns false
 │   │   ├── It hasSucceeded() should return false
 │   │   ├── It canExecute() should return false
-│   │   ├── It isSupportThresholdReachedEarly() should return false
 │   │   ├── It isSupportThresholdReached() should return true
 │   │   ├── It isMinVotingPowerReached() should return false
 │   │   ├── It isMinApprovalReached() should return false
@@ -302,9 +266,9 @@ LockToVoteTest
 │   ├── Given it did not pass after endDate
 │   │   ├── It getProposal() returns the right values
 │   │   ├── It isProposalOpen() returns false
+│   │   ├── It isProposalEnded() returns true
 │   │   ├── It hasSucceeded() should return false
 │   │   ├── It canExecute() should return false
-│   │   ├── It isSupportThresholdReachedEarly() should return false
 │   │   ├── Given the support threshold was not achieved
 │   │   │   └── It isSupportThresholdReached() should return false
 │   │   ├── Given the support threshold was achieved
@@ -318,28 +282,17 @@ LockToVoteTest
 │   │   ├── Given the minimum approval tally was achieved
 │   │   │   └── It isMinApprovalReached() should return true
 │   │   └── It usedVotingPower() should return the appropriate values
-│   ├── Given it has passed after endDate
-│   │   ├── It getProposal() returns the right values
-│   │   ├── It isProposalOpen() returns false
-│   │   ├── It hasSucceeded() should return false
-│   │   ├── Given The proposal has not been executed
-│   │   │   └── It canExecute() should return true
-│   │   ├── Given The proposal has been executed
-│   │   │   └── It canExecute() should return false
-│   │   ├── It isSupportThresholdReachedEarly() should return false
-│   │   ├── It isSupportThresholdReached() should return true
-│   │   ├── It isMinVotingPowerReached() should return true
-│   │   ├── It isMinApprovalReached() should return true
-│   │   └── It usedVotingPower() should return the appropriate values
-│   └── Given it has passed early
+│   └── Given it has passed after endDate
 │       ├── It getProposal() returns the right values
 │       ├── It isProposalOpen() returns false
+│       ├── It isProposalEnded() returns true
 │       ├── It hasSucceeded() should return false
-│       ├── Given The proposal has not been executed 2
-│       │   └── It canExecute() should return true
-│       ├── Given The proposal has been executed 2
-│       │   └── It canExecute() should return false
-│       ├── It isSupportThresholdReachedEarly() should return true
+│       ├── Given The proposal has not been executed
+│       │   ├── It canExecute() should return true
+│       │   └── It isProposalEnded() returns true
+│       ├── Given The proposal has been executed
+│       │   ├── It canExecute() should return false
+│       │   └── It isProposalEnded() returns true
 │       ├── It isSupportThresholdReached() should return true
 │       ├── It isMinVotingPowerReached() should return true
 │       ├── It isMinApprovalReached() should return true
@@ -349,15 +302,6 @@ LockToVoteTest
 │   │   ├── Given the proposal is not executed
 │   │   │   ├── Given minVotingPower is reached
 │   │   │   │   ├── Given minApproval is reached
-│   │   │   │   │   ├── Given isSupportThresholdReachedEarly was reached before endDate
-│   │   │   │   │   │   ├── Given the proposal allows early execution
-│   │   │   │   │   │   │   ├── It canExecute() should return true
-│   │   │   │   │   │   │   └── It hasSucceeded() should return true
-│   │   │   │   │   │   └── Given the proposal does not allow early execution
-│   │   │   │   │   │       ├── It canExecute() should return false
-│   │   │   │   │   │       ├── It hasSucceeded() should return false
-│   │   │   │   │   │       ├── It canExecute() should return true when ended
-│   │   │   │   │   │       └── It hasSucceeded() should return true when ended
 │   │   │   │   │   ├── Given isSupportThresholdReached is reached
 │   │   │   │   │   │   ├── It canExecute() should return false before endDate
 │   │   │   │   │   │   ├── It hasSucceeded() should return false before endDate
@@ -381,7 +325,7 @@ LockToVoteTest
 ├── When calling execute
 │   ├── Given the caller no permission to call execute
 │   │   └── It should revert
-│   └── Given the caller has permission to call execute 2
+│   └── Given the caller has permission to call execute
 │       ├── Given canExecute returns false // This relies on the tests above for canExecute()
 │       │   └── It should revert
 │       └── Given canExecute returns true
