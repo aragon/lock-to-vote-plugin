@@ -35,6 +35,7 @@ contract LockManagerERC20Test is TestBase {
     error SetPluginAddressForbidden();
     error InvalidPluginMode();
     error InvalidPluginAddress();
+    error VoteRemovalForbidden(uint256 proposalId, address voter);
 
     function setUp() public {
         vm.warp(1 days);
@@ -523,15 +524,18 @@ contract LockManagerERC20Test is TestBase {
         _;
     }
 
-    function test_WhenCallingUnlock3()
+    function test_RevertWhen_CallingUnlock3()
         external
         givenAUserWantsToUnlockTokens
         givenTheUserHasALockedBalance2
-        givenStandardVotingMode
         givenTheUserHasVotesOnOpenProposals
+        givenStandardVotingMode
     {
         // It Should revert
-        vm.skip(true);
+
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(VoteRemovalForbidden.selector, proposalId, alice));
+        lockManager.unlock();
     }
 
     function test_WhenCallingUnlock4()
@@ -598,6 +602,21 @@ contract LockManagerERC20Test is TestBase {
         assertEq(lockableToken.balanceOf(alice), initialBalance + lockedAmount);
         vm.expectRevert();
         lockManager.knownProposalIdAt(0);
+    }
+
+    modifier givenTheUserCreatedActiveProposals() {
+        _;
+    }
+
+    function test_WhenCallingUnlock6()
+        external
+        givenAUserWantsToUnlockTokens
+        givenTheUserHasALockedBalance2
+        givenTheUserCreatedActiveProposals
+    {
+        // It Should revert with ProposalCreatedStillOpen (standard voting)
+        // It Should revert with ProposalCreatedStillOpen (vote replacement)
+        vm.skip(true);
     }
 
     modifier givenThePluginHasBeenSet() {
