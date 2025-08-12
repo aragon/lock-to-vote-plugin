@@ -32,4 +32,9 @@ interface ILockToGovernBase {
     /// @param _proposalId The ID of the proposal.
     /// @return True if the proposal is open, false otherwise.
     function isProposalOpen(uint256 _proposalId) external view returns (bool);
+
+    /// @notice Returns wether a proposal has ended or not.
+    /// @param _proposalId The ID of the proposal.
+    /// @return True if the proposal is executed or past the endDate, false otherwise.
+    function isProposalEnded(uint256 _proposalId) external view returns (bool);
 }
