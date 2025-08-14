@@ -163,7 +163,7 @@ contract LockToVotePluginSetupTest is TestBase {
         // 5. Caller can create proposal
         _assertPermission(
             preparedSetupData.permissions[5],
-            PermissionLib.Operation.Grant,
+            PermissionLib.Operation.GrantWithCondition,
             pluginAddr,
             installParams.createProposalCaller,
             minVotingPowerConditionAddr,

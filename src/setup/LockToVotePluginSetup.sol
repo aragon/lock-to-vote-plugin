@@ -159,7 +159,7 @@ contract LockToVotePluginSetup is PluginSetup {
 
         // createProposalCaller (possibly ANY_ADDR) can create proposals on the plugin
         permissions[5] = PermissionLib.MultiTargetPermission({
-            operation: PermissionLib.Operation.Grant,
+            operation: PermissionLib.Operation.GrantWithCondition,
             where: plugin,
             who: installationParams.createProposalCaller,
             condition: minVotingPowerCondition,
