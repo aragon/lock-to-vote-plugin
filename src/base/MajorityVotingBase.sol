@@ -443,7 +443,8 @@ abstract contract MajorityVotingBase is
     }
 
     /// @notice Returns the current token supply.
-    /// @return The token supply.
+    ///         NOTE: It includes any non circulating supply that might be vesting, locked or undistributed.
+    /// @return The total token supply.
     function currentTokenSupply() public view virtual returns (uint256);
 
     /// @notice Returns all information for a proposal by its ID.
