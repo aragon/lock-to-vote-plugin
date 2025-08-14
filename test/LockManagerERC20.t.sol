@@ -62,6 +62,17 @@ contract LockManagerERC20Test is TestBase {
         lockManager.setPluginAddress(ILockToGovernBase(address(dao)));
     }
 
+    function test_WhenCallingSetPluginAddressFromADifferentAddressThanTheDeployer()
+        external
+        givenThePluginAddressHasNotBeenSetYet
+    {
+        // It Should revert with SetPluginAddressForbidden
+
+        vm.prank(david);
+        vm.expectRevert(SetPluginAddressForbidden.selector);
+        lockManager.setPluginAddress(ltvPlugin);
+    }
+
     modifier givenThePluginModeIsVoting() {
         // The default setup is Voting mode, so no changes needed
         _;

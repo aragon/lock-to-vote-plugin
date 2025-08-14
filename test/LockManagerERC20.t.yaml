@@ -17,6 +17,9 @@ LockManagerTest:
       - when: Calling setPluginAddress() with an address that does not support ILockToGovernBase
         then:
           - it: Should revert with InvalidPlugin
+      - when: Calling setPluginAddress() from a different address than the deployer
+        then:
+          - it: Should revert with SetPluginAddressForbidden
       - given: The pluginMode is Voting
         and:
           - when: Calling setPluginAddress() with a plugin that supports ILockToGovernBase but not ILockToVote

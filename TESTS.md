@@ -16,6 +16,8 @@ LockManagerTest
 ├── Given The plugin address has not been set yet
 │   ├── When Calling setPluginAddress with an address that does not support ILockToGovernBase
 │   │   └── It Should revert with InvalidPlugin
+│   ├── When Calling setPluginAddress from a different address than the deployer
+│   │   └── It Should revert with SetPluginAddressForbidden
 │   └── Given The pluginMode is Voting
 │       ├── When Calling setPluginAddress with a plugin that supports ILockToGovernBase but not ILockToVote
 │       │   └── It Should revert with InvalidPlugin
