@@ -42,9 +42,14 @@ contract MinVotingPowerCondition is PermissionCondition {
         (_where, _data, _permissionId);
 
         uint256 _currentVotingPower = lockManager.getLockedBalance(_who);
+
+        return _currentVotingPower >= getRequiredLockAmount(_who);
+    }
+
+    function getRequiredLockAmount(address _who) public view virtual returns (uint256) {
         uint256 _minProposerVotingPower = plugin.minProposerVotingPower();
         uint256 _multiplier = lockManager.activeProposalsCreatedBy(_who) + 1;
 
-        return _currentVotingPower >= (_minProposerVotingPower * _multiplier);
+        return _minProposerVotingPower * _multiplier;
     }
 }
