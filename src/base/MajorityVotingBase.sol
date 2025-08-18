@@ -498,7 +498,7 @@ abstract contract MajorityVotingBase is
 
     /// @notice Internal function to check if a proposal ended.
     /// @param proposal_ The proposal struct.
-    /// @return True if the proposal is executed or past the endDate, false otherwise.
+    /// @return True if the proposal is executed or past the endDate, false otherwise. False if it doesn't exist.
     function _isProposalEnded(Proposal storage proposal_) internal view virtual returns (bool) {
         if (proposal_.parameters.endDate == 0) return false;
 
