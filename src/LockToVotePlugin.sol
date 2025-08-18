@@ -73,12 +73,13 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     }
 
     /// @inheritdoc IProposal
+    /// @param _endDate UNUSED: The parameter is kept for compatibility with IProposal but its value is computed internally.
     /// @dev Requires the `CREATE_PROPOSAL_PERMISSION_ID` permission.
     function createProposal(
         bytes calldata _metadata,
         Action[] memory _actions,
         uint64 _startDate,
-        uint64, // unused: kept for compatibility with IProposal
+        uint64 _endDate,
         bytes memory _data
     ) external auth(CREATE_PROPOSAL_PERMISSION_ID) returns (uint256 proposalId) {
         uint256 _allowFailureMap;
@@ -93,7 +94,6 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
 
         /// @dev `minProposerVotingPower` is checked at the the permission condition behind auth(CREATE_PROPOSAL_PERMISSION_ID)
 
-        uint64 _endDate;
         (_startDate, _endDate) = _validateProposalDates(_startDate);
 
         proposalId = _createProposalId(keccak256(abi.encode(_actions, _metadata)));
