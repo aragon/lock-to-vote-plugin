@@ -317,7 +317,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         super._execute(_proposalId);
 
         // Notify the LockManager to stop tracking this proposal ID
-        lockManager.proposalEnded(_proposalId);
+        lockManager.proposalSettled(_proposalId);
     }
 
     /// @notice This empty reserved space is put in place to allow future versions to add

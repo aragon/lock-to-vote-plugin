@@ -52,7 +52,7 @@ contract LockToVoteTest is TestBase {
         uint256 allowFailureMap
     );
     event ProposalExecuted(uint256 indexed proposalId);
-    event ProposalEnded(uint256 indexed proposalId);
+    event ProposalSettled(uint256 indexed proposalId);
 
     function setUp() public {
         vm.warp(1 days);
@@ -2098,7 +2098,7 @@ contract LockToVoteTest is TestBase {
         // It should mark the proposal as executed
         // It should make the target execute the proposal actions
         // It should emit an event
-        // It should call proposalEnded on the LockManager
+        // It should call proposalSettled on the LockManager
 
         dao.grant(address(ltvPlugin), address(lockManager), ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
 
@@ -2131,7 +2131,7 @@ contract LockToVoteTest is TestBase {
         // It should make the target execute the proposal actions
         assertEq(david.balance, 1 ether);
 
-        // It should call proposalEnded on the LockManager
+        // It should call proposalSettled on the LockManager
         assertEq(lockManager.knownProposalIdsLength(), 0);
     }
 

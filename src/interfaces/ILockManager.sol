@@ -90,7 +90,7 @@ interface ILockManager {
 
     /// @notice Called by the lock to vote plugin whenever a proposal is executed (or ended). It instructs the manager to remove the proposal from the list of active proposal locks.
     /// @param proposalId The ID of the proposal that msg.sender is reporting as done.
-    function proposalEnded(uint256 proposalId) external;
+    function proposalSettled(uint256 proposalId) external;
 
     /// @notice Defines the given plugin address as the target for voting
     function setPluginAddress(ILockToGovernBase _plugin) external;

@@ -92,7 +92,7 @@ LockManagerERC20Test
 │   ├── Given The caller is not the registered plugin
 │   │   ├── When Calling proposalCreated
 │   │   │   └── It Should revert with InvalidPluginAddress
-│   │   └── When Calling proposalEnded
+│   │   └── When Calling proposalSettled
 │   │       └── It Should revert with InvalidPluginAddress
 │   └── Given The caller is the registered plugin
 │       ├── When Calling proposalCreated with a new proposal ID
@@ -103,11 +103,11 @@ LockManagerERC20Test
 │       │   ├── When Calling proposalCreated with that same ID
 │       │   │   ├── It Should not change the set of known proposals
 │       │   │   └── It activeProposalsCreatedBy() should remain the same for the creator
-│       │   └── When Calling proposalEnded with that proposal ID
+│       │   └── When Calling proposalSettled with that proposal ID
 │       │       ├── It Should remove the proposal ID from knownProposalIds
-│       │       ├── It Should emit a ProposalEnded event
+│       │       ├── It Should emit a ProposalSettled event
 │       │       └── It activeProposalsCreatedBy() should decrease for the creator
-│       └── When Calling proposalEnded with a nonexistent proposal ID
+│       └── When Calling proposalSettled with a nonexistent proposal ID
 │           └── It Should do nothing
 └── Given The contract is initialized
     ├── Given A plugin is set and a proposal exists
@@ -353,7 +353,7 @@ LockToVoteTest
 │           ├── It should mark the proposal as executed
 │           ├── It should make the target execute the proposal actions
 │           ├── It should emit an event
-│           └── It should call proposalEnded on the LockManager
+│           └── It should call proposalSettled on the LockManager
 ├── When Calling isMember
 │   ├── It Should return true when the sender has positive balance or locked tokens
 │   └── It Should return false otherwise
