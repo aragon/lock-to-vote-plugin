@@ -72,12 +72,14 @@ contract LockToVotePluginSetupTest is TestBase {
         assertNotEq(pluginAddr, address(0));
         assertTrue(pluginAddr.code.length > 0);
 
-        // It should return a list with the 3 helpers
-        assertEq(preparedSetupData.helpers.length, 3, "helpers length should be 3");
-        address lockManagerAddr = preparedSetupData.helpers[0];
-        address createProposalCaller = preparedSetupData.helpers[1];
-        address executeCaller = preparedSetupData.helpers[2];
+        // It should return a list with the 4 helpers
+        assertEq(preparedSetupData.helpers.length, 4, "helpers length should be 4");
+        address conditionAddr = preparedSetupData.helpers[0];
+        address lockManagerAddr = preparedSetupData.helpers[1];
+        address createProposalCaller = preparedSetupData.helpers[2];
+        address executeCaller = preparedSetupData.helpers[3];
 
+        assertTrue(conditionAddr.code.length > 0, "condition should be deployed");
         assertTrue(lockManagerAddr.code.length > 0, "lock manager should be deployed");
         assertEq(createProposalCaller, installParams.createProposalCaller, "create proposal caller mismatch");
         assertEq(executeCaller, installParams.executeCaller, "execute caller mismatch");
@@ -169,7 +171,7 @@ contract LockToVotePluginSetupTest is TestBase {
             minVotingPowerConditionAddr,
             impl.CREATE_PROPOSAL_PERMISSION_ID()
         );
-        address conditionAddr = address(preparedSetupData.permissions[5].condition);
+        assertEq(conditionAddr, address(preparedSetupData.permissions[5].condition), "Condition should match");
         assertNotEq(conditionAddr, PermissionLib.NO_CONDITION, "Condition should exist for CREATE_PROPOSAL");
         assertTrue(conditionAddr.code.length > 0, "condition is not a contract");
         assertEq(address(MinVotingPowerCondition(conditionAddr).plugin()), address(plugin), "condition plugin mismatch");
@@ -245,7 +247,7 @@ contract LockToVotePluginSetupTest is TestBase {
         assertEq(revokePermissions.length, 8, "uninstallation permissions length mismatch");
 
         LockToVotePlugin impl = LockToVotePlugin(setup.implementation());
-        address lockManagerAddr = preparedSetupData.helpers[0];
+        address lockManagerAddr = preparedSetupData.helpers[1];
 
         // 0. Revoke Plugin can execute on DAO
         _assertPermission(
@@ -325,19 +327,19 @@ contract LockToVotePluginSetupTest is TestBase {
         // It should revert
 
         // Case 1: Less than 3 helpers
-        address[] memory wrongHelpers1 = new address[](2);
+        address[] memory wrongHelpers1 = new address[](3);
         IPluginSetup.SetupPayload memory payload1 =
             IPluginSetup.SetupPayload({plugin: pluginAddr, currentHelpers: wrongHelpers1, data: ""});
 
-        vm.expectRevert(abi.encodeWithSelector(LockToVotePluginSetup.WrongHelpersArrayLength.selector, 2));
+        vm.expectRevert(abi.encodeWithSelector(LockToVotePluginSetup.WrongHelpersArrayLength.selector, 3));
         setup.prepareUninstallation(address(dao), payload1);
 
         // Case 2: More than 3 helpers
-        address[] memory wrongHelpers2 = new address[](4);
+        address[] memory wrongHelpers2 = new address[](5);
         IPluginSetup.SetupPayload memory payload2 =
             IPluginSetup.SetupPayload({plugin: pluginAddr, currentHelpers: wrongHelpers2, data: ""});
 
-        vm.expectRevert(abi.encodeWithSelector(LockToVotePluginSetup.WrongHelpersArrayLength.selector, 4));
+        vm.expectRevert(abi.encodeWithSelector(LockToVotePluginSetup.WrongHelpersArrayLength.selector, 5));
         setup.prepareUninstallation(address(dao), payload2);
     }
 

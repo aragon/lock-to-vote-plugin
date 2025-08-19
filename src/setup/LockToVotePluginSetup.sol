@@ -64,11 +64,8 @@ contract LockToVotePluginSetup is PluginSetup {
         // and the required helpers
         InstallationParameters memory installationParams = decodeInstallationParams(_installParameters);
 
-        // Prepare helpers.
-        address[] memory helpers = new address[](3);
-
         // Lock Manager
-        helpers[0] = address(new LockManagerERC20(installationParams.token));
+        address lockManager = address(new LockManagerERC20(installationParams.token));
 
         if (!address(installationParams.token).isContract()) {
             revert TokenNotContract(address(installationParams.token));
@@ -83,19 +80,24 @@ contract LockToVotePluginSetup is PluginSetup {
                 LockToVotePlugin.initialize,
                 (
                     IDAO(_dao),
-                    LockManagerERC20(helpers[0]),
+                    LockManagerERC20(lockManager),
                     installationParams.votingSettings,
                     installationParams.targetConfig,
                     installationParams.pluginMetadata
                 )
             )
         );
-        LockManagerERC20(helpers[0]).setPluginAddress(ILockToGovernBase(plugin));
+        LockManagerERC20(lockManager).setPluginAddress(ILockToGovernBase(plugin));
 
-        // Condition
         address minVotingPowerCondition = address(new MinVotingPowerCondition(ILockToGovernBase(plugin)));
-        helpers[1] = installationParams.createProposalCaller;
-        helpers[2] = installationParams.executeCaller;
+
+        // Prepare helpers.
+        address[] memory helpers = new address[](4);
+
+        helpers[0] = address(minVotingPowerCondition);
+        helpers[1] = lockManager;
+        helpers[2] = installationParams.createProposalCaller;
+        helpers[3] = installationParams.executeCaller;
 
         LockToVotePlugin impl = LockToVotePlugin(implementation());
 
@@ -160,7 +162,7 @@ contract LockToVotePluginSetup is PluginSetup {
         permissions[6] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Grant,
             where: plugin,
-            who: helpers[0], // Lock Manager
+            who: lockManager, // Lock Manager
             condition: PermissionLib.NO_CONDITION,
             permissionId: impl.LOCK_MANAGER_PERMISSION_ID()
         });
@@ -186,7 +188,7 @@ contract LockToVotePluginSetup is PluginSetup {
     {
         // Prepare permissions.
         uint256 helperLength = _payload.currentHelpers.length;
-        if (helperLength != 3) {
+        if (helperLength != 4) {
             revert WrongHelpersArrayLength({length: helperLength});
         }
         permissions = new PermissionLib.MultiTargetPermission[](8);
@@ -243,7 +245,7 @@ contract LockToVotePluginSetup is PluginSetup {
         permissions[5] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Revoke,
             where: _payload.plugin,
-            who: _payload.currentHelpers[1], // createProposalCaller,
+            who: _payload.currentHelpers[2], // createProposalCaller,
             condition: PermissionLib.NO_CONDITION,
             permissionId: impl.CREATE_PROPOSAL_PERMISSION_ID()
         });
@@ -252,7 +254,7 @@ contract LockToVotePluginSetup is PluginSetup {
         permissions[6] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Revoke,
             where: _payload.plugin,
-            who: _payload.currentHelpers[0], // Lock Manager
+            who: _payload.currentHelpers[1], // Lock Manager
             condition: PermissionLib.NO_CONDITION,
             permissionId: impl.LOCK_MANAGER_PERMISSION_ID()
         });
@@ -261,7 +263,7 @@ contract LockToVotePluginSetup is PluginSetup {
         permissions[7] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Revoke,
             where: _payload.plugin,
-            who: _payload.currentHelpers[2], // executeCaller,
+            who: _payload.currentHelpers[3], // executeCaller,
             condition: PermissionLib.NO_CONDITION,
             permissionId: impl.EXECUTE_PROPOSAL_PERMISSION_ID()
         });
