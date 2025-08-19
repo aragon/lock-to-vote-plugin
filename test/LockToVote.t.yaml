@@ -245,6 +245,9 @@ LockToVoteTest:
           - it: should revert
       - given: vote replacement mode
         then:
+          - given: the caller is not the LockManager
+            then:
+              - it: should revert
           - it: should deallocate the current voting power
 
   # Getting a vote

@@ -147,6 +147,11 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         override
         auth(LOCK_MANAGER_PERMISSION_ID)
     {
+        /// @dev The DAO can disable auth(LOCK_MANAGER_PERMISSION_ID) from above but not define an arbitrary address other than LockManager
+        if (msg.sender != address(lockManager)) {
+            revert VoteCastForbidden(_proposalId, _voter);
+        }
+
         Proposal storage proposal_ = proposals[_proposalId];
 
         if (!_canVote(proposal_, _voter, _voteOption, _newVotingPower)) {
@@ -208,7 +213,12 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     }
 
     /// @inheritdoc ILockToVote
-    function clearVote(uint256 _proposalId, address _voter) external auth(LOCK_MANAGER_PERMISSION_ID) {
+    function clearVote(uint256 _proposalId, address _voter) external {
+        /// @dev The LockManager can always call clearVote(), regardless of LOCK_MANAGER_PERMISSION_ID
+        if (msg.sender != address(lockManager)) {
+            revert VoteRemovalForbidden(_proposalId, _voter);
+        }
+
         Proposal storage proposal_ = proposals[_proposalId];
         if (!_isProposalOpen(proposal_)) {
             revert VoteRemovalForbidden(_proposalId, _voter);
