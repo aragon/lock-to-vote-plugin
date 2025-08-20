@@ -89,7 +89,7 @@ abstract contract LockManagerBase is ILockManager {
             uint256 _proposalId = knownProposalIds.at(_i);
             if (knownProposalIdCreators[_proposalId] != _creator) {
                 continue;
-            } else if (!plugin.isProposalOpen(_proposalId)) {
+            } else if (plugin.isProposalEnded(_proposalId)) {
                 continue;
             }
             _result++;

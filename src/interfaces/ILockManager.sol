@@ -85,7 +85,7 @@ interface ILockManager {
 
     /// @notice Called by the lock to vote plugin whenever a proposal is created. It instructs the manager to start tracking the given proposal.
     /// @param proposalId The ID of the proposal that msg.sender is reporting as created.
-    /// @param creator The address that .
+    /// @param creator The address creating the proposal.
     function proposalCreated(uint256 proposalId, address creator) external;
 
     /// @notice Called by the lock to vote plugin whenever a proposal is executed (or ended). It instructs the manager to remove the proposal from the list of active proposal locks.
