@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.28;
 
 import {ILockToGovernBase} from "./ILockToGovernBase.sol";
 import {IMajorityVoting} from "./IMajorityVoting.sol";
