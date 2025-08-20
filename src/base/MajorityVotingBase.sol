@@ -389,19 +389,21 @@ abstract contract MajorityVotingBase is
     function isMinVotingPowerReached(uint256 _proposalId) public view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        uint256 _minVotingPower = _applyRatioCeiled(currentTokenSupply(), proposal_.parameters.minParticipationRatio);
+        /// @dev Multiplying both sides by RATIO_BASE, instead of dividing and losing precision
 
-        // The code below implements the formula of the
-        // participation criterion explained in the top of this file.
+        uint256 _minVotingPowerUpscaled = currentTokenSupply() * proposal_.parameters.minParticipationRatio;
+
+        // The code below implements the formula of the participation criterion explained in the top of this file.
         // `N_yes + N_no + N_abstain >= minVotingPower = minParticipationRatio * N_total`
-        return proposal_.tally.yes + proposal_.tally.no + proposal_.tally.abstain >= _minVotingPower;
+        // `RATIO_BASE * (N_yes + N_no + N_abstain) >= minVotingPowerUpscaled = (minParticipationRatio * N_total) * RATIO_BASE`
+        return
+            RATIO_BASE * (proposal_.tally.yes + proposal_.tally.no + proposal_.tally.abstain) >= _minVotingPowerUpscaled;
     }
 
     /// @inheritdoc IMajorityVoting
     function isMinApprovalReached(uint256 _proposalId) public view virtual returns (bool) {
-        uint256 _minApprovalPower =
-            _applyRatioCeiled(currentTokenSupply(), proposals[_proposalId].parameters.minApprovalRatio);
-        return proposals[_proposalId].tally.yes >= _minApprovalPower;
+        uint256 _minApprovalPower = currentTokenSupply() * proposals[_proposalId].parameters.minApprovalRatio;
+        return RATIO_BASE * proposals[_proposalId].tally.yes >= _minApprovalPower;
     }
 
     /// @inheritdoc IMajorityVoting
