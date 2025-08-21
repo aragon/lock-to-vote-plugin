@@ -3,19 +3,20 @@
 [![Built with Foundry](https://img.shields.io/badge/Built%20with-Foundry-FF6E3D?logo=ethereum)](https://book.getfoundry.sh/)
 
 **An OSx governance plugin, enabling immediate voting through token locking**
+
 Built on Aragon OSx's modular framework, LockToVote redefines DAO participation by eliminating the need for *ahead of time* token snapshots with an [IVotes](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/governance/utils/IVotes.sol) compatible token. Any vanilla ERC20 can now be used to participate in DAO governance.
 
-## Two flavours
+See the [ERC20 token checklist](#erc20-token-checklist) below.
+
+## Overview
 
 ![Overview](./img/overview.png)
 
-### `LockToVote`
+`LockToVote` is a versatile majority voting plugin with configurable modes:
 
-Versatile majority voting plugin with configurable modes:
 - **Multi-option voting**: Vote Yes/No/Abstain
 - **Three voting modes**:
-  - **Vote Replacement**: Update your vote option mid-proposal, unlock early
-  - **Early Execution**: Automatically execute proposals when thresholds are mathematically irreversible
+  - **Vote Replacement**: Update your vote option mid-proposal
   - **Standard Mode**: Traditional voting with append-only allocations
 - **Customizable thresholds**: Minimum participation, support threshold, and a certain approval tally
 
@@ -23,18 +24,24 @@ Versatile majority voting plugin with configurable modes:
 
 ### Core Components
 
-1. **LockManager**: The custodial contract managing token locks and allowing to vote in multiple proposals with a single lock
-   - `LockManagerBase` contains the common logic, while `LockManagerERC20` includes the specific implementation to manage ERC20 token locks.
-   - `lock()` deposits the current ERC20 allowance into the contract and updates the cumulative locked balance
-   - `vote()` allow users to use the currently locked balance on a given proposal
-   - Locking and voting can be done at once with `lockAndVote()`
-   - To prevent unlocking with votes on active proposals, it keeps track of them via the `proposalCreated()` and `proposalEnded()` hooks
+#### LockManager
 
-2. **LockToVote**: Governance plugin where successful proposals can be executed on the DAO
-   - Handles `IMajorityVoting.VoteOption` votes (Yes/No/Abstain)
-   - `vote()` allocates the current voting power into the selected voite option
-   - `clearVote()`: Depending on the voting mode, revoke the current allocation and trigger the corresponding tally updates
-   - `execute()` makes the DAO execute the given (successful) proposal's actions
+The custodial contract managing token locks and allowing to vote in multiple proposals with a single lock
+
+- `LockManagerBase` contains the common logic, while `LockManagerERC20` includes the specific implementation to manage ERC20 token locks.
+- `lock()` deposits the current ERC20 allowance into the contract and updates the cumulative locked balance
+- `vote()` allow users to use the currently locked balance on a given proposal
+- Locking and voting can be done at once with `lockAndVote()`
+- To prevent unlocking with votes on active proposals, it keeps track of them via the `proposalCreated()` and `proposalEnded()` hooks
+
+#### LockToVote
+
+Governance plugin where successful proposals can be executed on the DAO
+
+- Handles `IMajorityVoting.VoteOption` votes (Yes/No/Abstain)
+- `vote()` allocates the current voting power into the selected voite option
+- `clearVote()`: Depending on the voting mode, revoke the current allocation and trigger the corresponding tally updates
+- `execute()` makes the DAO execute the given (successful) proposal's actions
 
 ### Proposal Lifecycle
 
@@ -162,7 +169,27 @@ The env.example file contains descriptions for all the initial settings. You don
 - [ ] I have transferred the remaining funds of the deployment wallet to the address that originally funded it
   - `make refund`
 
-## Manual deployment (CLI)
+### ERC20 token checklist
+
+When configuring the plugin deployment, make sure to check the implementation of your token contract.
+
+- **Only ERC20s**: The LockManager only deals with underlying tokens of ERC-20 compatible standards. Other fungible token standards such as ERC-1155, are not supported.
+- **Double-entry-point tokens**, i.e. tokens that share the same tracking of balances but have two separate contract addresses from which these balances can be controlled. They should be usable without any issue.
+- **Non-reverting tokens**: ERC-20 Tokens historically handle errors in two possible ways, they either revert on errors or they simply return `false` as a result. SafeERC20 ensures that non reverting tokens do revert given in case of an insufficient balance.
+- **ERC20s lacking `decimals()`**: Within the ERC-20 standard, the existence of a `decimals()` function is optional. The plugin has no need for this function's existence and supports tokens without it.
+- **Tokens with callbacks**: There exist various standard extensions such as ERC-223, ERC-677, ERC-777, etc., as well as custom ERC-20 compatible token implementations that call the sender, receiver, or both, during a token transfer. Furthermore, such implementations may choose to call before or after the token balances were updated. This is especially dangerous since it may allow re-entering the protocol and exploit incomplete state updates. Such tokens can be used safely.
+- **Tokens with strict allowance handling**: There are tokens that revert when attempting to change an existing token allowance from a non-zero value to another non-zero value. The plugin makes no calls to the token's `approve()` function and should have no issue in using them.
+- **Non-standard decimals**: Tokens typically have 18 decimals, but some deviate from this, usually towards lower numbers. The plugin supports tokens that have large deviations from the typical 18 decimals. It is only for extremely large decimal numbers (>50), combined with large transfer amounts, that there may be problems due to the `10^6` scaling used.
+- **Care required for Tokens with variable supply**: The plugin relies on the Total Token Supply to be relatively stable in order to determine the total existing voting power and use it for threshold checks. Tokens that have burn and mint functionality, or other ways allowing to affect the total supply, should be integrated with care.
+
+Not supported:
+
+- **NOT supported: Deflationary, Inflationary or Rebasing Tokens**: There are tokens (such as Aave's aToken) which increase in balance over time, or decrease in balance over time (various algorithmic stable coins), this may cause accounting issues within smart contracts holding them. When a user adds funds to the plugin, the plugin assumes that the sum of balances stays equal to the current balance held by the plugin.
+  - If the balance increases, the surplus is attributed to the LockManager. Not the original token holders.
+  - If the balance decreases, those who withdraw (call `unlock()`) first will obtain their full balance, but not all users will be able to withdraw once funds have run out.
+- **NOT supported: Tokens with Transfer Fees**: There are tokens which may charge a fee for transfers. This fee could be applied on the value being sent, decreasing the amount reaching the receiver, or it could be applied on the sender's remaining balance. The plugin assumes that the value specified as amount during the transfer is exactly that value that actually arrived at the plugin, unless the transfer reverts. It does currently not handle the case where the received balance deviates from the requested amount.
+
+### Manual deployment (CLI)
 
 You can of course run all commands from the command line:
 
