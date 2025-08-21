@@ -595,8 +595,8 @@ abstract contract MajorityVotingBase is
             revert RatioOutOfBounds({limit: RATIO_BASE, actual: _votingSettings.minParticipationRatio});
         } else if (_votingSettings.proposalDuration < 60 minutes) {
             revert ProposalDurationOutOfBounds({limit: 60 minutes, actual: _votingSettings.proposalDuration});
-        } else if (_votingSettings.proposalDuration > 365 days) {
-            revert ProposalDurationOutOfBounds({limit: 365 days, actual: _votingSettings.proposalDuration});
+        } else if (_votingSettings.proposalDuration > 31 days) {
+            revert ProposalDurationOutOfBounds({limit: 31 days, actual: _votingSettings.proposalDuration});
         }
         // Require the minimum approval value to be in the interval [0, 10^6],
         // because `>=` comparison is used in the participation criterion.
