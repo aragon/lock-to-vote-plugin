@@ -453,7 +453,7 @@ abstract contract MajorityVotingBase is
     function _hasSucceeded(uint256 _proposalId) internal view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        if (_isProposalOpen(proposal_)) {
+        if (!_isProposalEnded(proposal_)) {
             // Success cannot be determined until the voting period ends.
             return false;
         } else if (!isSupportThresholdReached(_proposalId)) {
@@ -496,6 +496,16 @@ abstract contract MajorityVotingBase is
 
         return proposal_.parameters.startDate <= currentTime && currentTime < proposal_.parameters.endDate
             && !proposal_.executed;
+    }
+
+    /// @notice Internal function to check if a proposal ended.
+    /// @param proposal_ The proposal struct.
+    /// @return True if the proposal is executed or past the endDate, false otherwise. False if it doesn't exist.
+    function _isProposalEnded(Proposal storage proposal_) internal view virtual returns (bool) {
+        if (proposal_.parameters.endDate == 0) return false;
+
+        uint64 currentTime = block.timestamp.toUint64();
+        return currentTime >= proposal_.parameters.endDate || proposal_.executed;
     }
 
     /// @notice Internal function to update the plugin-wide proposal settings.

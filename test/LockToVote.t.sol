@@ -1149,6 +1149,9 @@ contract LockToVoteTest is TestBase {
         // It isProposalOpen() returns false
         assertFalse(ltvPlugin.isProposalOpen(proposalId + 54321));
 
+        // It isProposalEnded() returns false
+        assertFalse(ltvPlugin.isProposalEnded(proposalId + 54321));
+
         // It hasSucceeded() should return false
         vm.expectRevert(abi.encodeWithSelector(NonexistentProposal.selector, proposalId + 54321));
         ltvPlugin.hasSucceeded(proposalId + 54321);
@@ -1213,6 +1216,9 @@ contract LockToVoteTest is TestBase {
         // It isProposalOpen() returns false
         assertFalse(ltvPlugin.isProposalOpen(proposalId));
 
+        // It isProposalEnded() returns false
+        assertFalse(ltvPlugin.isProposalEnded(proposalId));
+
         // It hasSucceeded() should return false
         assertFalse(ltvPlugin.hasSucceeded(proposalId));
 
@@ -1276,6 +1282,9 @@ contract LockToVoteTest is TestBase {
 
         // It isProposalOpen() returns true
         assertTrue(ltvPlugin.isProposalOpen(proposalId));
+
+        // It isProposalEnded() returns false
+        assertFalse(ltvPlugin.isProposalEnded(proposalId));
 
         // It hasSucceeded() should return false
         assertFalse(ltvPlugin.hasSucceeded(proposalId));
@@ -1350,6 +1359,9 @@ contract LockToVoteTest is TestBase {
         // It isProposalOpen() returns false
         assertFalse(ltvPlugin.isProposalOpen(proposalId));
 
+        // It isProposalEnded() returns true
+        assertTrue(ltvPlugin.isProposalEnded(proposalId));
+
         // It hasSucceeded() should return false
         assertFalse(ltvPlugin.hasSucceeded(proposalId));
 
@@ -1418,6 +1430,9 @@ contract LockToVoteTest is TestBase {
 
         // It isProposalOpen() returns false
         assertFalse(ltvPlugin.isProposalOpen(proposalId));
+
+        // It isProposalEnded() returns true
+        assertTrue(ltvPlugin.isProposalEnded(proposalId));
 
         // It hasSucceeded() should return false
         assertFalse(ltvPlugin.hasSucceeded(proposalId));
@@ -1488,6 +1503,9 @@ contract LockToVoteTest is TestBase {
         // It isProposalOpen() returns false
         assertFalse(ltvPlugin.isProposalOpen(proposalId));
 
+        // It isProposalEnded() returns true
+        assertTrue(ltvPlugin.isProposalEnded(proposalId));
+
         // It hasSucceeded() should return false
         assertFalse(ltvPlugin.hasSucceeded(proposalId));
 
@@ -1556,6 +1574,9 @@ contract LockToVoteTest is TestBase {
 
         // It isProposalOpen() returns false
         assertFalse(ltvPlugin.isProposalOpen(proposalId));
+
+        // It isProposalEnded() returns true
+        assertTrue(ltvPlugin.isProposalEnded(proposalId));
 
         // It hasSucceeded() should return false
         assertFalse(ltvPlugin.hasSucceeded(proposalId));
@@ -1630,6 +1651,9 @@ contract LockToVoteTest is TestBase {
 
         // It isProposalOpen() returns false
         assertFalse(ltvPlugin.isProposalOpen(proposalId));
+
+        // It isProposalEnded() returns true
+        assertTrue(ltvPlugin.isProposalEnded(proposalId));
 
         // It hasSucceeded() should return false
         assertFalse(ltvPlugin.hasSucceeded(proposalId));
@@ -1743,6 +1767,9 @@ contract LockToVoteTest is TestBase {
         // It isProposalOpen() returns false
         assertFalse(ltvPlugin.isProposalOpen(proposalId));
 
+        // It isProposalEnded() returns true
+        assertTrue(ltvPlugin.isProposalEnded(proposalId));
+
         // It hasSucceeded() should return true
         assertTrue(ltvPlugin.hasSucceeded(proposalId));
 
@@ -1775,6 +1802,9 @@ contract LockToVoteTest is TestBase {
         _vote(alice, IMajorityVoting.VoteOption.Yes, 10 ether);
         vm.warp(block.timestamp + ltvPlugin.proposalDuration() + 1);
 
+        // It isProposalEnded() returns true
+        assertTrue(ltvPlugin.isProposalEnded(proposalId));
+
         // It canExecute() should return true
         assertTrue(ltvPlugin.canExecute(proposalId));
     }
@@ -1796,6 +1826,9 @@ contract LockToVoteTest is TestBase {
 
         vm.prank(alice);
         ltvPlugin.execute(proposalId);
+
+        // It isProposalEnded() returns true
+        assertTrue(ltvPlugin.isProposalEnded(proposalId));
 
         // It canExecute() should return false
         assertFalse(ltvPlugin.canExecute(proposalId));

@@ -248,6 +248,7 @@ LockToVoteTest
 │   ├── Given it does not exist
 │   │   ├── It getProposal() returns empty values
 │   │   ├── It isProposalOpen() returns false
+│   │   ├── It isProposalEnded() returns false
 │   │   ├── It hasSucceeded() should return false
 │   │   ├── It canExecute() should return false
 │   │   ├── It isSupportThresholdReached() should return false
@@ -257,6 +258,7 @@ LockToVoteTest
 │   ├── Given it has not started
 │   │   ├── It getProposal() returns the right values
 │   │   ├── It isProposalOpen() returns false
+│   │   ├── It isProposalEnded() returns false
 │   │   ├── It hasSucceeded() should return false
 │   │   ├── It canExecute() should return false
 │   │   ├── It isSupportThresholdReached() should return false
@@ -266,6 +268,7 @@ LockToVoteTest
 │   ├── Given it has not passed yet
 │   │   ├── It getProposal() returns the right values
 │   │   ├── It isProposalOpen() returns true
+│   │   ├── It isProposalEnded() returns false
 │   │   ├── It hasSucceeded() should return false
 │   │   ├── It canExecute() should return false
 │   │   ├── It isSupportThresholdReached() should return true
@@ -275,6 +278,7 @@ LockToVoteTest
 │   ├── Given it did not pass after endDate
 │   │   ├── It getProposal() returns the right values
 │   │   ├── It isProposalOpen() returns false
+│   │   ├── It isProposalEnded() returns true
 │   │   ├── It hasSucceeded() should return false
 │   │   ├── It canExecute() should return false
 │   │   ├── Given the support threshold was not achieved
@@ -293,11 +297,14 @@ LockToVoteTest
 │   └── Given it has passed after endDate
 │       ├── It getProposal() returns the right values
 │       ├── It isProposalOpen() returns false
+│       ├── It isProposalEnded() returns true
 │       ├── It hasSucceeded() should return false
 │       ├── Given The proposal has not been executed
-│       │   └── It canExecute() should return true
+│       │   ├── It canExecute() should return true
+│       │   └── It isProposalEnded() returns true
 │       ├── Given The proposal has been executed
-│       │   └── It canExecute() should return false
+│       │   ├── It canExecute() should return false
+│       │   └── It isProposalEnded() returns true
 │       ├── It isSupportThresholdReached() should return true
 │       ├── It isMinVotingPowerReached() should return true
 │       ├── It isMinApprovalReached() should return true
