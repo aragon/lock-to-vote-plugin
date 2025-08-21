@@ -13,7 +13,7 @@ import {LockManagerBase} from "../src/base/LockManagerBase.sol";
 import {LockManagerERC20} from "../src/LockManagerERC20.sol";
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {TestToken} from "./mocks/TestToken.sol";
+import {TestToken, TestERC20NoRevert} from "./mocks/TestToken.sol";
 import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
 
 contract LockManagerERC20Test is TestBase {
@@ -178,11 +178,6 @@ contract LockManagerERC20Test is TestBase {
     }
 
     modifier whenTheUserTriesToLockMoreThanHisBalance() {
-        TestToken(address(lockableToken)).mint(bob, 1 ether);
-
-        vm.prank(bob);
-        lockableToken.approve(address(lockManager), 1 ether);
-
         _;
     }
 
@@ -191,14 +186,41 @@ contract LockManagerERC20Test is TestBase {
         givenAUserWantsToLockTokens
         whenTheUserTriesToLockMoreThanHisBalance
     {
-        // It Should revert
-
+        // Reverting ERC20 token
         vm.prank(bob);
-        vm.expectRevert("ERC20: insufficient allowance");
+        lockableToken.approve(address(lockManager), 10000000 ether);
+
+        // It Should revert
+        vm.prank(bob);
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
         lockManager.lock(100 ether);
 
         vm.prank(bob);
-        vm.expectRevert("ERC20: insufficient allowance");
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        lockManager.lock(10.1 ether);
+
+        // OK
+        vm.prank(bob);
+        lockManager.lock(10 ether);
+
+        // Non reverting ERC20 token
+
+        TestERC20NoRevert tok = new TestERC20NoRevert();
+        tok.mint(bob, 1 ether);
+
+        // It Should revert
+
+        lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Voting), tok);
+
+        vm.prank(bob);
+        tok.approve(address(lockManager), 10000000 ether);
+
+        vm.expectRevert("SafeERC20: ERC20 operation did not succeed");
+        vm.prank(bob);
+        lockManager.lock(100 ether);
+
+        vm.expectRevert("SafeERC20: ERC20 operation did not succeed");
+        vm.prank(bob);
         lockManager.lock(1.1 ether);
 
         // OK
