@@ -52,6 +52,14 @@ LockManagerTest:
               - it: Should transfer the full allowance amount from the user
               - it: Should increase the user's lockedBalances by the allowance amount
               - it: Should emit a BalanceLocked event with the correct user and amount
+      - when: The user has approved the LockManager to spend more than the balance
+        comment: Allowance is ∞
+        and:
+          - when: Calling lock()
+            then:
+              - it: Should transfer the full balance from the user
+              - it: Should increase the user's lockedBalances by the balance
+              - it: Should emit a BalanceLocked event with the correct user and amount
 
   - given: pluginMode is Voting
     and:

@@ -153,6 +153,41 @@ contract LockManagerERC20Test is TestBase {
         assertEq(lockableToken.balanceOf(bob), initialBobBalance - allowance, "User balance incorrect");
     }
 
+    modifier whenTheUserHasApprovedTheLockManagerToSpendMoreThanTheBalance() {
+        TestToken(address(lockableToken)).mint(bob, 1 ether);
+
+        vm.prank(bob);
+        lockableToken.approve(address(lockManager), 1000000000 ether);
+
+        _;
+    }
+
+    function test_WhenCallingLock3()
+        external
+        givenAUserWantsToLockTokens
+        whenTheUserHasApprovedTheLockManagerToSpendMoreThanTheBalance
+    {
+        // It Should transfer the full balance from the user
+        // It Should increase the user's lockedBalances by the balance
+        // It Should emit a BalanceLocked event with the correct user and amount
+
+        uint256 allowance = lockableToken.allowance(bob, address(lockManager));
+        uint256 initialBobBalance = lockableToken.balanceOf(bob);
+
+        vm.prank(bob);
+        vm.expectEmit(true, true, true, true);
+        emit BalanceLocked(bob, initialBobBalance);
+        lockManager.lock();
+
+        assertEq(lockManager.getLockedBalance(bob), initialBobBalance, "Incorrect locked balance");
+        assertEq(lockableToken.balanceOf(bob), 0, "Incorrect user balance");
+        assertEq(
+            lockableToken.allowance(bob, address(lockManager)),
+            allowance - initialBobBalance,
+            "Incorrect allowance left"
+        );
+    }
+
     modifier givenVotingPluginIsActive() {
         (dao, ltvPlugin, lockManager, lockableToken) =
             builder.withVotingPlugin().withTokenHolder(alice, 1 ether).build();
