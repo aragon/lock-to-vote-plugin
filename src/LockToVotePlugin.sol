@@ -230,6 +230,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
             proposal_.tally.abstain -= proposal_.votes[_voter].votingPower;
         }
         proposal_.votes[_voter].votingPower = 0;
+        proposal_.votes[_voter].voteOption = VoteOption.None;
 
         emit VoteCleared(_proposalId, _voter);
     }
