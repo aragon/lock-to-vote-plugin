@@ -36,9 +36,13 @@ interface ILockManager {
     function getLockedBalance(address account) external view returns (uint256);
 
     /// @notice Locks the balance currently allowed by msg.sender on this contract
+    /// NOTE: Tokens locked and not allocated into a proposal are treated in the same way as the rest.
+    /// They can only be unlocked when all active proposals with votes have ended.
     function lock() external;
 
     /// @notice Locks the given amount from msg.sender on this contract
+    /// NOTE: Tokens locked and not allocated into a proposal are treated in the same way as the rest.
+    /// They can only be unlocked when all active proposals with votes have ended.
     /// @param amount How many tokens the contract should lock
     function lock(uint256 amount) external;
 
