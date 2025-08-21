@@ -28,7 +28,7 @@ contract LockManagerERC20Test is TestBase {
 
     event BalanceLocked(address voter, uint256 amount);
     event BalanceUnlocked(address voter, uint256 amount);
-    event ProposalEnded(uint256 proposalId);
+    event ProposalSettled(uint256 proposalId);
 
     error NoBalance();
     error VoteCastForbidden(uint256 proposalId, address account);
@@ -668,11 +668,15 @@ contract LockManagerERC20Test is TestBase {
         lockManager.proposalCreated(1, alice);
     }
 
-    function test_WhenCallingProposalEnded() external givenThePluginHasBeenSet givenTheCallerIsNotTheRegisteredPlugin {
+    function test_WhenCallingProposalSettled()
+        external
+        givenThePluginHasBeenSet
+        givenTheCallerIsNotTheRegisteredPlugin
+    {
         // It Should revert with InvalidPluginAddress
         vm.prank(bob);
         vm.expectRevert(InvalidPluginAddress.selector);
-        lockManager.proposalEnded(1);
+        lockManager.proposalSettled(1);
     }
 
     modifier givenTheCallerIsTheRegisteredPlugin() {
@@ -744,7 +748,7 @@ contract LockManagerERC20Test is TestBase {
         assertEq(lockManager.activeProposalsCreatedBy(address(this)), 1);
     }
 
-    function test_WhenCallingProposalEndedWithThatProposalID()
+    function test_WhenCallingProposalSettledWithThatProposalID()
         external
         givenThePluginHasBeenSet
         givenTheCallerIsTheRegisteredPlugin
@@ -753,33 +757,33 @@ contract LockManagerERC20Test is TestBase {
         assertEq(lockManager.activeProposalsCreatedBy(address(this)), 1);
 
         // It Should remove the proposal ID from knownProposalIds
-        // It Should emit a ProposalEnded event
+        // It Should emit a ProposalSettled event
         // activeProposalsCreatedBy() should decrease for the creator
 
         vm.expectEmit(true, false, false, true);
-        emit ProposalEnded(proposalId);
+        emit ProposalSettled(proposalId);
         vm.prank(address(lockManager.plugin()));
-        lockManager.proposalEnded(proposalId);
+        lockManager.proposalSettled(proposalId);
 
         vm.expectRevert();
         lockManager.knownProposalIdAt(0);
         assertEq(lockManager.activeProposalsCreatedBy(address(this)), 0);
     }
 
-    function test_WhenCallingProposalEndedWithANonexistentProposalID()
+    function test_WhenCallingProposalSettledWithANonexistentProposalID()
         external
         givenThePluginHasBeenSet
         givenTheCallerIsTheRegisteredPlugin
     {
         // It Should do nothing
         vm.prank(address(lockManager.plugin()));
-        lockManager.proposalEnded(999);
+        lockManager.proposalSettled(999);
         vm.prank(address(lockManager.plugin()));
-        lockManager.proposalEnded(55667788);
+        lockManager.proposalSettled(55667788);
         vm.prank(address(lockManager.plugin()));
-        lockManager.proposalEnded(0);
+        lockManager.proposalSettled(0);
         vm.prank(address(lockManager.plugin()));
-        lockManager.proposalEnded(1000);
+        lockManager.proposalSettled(1000);
     }
 
     modifier givenTheContractIsInitialized() {

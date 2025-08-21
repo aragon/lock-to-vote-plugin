@@ -41,9 +41,9 @@ abstract contract LockManagerBase is ILockManager {
 
     /// @notice Emitted when the plugin reports a proposal as ended
     /// @param proposalId The ID the proposal where votes can no longer be submitted or cleared
-    event ProposalEnded(uint256 proposalId);
+    event ProposalSettled(uint256 proposalId);
 
-    /// @notice Thrown when the address calling proposalEnded() is not the plugin's
+    /// @notice Thrown when the address calling proposalSettled() is not the plugin's
     error InvalidPluginAddress();
 
     /// @notice Raised when the caller holds no tokens or didn't lock any tokens
@@ -185,12 +185,12 @@ abstract contract LockManagerBase is ILockManager {
     }
 
     /// @inheritdoc ILockManager
-    function proposalEnded(uint256 _proposalId) public virtual {
+    function proposalSettled(uint256 _proposalId) public virtual {
         if (msg.sender != address(plugin)) {
             revert InvalidPluginAddress();
         }
 
-        emit ProposalEnded(_proposalId);
+        emit ProposalSettled(_proposalId);
         knownProposalIds.remove(_proposalId);
     }
 
