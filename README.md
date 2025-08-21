@@ -16,8 +16,7 @@ See the [ERC20 token checklist](#erc20-token-checklist) below.
 
 - **Multi-option voting**: Vote Yes/No/Abstain
 - **Three voting modes**:
-  - **Vote Replacement**: Update your vote option mid-proposal, unlock early
-  - **Early Execution**: Automatically execute proposals when thresholds are mathematically irreversible
+  - **Vote Replacement**: Update your vote option mid-proposal
   - **Standard Mode**: Traditional voting with append-only allocations
 - **Customizable thresholds**: Minimum participation, support threshold, and a certain approval tally
 
@@ -179,7 +178,7 @@ When configuring the plugin deployment, make sure to check the implementation of
 - **Non-reverting tokens**: ERC-20 Tokens historically handle errors in two possible ways, they either revert on errors or they simply return `false` as a result. SafeERC20 ensures that non reverting tokens do revert given in case of an insufficient balance.
 - **ERC20s lacking `decimals()`**: Within the ERC-20 standard, the existence of a `decimals()` function is optional. The plugin has no need for this function's existence and supports tokens without it.
 - **Tokens with callbacks**: There exist various standard extensions such as ERC-223, ERC-677, ERC-777, etc., as well as custom ERC-20 compatible token implementations that call the sender, receiver, or both, during a token transfer. Furthermore, such implementations may choose to call before or after the token balances were updated. This is especially dangerous since it may allow re-entering the protocol and exploit incomplete state updates. Such tokens can be used safely.
-- **Tokens with strict allowance handling**: There are tokens that revert when attempting to change an existing token allowance from a non-zero value to another non-zero value. The plugin makes no calls to the token's `approve()` function and should have no issue i using them.
+- **Tokens with strict allowance handling**: There are tokens that revert when attempting to change an existing token allowance from a non-zero value to another non-zero value. The plugin makes no calls to the token's `approve()` function and should have no issue in using them.
 - **Non-standard decimals**: Tokens typically have 18 decimals, but some deviate from this, usually towards lower numbers. The plugin supports tokens that have large deviations from the typical 18 decimals. It is only for extremely large decimal numbers (>50), combined with large transfer amounts, that there may be problems due to the `10^6` scaling used.
 - **Care required for Tokens with variable supply**: The plugin relies on the Total Token Supply to be relatively stable in order to determine the total existing voting power and use it for threshold checks. Tokens that have burn and mint functionality, or other ways allowing to affect the total supply, should be integrated with care.
 
