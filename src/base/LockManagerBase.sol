@@ -27,6 +27,9 @@ abstract contract LockManagerBase is ILockManager {
     /// @dev NOTE: Executed proposals will be actively reported, but defeated proposals will need to be garbage collected over time.
     EnumerableSet.UintSet internal knownProposalIds;
 
+    /// @notice Keeps track of who created each known proposalId
+    mapping(uint256 => address) public knownProposalIdCreators;
+
     /// @notice The address that can define the plugin address, once, after the deployment
     address immutable pluginSetter;
 
@@ -58,6 +61,10 @@ abstract contract LockManagerBase is ILockManager {
     /// @notice Thrown when trying to define the address of the plugin after it already was
     error SetPluginAddressForbidden();
 
+    /// @notice Thrown when attempting to unlock with a created proposal that is still active
+    /// @param proposalId The ID the active proposal
+    error ProposalCreatedStillActive(uint256 proposalId);
+
     /// @param _settings The operation mode of the contract (plugin mode)
     constructor(LockManagerSettings memory _settings) {
         settings.pluginMode = _settings.pluginMode;
@@ -72,6 +79,21 @@ abstract contract LockManagerBase is ILockManager {
     /// @notice Returns the number of known proposalID's
     function knownProposalIdsLength() public view virtual returns (uint256) {
         return knownProposalIds.length();
+    }
+
+    /// @notice Returns how many of the known proposalID's were created by the given address
+    /// @param _creator The address to use for filtering
+    function activeProposalsCreatedBy(address _creator) public view virtual returns (uint256 _result) {
+        uint256 _proposalCount = knownProposalIds.length();
+        for (uint256 _i; _i < _proposalCount; _i++) {
+            uint256 _proposalId = knownProposalIds.at(_i);
+            if (knownProposalIdCreators[_proposalId] != _creator) {
+                continue;
+            } else if (plugin.isProposalEnded(_proposalId)) {
+                continue;
+            }
+            _result++;
+        }
     }
 
     /// @inheritdoc ILockManager
@@ -135,10 +157,12 @@ abstract contract LockManagerBase is ILockManager {
             revert NoBalance();
         }
 
-        /// @dev The plugin may decide to revert if its voting mode doesn't allow for it
-        _withdrawActiveVotingPower();
+        /// @dev Withdraw the votes on active proposals
+        /// @dev The plugin should revert if the voting mode doesn't allow to withdraw votes
+        /// @dev Ensure that no active proposal was created by msg.sender
+        _ensureCleanGovernance();
 
-        // All votes clear
+        // All votes and proposals are clear
 
         lockedBalances[msg.sender] = 0;
 
@@ -148,15 +172,16 @@ abstract contract LockManagerBase is ILockManager {
     }
 
     /// @inheritdoc ILockManager
-    function proposalCreated(uint256 _proposalId) public virtual {
+    function proposalCreated(uint256 _proposalId, address _creator) public virtual {
         if (msg.sender != address(plugin)) {
             revert InvalidPluginAddress();
         }
 
         // @dev Not checking for duplicate proposalId's
-        // @dev Both plugins already enforce unicity
+        // @dev The plugin already enforces unicity
 
         knownProposalIds.add(_proposalId);
+        knownProposalIdCreators[_proposalId] = _creator;
     }
 
     /// @inheritdoc ILockManager
@@ -224,7 +249,8 @@ abstract contract LockManagerBase is ILockManager {
         ILockToVote(address(plugin)).vote(_proposalId, msg.sender, _voteOption, _currentVotingPower);
     }
 
-    function _withdrawActiveVotingPower() internal virtual {
+    /// @notice Clears the votes (if possible) on all active proposals and ensures that msg.sender created none of the active proposals
+    function _ensureCleanGovernance() internal virtual {
         uint256 _proposalCount = knownProposalIds.length();
         for (uint256 _i; _i < _proposalCount;) {
             uint256 _proposalId = knownProposalIds.at(_i);
@@ -241,7 +267,14 @@ abstract contract LockManagerBase is ILockManager {
                 continue;
             }
 
+            // The proposal is open
+
+            if (knownProposalIdCreators[_proposalId] == msg.sender) {
+                revert ProposalCreatedStillActive(_proposalId);
+            }
+
             if (plugin.usedVotingPower(_proposalId, msg.sender) > 0) {
+                /// @dev The plugin should revert if the voting mode doesn't allow it
                 ILockToVote(address(plugin)).clearVote(_proposalId, msg.sender);
             }
 

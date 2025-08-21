@@ -12,3 +12,6 @@ MinVotingPowerConditionTest:
         then:
           - it: should return true when 'who' holds the minimum voting power
           - it: should return false when 'who' holds less than the minimum voting power
+      - given: the sender created many proposals
+        then:
+          - it: the voting power required should be proportional to the amount of proposals created

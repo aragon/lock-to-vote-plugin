@@ -1,16 +1,12 @@
-LockManagerTest:
+LockManagerERC20Test:
   - given: The contract is being deployed
     and:
-      - when: Deploying with valid parameters and a non-zero underlying token
+      - when: Deploying with valid parameters
         then:
           - it: Should set the DAO address correctly
           - it: Should set the pluginMode correctly
           - it: Should set the token address correctly
-          - it: Should set the underlying token address correctly
           - it: Should initialize the plugin address to address(0)
-      - when: Deploying with a zero-address for the underlying token
-        then:
-          - it: Should set the underlying token address to address(0)
 
   - given: The plugin address has not been set yet
     and:
@@ -111,19 +107,32 @@ LockManagerTest:
               - it: Should revert with NoBalance
       - given: The user has a locked balance
         and:
-          - given: The user has no active votes on any open proposals
+          - given: No votes on open proposals and no active proposals created
             and:
               - when: Calling unlock()
                 then:
                   - it: Should succeed and transfer the locked balance back to the user
           - given: The user has votes on open proposals
             and:
+              - given: Standard voting mode
+                and:
+                  - when: Calling unlock()
+                    then:
+                      - it: Should revert
+              - given: Vote replacement mode
+                and:
+                  - when: Calling unlock()
+                    then:
+                      - it: Should call clearVote() on the plugin for each active proposal
+                      - it: Should transfer the locked balance back to the user
+                      - it: Should set the user's lockedBalances to 0
+                      - it: Should emit a BalanceUnlocked event
+          - given: The user created active proposals
+            and:
               - when: Calling unlock()
                 then:
-                  - it: Should call clearVote() on the plugin for each active proposal
-                  - it: Should transfer the locked balance back to the user
-                  - it: Should set the user's lockedBalances to 0
-                  - it: Should emit a BalanceUnlocked event
+                  - it: Should revert with ProposalCreatedStillActive (standard voting)
+                  - it: Should revert with ProposalCreatedStillActive (vote replacement)
           - given: The user only has votes on proposals that are now closed or ended
             comment: The contract should garbage-collect the closed proposal during the check
             and:
@@ -148,15 +157,19 @@ LockManagerTest:
           - when: Calling proposalCreated() with a new proposal ID
             then:
               - it: Should add the proposal ID to knownProposalIds
+              - it: Should register the creator
+              - it: activeProposalsCreatedBy() should increase for the creator
           - given: A proposal ID is already known
             and:
               - when: Calling proposalCreated() with that same ID
                 then:
                   - it: Should not change the set of known proposals
+                  - it: activeProposalsCreatedBy() should remain the same for the creator
               - when: Calling proposalEnded() with that proposal ID
                 then:
                   - it: Should remove the proposal ID from knownProposalIds
                   - it: Should emit a ProposalEnded event
+                  - it: activeProposalsCreatedBy() should decrease for the creator
           - when: Calling proposalEnded() with a non-existent proposal ID
             then:
               - it: Should do nothing

@@ -128,7 +128,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
 
         emit ProposalCreated(proposalId, _msgSender(), _startDate, _endDate, _metadata, _actions, _allowFailureMap);
 
-        lockManager.proposalCreated(proposalId);
+        lockManager.proposalCreated(proposalId, _msgSender());
     }
 
     /// @inheritdoc ILockToVote
