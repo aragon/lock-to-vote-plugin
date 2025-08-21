@@ -5,11 +5,14 @@ import {LockManagerBase} from "./base/LockManagerBase.sol";
 import {ILockManager} from "./interfaces/ILockManager.sol";
 import {LockManagerSettings} from "./interfaces/ILockManager.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title LockManagerERC20
 /// @author Aragon X 2025
 /// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
 contract LockManagerERC20 is ILockManager, LockManagerBase {
+    using SafeERC20 for IERC20;
+
     /// @notice The address of the token contract used to determine the voting power
     IERC20 private immutable erc20Token;
 
@@ -36,11 +39,11 @@ contract LockManagerERC20 is ILockManager, LockManagerBase {
 
     /// @inheritdoc LockManagerBase
     function _doLockTransfer(uint256 _amount) internal virtual override {
-        erc20Token.transferFrom(msg.sender, address(this), _amount);
+        erc20Token.safeTransferFrom(msg.sender, address(this), _amount);
     }
 
     /// @inheritdoc LockManagerBase
     function _doUnlockTransfer(address _recipient, uint256 _amount) internal virtual override {
-        erc20Token.transfer(_recipient, _amount);
+        erc20Token.safeTransfer(_recipient, _amount);
     }
 }

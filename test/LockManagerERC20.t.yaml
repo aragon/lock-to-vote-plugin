@@ -60,6 +60,11 @@ LockManagerTest:
               - it: Should transfer the full balance from the user
               - it: Should increase the user's lockedBalances by the balance
               - it: Should emit a BalanceLocked event with the correct user and amount
+      - when: The user tries to lock more than his balance
+        and:
+          - when: Calling lock()
+            then:
+              - it: Should revert
 
   - given: pluginMode is Voting
     and:
