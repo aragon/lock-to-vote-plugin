@@ -1320,6 +1320,38 @@ contract LockToVoteTest is TestBase {
         assertEq(tally.yes + tally.no + tally.abstain, 0);
     }
 
+    modifier givenVoteReplacementMode3() {
+        _;
+    }
+
+    function test_RevertGiven_TheCallerIsNotTheLockManager() external whenCallingClearvote givenVoteReplacementMode3 {
+        // It should revert
+        //
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVoteReplacement().withVotingPlugin()
+            .withProposer(alice).withTokenHolder(alice, 50 ether).build();
+
+        assertEq(lockableToken.balanceOf(alice), 50 ether);
+        assertEq(lockableToken.totalSupply(), 50 ether);
+
+        vm.prank(alice);
+        proposalId = ltvPlugin.createProposal("ipfs://", actions, 0, 0, bytes(""));
+
+        _vote(alice, IMajorityVoting.VoteOption.Yes, 50 ether);
+
+        // revert
+        vm.prank(address(dao));
+        vm.expectRevert(abi.encodeWithSelector(VoteRemovalForbidden.selector, proposalId, alice));
+        ltvPlugin.clearVote(proposalId, alice);
+
+        vm.prank(address(ltvPlugin));
+        vm.expectRevert(abi.encodeWithSelector(VoteRemovalForbidden.selector, proposalId, alice));
+        ltvPlugin.clearVote(proposalId, alice);
+
+        vm.prank(david);
+        vm.expectRevert(abi.encodeWithSelector(VoteRemovalForbidden.selector, proposalId, alice));
+        ltvPlugin.clearVote(proposalId, alice);
+    }
+
     modifier whenCallingGetVote() {
         (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withVoteReplacement().withVotingPlugin()
             .withProposer(alice).withTokenHolder(alice, 50 ether).build();

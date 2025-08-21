@@ -272,6 +272,8 @@ LockToVoteTest
 │   ├── Given standard voting mode 3
 │   │   └── It should revert
 │   └── Given vote replacement mode 3
+│       ├── Given the caller is not the LockManager
+│       │   └── It should revert
 │       └── It should deallocate the current voting power
 ├── When calling getVote
 │   ├── Given the vote exists
