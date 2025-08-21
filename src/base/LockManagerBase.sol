@@ -269,13 +269,13 @@ abstract contract LockManagerBase is ILockManager {
 
             // The proposal is open
 
+            if (knownProposalIdCreators[_proposalId] == msg.sender) {
+                revert ProposalCreatedStillOpen(_proposalId);
+            }
+
             if (plugin.usedVotingPower(_proposalId, msg.sender) > 0) {
                 /// @dev The plugin should revert if the voting mode doesn't allow it
                 ILockToVote(address(plugin)).clearVote(_proposalId, msg.sender);
-            }
-
-            if (knownProposalIdCreators[_proposalId] == msg.sender) {
-                revert ProposalCreatedStillOpen(_proposalId);
             }
 
             unchecked {
