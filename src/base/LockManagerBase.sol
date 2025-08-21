@@ -27,6 +27,9 @@ abstract contract LockManagerBase is ILockManager {
     /// @dev NOTE: Executed proposals will be actively reported, but defeated proposals will need to be garbage collected over time.
     EnumerableSet.UintSet internal knownProposalIds;
 
+    /// @notice The address that can define the plugin address, once, after the deployment
+    address immutable pluginSetter;
+
     /// @notice Emitted when a token holder locks funds into the manager contract
     event BalanceLocked(address voter, uint256 amount);
 
@@ -58,6 +61,7 @@ abstract contract LockManagerBase is ILockManager {
     /// @param _settings The operation mode of the contract (plugin mode)
     constructor(LockManagerSettings memory _settings) {
         settings.pluginMode = _settings.pluginMode;
+        pluginSetter = msg.sender;
     }
 
     /// @notice Returns the known proposalID at the given index
@@ -167,7 +171,9 @@ abstract contract LockManagerBase is ILockManager {
 
     /// @inheritdoc ILockManager
     function setPluginAddress(ILockToGovernBase _newPluginAddress) public virtual {
-        if (address(plugin) != address(0)) {
+        if (msg.sender != pluginSetter) {
+            revert SetPluginAddressForbidden();
+        } else if (address(plugin) != address(0)) {
             revert SetPluginAddressForbidden();
         } else if (!IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToGovernBase).interfaceId)) {
             revert InvalidPlugin();
