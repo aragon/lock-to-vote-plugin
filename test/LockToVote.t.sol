@@ -317,12 +317,21 @@ contract LockToVoteTest is TestBase {
 
     function test_RevertGiven_InvalidDates() external whenCallingCreateProposal givenCreatePermission {
         // It should revert
-        uint64 start = uint64(block.timestamp + 1 days);
-        uint64 end = start + 1 hours; // Less than default 10 days duration
+        uint64 start = uint64(block.timestamp - 1 days);
 
-        vm.expectRevert(abi.encodeWithSelector(DateOutOfBounds.selector, start + ltvPlugin.proposalDuration(), end));
+        vm.expectRevert(abi.encodeWithSelector(DateOutOfBounds.selector, block.timestamp, block.timestamp - 1 days));
         vm.prank(alice);
-        ltvPlugin.createProposal("", actions, start, end, bytes(""));
+        ltvPlugin.createProposal("", actions, start, 0, bytes(""));
+
+        //
+        start = uint64(block.timestamp - 1 seconds);
+        vm.expectRevert(abi.encodeWithSelector(DateOutOfBounds.selector, block.timestamp, block.timestamp - 1 seconds));
+        vm.prank(alice);
+        ltvPlugin.createProposal("", actions, start, 0, bytes(""));
+
+        // ok
+        vm.prank(alice);
+        ltvPlugin.createProposal("", actions, 0, 0, bytes(""));
     }
 
     function test_RevertGiven_DuplicateProposalID() external whenCallingCreateProposal givenCreatePermission {

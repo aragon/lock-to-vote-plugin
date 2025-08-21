@@ -543,15 +543,9 @@ abstract contract MajorityVotingBase is
     /// @notice Validates and returns the proposal dates.
     /// @param _start The start date of the proposal.
     ///     If 0, the current timestamp is used and the vote starts immediately.
-    /// @param _end The end date of the proposal. If 0, `_start + proposalDuration` is used.
     /// @return startDate The validated start date of the proposal.
-    /// @return endDate The validated end date of the proposal.
-    function _validateProposalDates(uint64 _start, uint64 _end)
-        internal
-        view
-        virtual
-        returns (uint64 startDate, uint64 endDate)
-    {
+    /// @return endDate The end date of the proposal.
+    function _validateProposalDates(uint64 _start) internal view virtual returns (uint64 startDate, uint64 endDate) {
         uint64 currentTimestamp = block.timestamp.toUint64();
 
         if (_start == 0) {
@@ -563,20 +557,11 @@ abstract contract MajorityVotingBase is
                 revert DateOutOfBounds({limit: currentTimestamp, actual: startDate});
             }
         }
+
         // Since `proposalDuration` is limited to 1 year,
         // `startDate + proposalDuration` can only overflow if the `startDate` is after `type(uint64).max - proposalDuration`.
         // In this case, the proposal creation will revert and another date can be picked.
-        uint64 earliestEndDate = startDate + votingSettings.proposalDuration;
-
-        if (_end == 0) {
-            endDate = earliestEndDate;
-        } else {
-            endDate = _end;
-
-            if (endDate < earliestEndDate) {
-                revert DateOutOfBounds({limit: earliestEndDate, actual: endDate});
-            }
-        }
+        endDate = startDate + votingSettings.proposalDuration;
     }
 
     /// @notice This empty reserved space is put in place to allow future versions to add
