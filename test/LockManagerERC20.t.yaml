@@ -131,8 +131,8 @@ LockManagerERC20Test:
             and:
               - when: Calling unlock()
                 then:
-                  - it: Should revert with ProposalCreatedStillOpen (standard voting)
-                  - it: Should revert with ProposalCreatedStillOpen (vote replacement)
+                  - it: Should revert with ProposalCreatedStillActive (standard voting)
+                  - it: Should revert with ProposalCreatedStillActive (vote replacement)
           - given: The user only has votes on proposals that are now closed or ended
             comment: The contract should garbage-collect the closed proposal during the check
             and:

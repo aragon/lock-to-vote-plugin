@@ -63,7 +63,7 @@ abstract contract LockManagerBase is ILockManager {
 
     /// @notice Thrown when attempting to unlock with a created proposal that is still active
     /// @param proposalId The ID the active proposal
-    error ProposalCreatedStillOpen(uint256 proposalId);
+    error ProposalCreatedStillActive(uint256 proposalId);
 
     /// @param _settings The operation mode of the contract (plugin mode)
     constructor(LockManagerSettings memory _settings) {
@@ -270,7 +270,7 @@ abstract contract LockManagerBase is ILockManager {
             // The proposal is open
 
             if (knownProposalIdCreators[_proposalId] == msg.sender) {
-                revert ProposalCreatedStillOpen(_proposalId);
+                revert ProposalCreatedStillActive(_proposalId);
             }
 
             if (plugin.usedVotingPower(_proposalId, msg.sender) > 0) {

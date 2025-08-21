@@ -81,8 +81,8 @@ LockManagerERC20Test
 │       │           └── It Should emit a BalanceUnlocked event
 │       ├── Given The user created active proposals
 │       │   └── When Calling unlock 5
-│       │       ├── It Should revert with ProposalCreatedStillOpen (standard voting)
-│       │       └── It Should revert with ProposalCreatedStillOpen (vote replacement)
+│       │       ├── It Should revert with ProposalCreatedStillActive (standard voting)
+│       │       └── It Should revert with ProposalCreatedStillActive (vote replacement)
 │       └── Given The user only has votes on proposals that are now closed or ended // The contract should garbage-collect the closed proposal during the check
 │           └── When Calling unlock 6
 │               ├── It Should not attempt to clear votes for the closed proposal
@@ -415,4 +415,3 @@ MinVotingPowerConditionTest
     └── Given the sender created many proposals
         └── It the voting power required should be proportional to the amount of proposals created
 ```
-
