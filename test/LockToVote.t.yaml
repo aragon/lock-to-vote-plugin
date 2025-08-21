@@ -85,9 +85,6 @@ LockToVoteTest:
                     then:
                       - it: should return true when the locked balance is higher
                       - it: should return false otherwise
-                  - given: early execution mode
-                    then:
-                      - it: should return false
           - given: empty vote
             then:
               - it: should return false
@@ -181,52 +178,6 @@ LockToVoteTest:
                   - it: should allocate to the tally of the voted option
                   - it: should update the total voting power
                   - it: should emit an event
-      - given: early execution mode
-        and:
-          - given: Voting the first time
-            and:
-              - given: Has locked balance
-                and:
-                  - it: should set the right voter's usedVotingPower
-                  - it: should set the right tally of the voted option
-                  - it: should set the right total voting power
-                  - it: should emit an event
-              - given: No locked balance
-                comment: Redundant with canVote being false
-                and:
-                  - it: should revert
-          - given: Voting the same option
-            and:
-              - given: Voting with the same locked balance
-                then:
-                  - it: should revert
-              - given: Voting with more locked balance
-                then:
-                  - it: should increase the voter's usedVotingPower
-                  - it: should increase the tally of the voted option
-                  - it: should increase the total voting power
-                  - it: should emit an event
-          - given: Voting another option
-            and:
-              - given: Voting with the same locked balance
-                then:
-                  - it: should revert
-              - given: Voting with more locked balance
-                then:
-                  - it: should revert
-          - given: the vote makes the proposal pass
-            comment: partially redundant with canExecute() below
-            and:
-              - given: the caller has permission to call execute
-                then:
-                  - it: hasSucceeded() should return true
-                  - it: canExecute() should return true
-                  - it: isSupportThresholdReachedEarly() should return true
-                  - it: isMinVotingPowerReached() should return true
-                  - it: isMinApprovalReached() should return true
-                  - it: should execute the proposal
-                  - it: the proposal should be marked as executed
-                  - it: should emit an event
 
   # Clearing a vote
   - when: calling clearvote()
@@ -235,9 +186,6 @@ LockToVoteTest:
         then:
           - it: should do nothing
       - given: the proposal is not open
-        then:
-          - it: should revert
-      - given: early execution mode
         then:
           - it: should revert
       - given: standard voting mode
@@ -269,7 +217,6 @@ LockToVoteTest:
           - it: isProposalOpen() returns false
           - it: hasSucceeded() should return false
           - it: canExecute() should return false
-          - it: isSupportThresholdReachedEarly() should return false
           - it: isSupportThresholdReached() should return false
           - it: isMinVotingPowerReached() should return true
           - it: isMinApprovalReached() should return true
@@ -280,7 +227,6 @@ LockToVoteTest:
           - it: isProposalOpen() returns false
           - it: hasSucceeded() should return false
           - it: canExecute() should return false
-          - it: isSupportThresholdReachedEarly() should return false
           - it: isSupportThresholdReached() should return false
           - it: isMinVotingPowerReached() should return false
           - it: isMinApprovalReached() should return false
@@ -291,7 +237,6 @@ LockToVoteTest:
           - it: isProposalOpen() returns true
           - it: hasSucceeded() should return false
           - it: canExecute() should return false
-          - it: isSupportThresholdReachedEarly() should return false
           - it: isSupportThresholdReached() should return true
           - it: isMinVotingPowerReached() should return false
           - it: isMinApprovalReached() should return false
@@ -302,7 +247,6 @@ LockToVoteTest:
           - it: isProposalOpen() returns false
           - it: hasSucceeded() should return false
           - it: canExecute() should return false
-          - it: isSupportThresholdReachedEarly() should return false
           - given: the support threshold was not achieved
             then:
               - it: isSupportThresholdReached() should return false
@@ -333,23 +277,6 @@ LockToVoteTest:
           - given: The proposal has been executed
             then:
               - it: canExecute() should return false
-          - it: isSupportThresholdReachedEarly() should return false
-          - it: isSupportThresholdReached() should return true
-          - it: isMinVotingPowerReached() should return true
-          - it: isMinApprovalReached() should return true
-          - it: usedVotingPower() should return the appropriate values
-      - given: it has passed early
-        then:
-          - it: getProposal() returns the right values
-          - it: isProposalOpen() returns false
-          - it: hasSucceeded() should return false
-          - given: The proposal has not been executed
-            then:
-              - it: canExecute() should return true
-          - given: The proposal has been executed
-            then:
-              - it: canExecute() should return false
-          - it: isSupportThresholdReachedEarly() should return true
           - it: isSupportThresholdReached() should return true
           - it: isMinVotingPowerReached() should return true
           - it: isMinApprovalReached() should return true
@@ -366,18 +293,6 @@ LockToVoteTest:
                 and:
                   - given: minApproval is reached
                     and:
-                      - given: isSupportThresholdReachedEarly() was reached before endDate
-                        and:
-                          - given: the proposal allows early execution
-                            then:
-                              - it: canExecute() should return true
-                              - it: hasSucceeded() should return true
-                          - given: the proposal does not allow early execution
-                            then:
-                              - it: canExecute() should return false
-                              - it: hasSucceeded() should return false
-                              - it: canExecute() should return true when ended
-                              - it: hasSucceeded() should return true when ended
                       - given: isSupportThresholdReached() is reached
                         and:
                           - it: canExecute() should return false before endDate
