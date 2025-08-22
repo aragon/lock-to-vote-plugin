@@ -42,6 +42,7 @@ contract LockToVoteTest is TestBase {
     error NoBalance();
     error VoteRemovalForbidden(uint256 proposalId, address voter);
     error InvalidTargetAddress();
+    error DelegateCallNotAllowed();
 
     event ProposalCreated(
         uint256 indexed proposalId,
@@ -213,19 +214,17 @@ contract LockToVoteTest is TestBase {
         // It should revert if the new target is the pugin
         vm.expectRevert(InvalidTargetAddress.selector);
         ltvPlugin.setTargetConfig(IPlugin.TargetConfig({target: address(ltvPlugin), operation: IPlugin.Operation.Call}));
-        vm.expectRevert(InvalidTargetAddress.selector);
-        ltvPlugin.setTargetConfig(
-            IPlugin.TargetConfig({target: address(ltvPlugin), operation: IPlugin.Operation.DelegateCall})
-        );
 
         // It should revert if the new target is the LockManager
         vm.expectRevert(InvalidTargetAddress.selector);
         ltvPlugin.setTargetConfig(
             IPlugin.TargetConfig({target: address(lockManager), operation: IPlugin.Operation.Call})
         );
-        vm.expectRevert(InvalidTargetAddress.selector);
+
+        // It should revert if the new operation is delegatecall
+        vm.expectRevert(DelegateCallNotAllowed.selector);
         ltvPlugin.setTargetConfig(
-            IPlugin.TargetConfig({target: address(lockManager), operation: IPlugin.Operation.DelegateCall})
+            IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.DelegateCall})
         );
 
         // OK
