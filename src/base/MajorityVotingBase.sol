@@ -480,10 +480,6 @@ abstract contract MajorityVotingBase is
         } else if (!_hasSucceeded(_proposalId)) {
             return false;
         }
-        /// @dev Enforce waiting until endDate, which is not covered by _hasSucceeded()
-        else if (block.timestamp.toUint64() < proposal_.parameters.endDate) {
-            return false;
-        }
 
         return true;
     }
