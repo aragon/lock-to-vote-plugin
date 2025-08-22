@@ -233,7 +233,7 @@ abstract contract LockManagerBase is ILockManager {
     /// @notice Clears the votes (if possible) on all active proposals and ensures that msg.sender created none of the active proposals
     function _ensureCleanGovernance() internal virtual {
         uint256 _proposalCount = knownProposalIds.length();
-        for (uint256 _i; _i < _proposalCount;) {
+        for (uint256 _i; _i < _proposalCount; _i++) {
             uint256 _proposalId = knownProposalIds.at(_i);
             if (plugin.isProposalEnded(_proposalId)) {
                 knownProposalIds.remove(_proposalId);
@@ -257,10 +257,6 @@ abstract contract LockManagerBase is ILockManager {
             if (plugin.usedVotingPower(_proposalId, msg.sender) > 0) {
                 /// @dev The plugin should revert if the voting mode doesn't allow it
                 ILockToVote(address(plugin)).clearVote(_proposalId, msg.sender);
-            }
-
-            unchecked {
-                _i++;
             }
         }
     }
