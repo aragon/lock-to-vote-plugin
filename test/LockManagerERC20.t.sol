@@ -57,7 +57,7 @@ contract LockManagerERC20Test is TestBase {
         // It Should set the token address correctly
         // It Should initialize the plugin address to address(0)
 
-        lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Voting), lockableToken);
+        lockManager = new LockManagerERC20(lockableToken);
 
         assertEq(uint8(lockManager.settings()), uint8(PluginMode.Voting));
         assertEq(address(lockManager.token()), address(lockableToken));
@@ -65,7 +65,7 @@ contract LockManagerERC20Test is TestBase {
     }
 
     modifier givenThePluginAddressHasNotBeenSetYet() {
-        lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Voting), lockableToken);
+        lockManager = new LockManagerERC20(lockableToken);
         _;
     }
 
@@ -249,7 +249,7 @@ contract LockManagerERC20Test is TestBase {
 
         // It Should revert
 
-        lockManager = new LockManagerERC20(LockManagerSettings(PluginMode.Voting), tok);
+        lockManager = new LockManagerERC20(tok);
 
         vm.prank(bob);
         tok.approve(address(lockManager), 10000000 ether);

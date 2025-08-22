@@ -16,9 +16,8 @@ contract LockManagerERC20 is ILockManager, LockManagerBase {
     /// @notice The address of the token contract used to determine the voting power
     IERC20 private immutable erc20Token;
 
-    /// @param _settings The operation mode of the contract (plugin mode)
     /// @param _token The address of the token contract that users can lock
-    constructor(LockManagerSettings memory _settings, IERC20 _token) LockManagerBase(_settings) {
+    constructor(IERC20 _token) LockManagerBase() {
         erc20Token = _token;
     }
 
