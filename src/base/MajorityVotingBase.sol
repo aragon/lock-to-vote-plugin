@@ -99,10 +99,15 @@ abstract contract MajorityVotingBase is
     ///     and only the latest vote option is tallied.
     /// @param supportThresholdRatio The support threshold ratio.
     ///     Its value has to be in the interval [0, 10^6) defined by `RATIO_BASE = 10**6`.
-    /// @param minParticipationRatio The minimum participation ratio.
+    ///     This is intended as the primary metric for proposals to pass.
+    /// @param minParticipationRatio The minimum voting power ratio needed for a proposal to reach the minimum participation.
     ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
-    /// @param minApprovalRatio The minimum ratio of approvals the proposal needs to succeed.
+    ///     This is a intended as secondary metric to prevent noise or spam from passing unadvertedly.
+    ///     Relatively high ratios are not encouraged.
+    /// @param minApprovalRatio Minimum ratio of allocated YES votes.
     ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    ///     This is a intended as secondary metric to prevent noise or spam from passing unadvertedly.
+    ///     Relatively high ratios are not encouraged.
     /// @param proposalDuration The duration of the proposal vote in seconds.
     /// @param minProposerVotingPower The minimum voting power required to create a proposal.
     struct VotingSettings {
@@ -139,13 +144,18 @@ abstract contract MajorityVotingBase is
     /// @notice A container for the proposal parameters at the time of proposal creation.
     /// @param votingMode A parameter to select the vote mode.
     /// @param supportThresholdRatio The support threshold ratio.
-    ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    ///     Its value has to be in the interval [0, 10^6) defined by `RATIO_BASE = 10**6`.
+    ///     This is intended as the primary metric for proposals to pass.
     /// @param startDate The start date of the proposal vote.
     /// @param endDate The end date of the proposal vote.
-    /// @param minParticipationRatio The minimum voting power ratio needed for a proposal to reach minimum participation.
-    ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    /// @param minParticipationRatio The minimum voting power ratio needed for a proposal to reach the minimum participation.
+    ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    ///     This is a intended as secondary metric to prevent noise or spam from passing unadvertedly.
+    ///     Relatively high ratios are not encouraged.
     /// @param minApprovalRatio Minimum ratio of allocated YES votes.
-    ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    ///     This is a intended as secondary metric to prevent noise or spam from passing unadvertedly.
+    ///     Relatively high ratios are not encouraged.
     struct ProposalParameters {
         VotingMode votingMode;
         uint32 supportThresholdRatio;
