@@ -36,6 +36,9 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @notice Thrown when atempting to set the plugin or the LockManager as execution targets
     error InvalidTargetAddress();
 
+    /// @notice Thrown when attempting to make the plugin operate in DelegateCall mode
+    error DelegateCallNotAllowed();
+
     /// @notice Initializes the component.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
     /// @param _dao The IDAO interface of the associated DAO.
@@ -281,6 +284,8 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     function _setTargetConfig(TargetConfig memory _targetConfig) internal virtual override {
         if (_targetConfig.target == address(this) || _targetConfig.target == address(lockManager)) {
             revert InvalidTargetAddress();
+        } else if (_targetConfig.operation == IPlugin.Operation.DelegateCall) {
+            revert DelegateCallNotAllowed();
         }
 
         super._setTargetConfig(_targetConfig);
