@@ -24,7 +24,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @notice The ID of the permission required to call `vote` and `clearVote`.
     bytes32 public constant LOCK_MANAGER_PERMISSION_ID = keccak256("LOCK_MANAGER_PERMISSION");
 
-    event VoteCleared(uint256 proposalId, address voter);
+    event VoteCleared(uint256 indexed proposalId, address indexed voter);
 
     error VoteRemovalForbidden(uint256 proposalId, address voter);
 

@@ -34,14 +34,14 @@ abstract contract LockManagerBase is ILockManager {
     address immutable pluginSetter;
 
     /// @notice Emitted when a token holder locks funds into the manager contract
-    event BalanceLocked(address voter, uint256 amount);
+    event BalanceLocked(address indexed voter, uint256 amount);
 
     /// @notice Emitted when a token holder unlocks funds from the manager contract
-    event BalanceUnlocked(address voter, uint256 amount);
+    event BalanceUnlocked(address indexed voter, uint256 amount);
 
     /// @notice Emitted when the plugin reports a proposal as settled
     /// @param proposalId The ID the proposal where votes can no longer be submitted or cleared
-    event ProposalSettled(uint256 proposalId);
+    event ProposalSettled(uint256 indexed proposalId);
 
     /// @notice Thrown when the address calling proposalSettled() is not the plugin's
     error InvalidPluginAddress();

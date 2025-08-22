@@ -26,9 +26,9 @@ contract LockManagerERC20Test is TestBase {
     IERC20 lockableToken;
     uint256 proposalId;
 
-    event BalanceLocked(address voter, uint256 amount);
-    event BalanceUnlocked(address voter, uint256 amount);
-    event ProposalSettled(uint256 proposalId);
+    event BalanceLocked(address indexed voter, uint256 amount);
+    event BalanceUnlocked(address indexed voter, uint256 amount);
+    event ProposalSettled(uint256 indexed proposalId);
 
     error NoBalance();
     error VoteCastForbidden(uint256 proposalId, address account);

@@ -1018,6 +1018,10 @@ contract LockToVoteTest is TestBase {
 
         _vote(alice, IMajorityVoting.VoteOption.Yes, 50 ether);
 
+        // It should emit an event
+        vm.expectEmit(true, true, true, true);
+        emit LockToVotePlugin.VoteCleared(proposalId, alice);
+
         vm.prank(address(lockManager));
         ltvPlugin.clearVote(proposalId, alice);
 
