@@ -24,9 +24,9 @@ interface ILockToGovernBase {
     /// @return The minimum voting power required to create a proposal.
     function minProposerVotingPower() external view returns (uint256);
 
-    /// @notice Returns wether a proposal is open or not.
+    /// @notice Returns wether a proposal is open for submitting votes or not.
     /// @param _proposalId The ID of the proposal.
-    /// @return True if the proposal is open, false otherwise.
+    /// @return True if the proposal is open, false if it hasn't started yet or if it has been already settled.
     function isProposalOpen(uint256 _proposalId) external view returns (bool);
 
     /// @notice Returns wether a proposal has ended or not.

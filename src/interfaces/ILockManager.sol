@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {ILockToGovernBase} from "./ILockToGovernBase.sol";
 import {IMajorityVoting} from "./IMajorityVoting.sol";
 
-/// @notice Defines wether the voting plugin expects approvals or votes
+/// @notice Defines wether the accepted plugin types. Currently: voting.
 ///     Placeholder for future plugin variants
 enum PluginMode {
     Voting
@@ -18,9 +18,10 @@ struct LockManagerSettings {
 
 /// @title ILockManager
 /// @author Aragon X 2025
-/// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
+/// @notice Helper contract acting as the vault for locked tokens used to vote on LockToGovern plugins.
 interface ILockManager {
     /// @notice Returns the current settings of the LockManager.
+    /// @return pluginMode The plugin mode (currently, voting only)
     function settings() external view returns (PluginMode pluginMode);
 
     /// @notice Returns the address of the voting plugin.
@@ -87,7 +88,10 @@ interface ILockManager {
     /// @param creator The address creating the proposal.
     function proposalCreated(uint256 proposalId, address creator) external;
 
-    /// @notice Called by the lock to vote plugin whenever a proposal is executed (or settled). It instructs the manager to remove the proposal from the list of active proposal locks.
+    /// @notice Called by the lock to vote plugin whenever a proposal is executed (or settled).
+    ///     It instructs the manager to remove the proposal from the list of active proposal locks.
+    ///     There's no guarantee that `proposalEnded()` will be reliably called for a proposal ID.
+    ///     Manually checking a proposal's state may be necessary in order to verify that it has ended.
     /// @param proposalId The ID of the proposal that msg.sender is reporting as done.
     function proposalSettled(uint256 proposalId) external;
 

@@ -93,7 +93,12 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         uint64 _startDate,
         uint64 _endDate,
         bytes memory _data
-    ) external auth(CREATE_PROPOSAL_PERMISSION_ID) returns (uint256 proposalId) {
+    )
+        external
+        /// @dev `minProposerVotingPower` is checked at the the permission condition behind auth(CREATE_PROPOSAL_PERMISSION_ID)
+        auth(CREATE_PROPOSAL_PERMISSION_ID)
+        returns (uint256 proposalId)
+    {
         uint256 _allowFailureMap;
 
         if (_data.length != 0) {
@@ -103,8 +108,6 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         if (currentTokenSupply() == 0) {
             revert NoVotingPower();
         }
-
-        /// @dev `minProposerVotingPower` is checked at the the permission condition behind auth(CREATE_PROPOSAL_PERMISSION_ID)
 
         if (_endDate != 0) revert EndDateMustBeZero();
         (_startDate, _endDate) = _validateProposalDates(_startDate);
