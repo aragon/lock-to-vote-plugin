@@ -166,6 +166,8 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         /// @dev The DAO can disable auth(LOCK_MANAGER_PERMISSION_ID) from above but not define an arbitrary address other than LockManager
         if (msg.sender != address(lockManager)) {
             revert VoteCallForbidden(address(lockManager));
+        } else if (!_proposalExists(_proposalId)) {
+            revert NonexistentProposal(_proposalId);
         }
 
         Proposal storage proposal_ = proposals[_proposalId];
