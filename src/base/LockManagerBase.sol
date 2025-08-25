@@ -39,7 +39,7 @@ abstract contract LockManagerBase is ILockManager {
     /// @notice Emitted when a token holder unlocks funds from the manager contract
     event BalanceUnlocked(address voter, uint256 amount);
 
-    /// @notice Emitted when the plugin reports a proposal as ended
+    /// @notice Emitted when the plugin reports a proposal as settled
     /// @param proposalId The ID the proposal where votes can no longer be submitted or cleared
     event ProposalSettled(uint256 proposalId);
 
