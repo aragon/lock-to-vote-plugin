@@ -140,6 +140,11 @@ LockToVoteTest
 │   │   └── It Settings() should return the right values
 │   └── Given the caller has no permission to call updateVotingSettings
 │       └── It Should revert
+├── When calling setTargetConfig
+│   └── Given the caller has no permission to call setTargetConfig
+│       ├── It should revert if the new target is the pugin
+│       ├── It should revert if the new target is the LockManager
+│       └── It should revert if the new operation is delegatecall
 ├── When calling supportsInterface
 │   ├── It does not support the empty interface
 │   ├── It supports IERC165Upgradeable
@@ -353,7 +358,7 @@ LockToVoteTest
 │           ├── It should mark the proposal as executed
 │           ├── It should make the target execute the proposal actions
 │           ├── It should emit an event
-│           └── It should call proposalSettled on the LockManager
+│           └── It should call proposalEnded on the LockManager
 ├── When Calling isMember
 │   ├── It Should return true when the sender has positive balance or locked tokens
 │   └── It Should return false otherwise
@@ -415,3 +420,4 @@ MinVotingPowerConditionTest
     └── Given the sender created many proposals
         └── It the voting power required should be proportional to the amount of proposals created
 ```
+

@@ -12,6 +12,7 @@ import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/pro
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {MajorityVotingBase} from "./base/MajorityVotingBase.sol";
 import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
+import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
 
 contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
@@ -31,6 +32,12 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @notice Thrown when attempting to create a proposal with a non-empty endDate, which is not supported.
     ///         End date is kept for compatibility with IProposal.
     error EndDateMustBeZero();
+
+    /// @notice Thrown when atempting to set the plugin or the LockManager as execution targets
+    error InvalidTargetAddress();
+
+    /// @notice Thrown when attempting to make the plugin operate in DelegateCall mode
+    error DelegateCallNotAllowed();
 
     /// @notice Initializes the component.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
@@ -272,6 +279,17 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     }
 
     // Internal helpers
+
+    /// @inheritdoc PluginUUPSUpgradeable
+    function _setTargetConfig(TargetConfig memory _targetConfig) internal virtual override {
+        if (_targetConfig.target == address(this) || _targetConfig.target == address(lockManager)) {
+            revert InvalidTargetAddress();
+        } else if (_targetConfig.operation == IPlugin.Operation.DelegateCall) {
+            revert DelegateCallNotAllowed();
+        }
+
+        super._setTargetConfig(_targetConfig);
+    }
 
     function _canVote(Proposal storage proposal_, address _voter, VoteOption _voteOption, uint256 _newVotingPower)
         internal

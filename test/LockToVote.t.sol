@@ -41,6 +41,8 @@ contract LockToVoteTest is TestBase {
     error AlreadyInitialized();
     error NoBalance();
     error VoteRemovalForbidden(uint256 proposalId, address voter);
+    error InvalidTargetAddress();
+    error DelegateCallNotAllowed();
 
     event ProposalCreated(
         uint256 indexed proposalId,
@@ -200,6 +202,33 @@ contract LockToVoteTest is TestBase {
         );
         vm.prank(randomWallet);
         ltvPlugin.updateVotingSettings(someSettings);
+    }
+
+    modifier whenCallingSetTargetConfig() {
+        _;
+    }
+
+    function test_GivenTheCallerHasNoPermissionToCallSetTargetConfig() external whenCallingSetTargetConfig {
+        dao.grant(address(ltvPlugin), address(this), ltvPlugin.SET_TARGET_CONFIG_PERMISSION_ID());
+
+        // It should revert if the new target is the pugin
+        vm.expectRevert(InvalidTargetAddress.selector);
+        ltvPlugin.setTargetConfig(IPlugin.TargetConfig({target: address(ltvPlugin), operation: IPlugin.Operation.Call}));
+
+        // It should revert if the new target is the LockManager
+        vm.expectRevert(InvalidTargetAddress.selector);
+        ltvPlugin.setTargetConfig(
+            IPlugin.TargetConfig({target: address(lockManager), operation: IPlugin.Operation.Call})
+        );
+
+        // It should revert if the new operation is delegatecall
+        vm.expectRevert(DelegateCallNotAllowed.selector);
+        ltvPlugin.setTargetConfig(
+            IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.DelegateCall})
+        );
+
+        // OK
+        ltvPlugin.setTargetConfig(IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call}));
     }
 
     function test_WhenCallingSupportsInterface() external view {
