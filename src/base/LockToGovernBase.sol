@@ -12,7 +12,7 @@ import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/intro
 /// @title LockToGovernBase
 /// @author Aragon X 2024-2025
 abstract contract LockToGovernBase is ILockToGovernBase, IMembership, ERC165Upgradeable {
-    event LockManagerDefined(ILockManager lockManager);
+    event LockManagerDefined(ILockManager indexed lockManager);
 
     error NoVotingPower();
     error LockManagerAlreadyDefined();
