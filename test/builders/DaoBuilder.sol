@@ -123,7 +123,7 @@ contract DaoBuilder is Test {
         {
             // Plugin and helper
 
-            lockManager = new LockManagerERC20(LockManagerSettings(pluginMode), lockableToken);
+            lockManager = new LockManagerERC20(lockableToken);
 
             bytes memory pluginMetadata = "";
             IPlugin.TargetConfig memory targetConfig =

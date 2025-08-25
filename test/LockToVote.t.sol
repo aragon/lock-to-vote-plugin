@@ -105,7 +105,7 @@ contract LockToVoteTest is TestBase {
             carol, 10 ether
         ).withTokenHolder(david, 15 ether).build();
 
-        lockManager = new LockManagerERC20(LockManagerSettings({pluginMode: PluginMode.Voting}), lockableToken);
+        lockManager = new LockManagerERC20(lockableToken);
 
         ltvPlugin = LockToVotePlugin(createProxyAndCall(address(new LockToVotePlugin()), bytes("")));
 

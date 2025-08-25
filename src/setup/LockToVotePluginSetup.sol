@@ -68,7 +68,7 @@ contract LockToVotePluginSetup is PluginSetup {
         address[] memory helpers = new address[](3);
 
         // Lock Manager
-        helpers[0] = address(new LockManagerERC20(LockManagerSettings(PluginMode.Voting), installationParams.token));
+        helpers[0] = address(new LockManagerERC20(installationParams.token));
 
         if (!address(installationParams.token).isContract()) {
             revert TokenNotContract(address(installationParams.token));

@@ -55,9 +55,6 @@ abstract contract LockManagerBase is ILockManager {
     /// @notice Thrown when trying to set an invalid contract as the plugin
     error InvalidPlugin();
 
-    /// @notice Thrown when trying to set an invalid PluginMode value, or when trying to use an operation not supported by the current pluginMode
-    error InvalidPluginMode();
-
     /// @notice Thrown when trying to define the address of the plugin after it already was
     error SetPluginAddressForbidden();
 
@@ -65,9 +62,8 @@ abstract contract LockManagerBase is ILockManager {
     /// @param proposalId The ID the active proposal
     error ProposalCreatedStillActive(uint256 proposalId);
 
-    /// @param _settings The operation mode of the contract (plugin mode)
-    constructor(LockManagerSettings memory _settings) {
-        settings.pluginMode = _settings.pluginMode;
+    constructor() {
+        settings.pluginMode = PluginMode.Voting;
         pluginSetter = msg.sender;
     }
 
@@ -108,30 +104,18 @@ abstract contract LockManagerBase is ILockManager {
 
     /// @inheritdoc ILockManager
     function lockAndVote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) public virtual {
-        if (settings.pluginMode != PluginMode.Voting) {
-            revert InvalidPluginMode();
-        }
-
         _lock(_incomingTokenBalance());
         _vote(_proposalId, _voteOption);
     }
 
     /// @inheritdoc ILockManager
     function lockAndVote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption, uint256 _amount) public virtual {
-        if (settings.pluginMode != PluginMode.Voting) {
-            revert InvalidPluginMode();
-        }
-
         _lock(_amount);
         _vote(_proposalId, _voteOption);
     }
 
     /// @inheritdoc ILockManager
     function vote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) public virtual {
-        if (settings.pluginMode != PluginMode.Voting) {
-            revert InvalidPluginMode();
-        }
-
         _vote(_proposalId, _voteOption);
     }
 
@@ -204,10 +188,7 @@ abstract contract LockManagerBase is ILockManager {
             revert InvalidPlugin();
         }
         // Is it the right type of plugin?
-        else if (
-            settings.pluginMode == PluginMode.Voting
-                && !IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToVote).interfaceId)
-        ) {
+        else if (!IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToVote).interfaceId)) {
             revert InvalidPlugin();
         }
 
