@@ -39,6 +39,10 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @notice Thrown when attempting to make the plugin operate in DelegateCall mode
     error DelegateCallNotAllowed();
 
+    /// @notice Thrown when a proposal action is targeting address(0)
+    /// @param actionIdx The index of the action
+    error EmptyActionTarget(uint256 actionIdx);
+
     /// @notice Initializes the component.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
     /// @param _dao The IDAO interface of the associated DAO.
@@ -129,6 +133,8 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         }
 
         for (uint256 i; i < _actions.length;) {
+            if (_actions[i].to == address(0)) revert EmptyActionTarget(i);
+
             proposal_.actions.push(_actions[i]);
             unchecked {
                 ++i;
