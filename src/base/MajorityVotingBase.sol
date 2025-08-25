@@ -192,6 +192,9 @@ abstract contract MajorityVotingBase is
     /// @notice The struct storing the voting settings.
     VotingSettings private votingSettings;
 
+    /// @notice Thrown when the given DAO address is empty.
+    error EmptyDAOAddress();
+
     /// @notice Thrown if a date is out of bounds.
     /// @param limit The limit value.
     /// @param actual The actual value.
@@ -263,6 +266,8 @@ abstract contract MajorityVotingBase is
         TargetConfig calldata _targetConfig,
         bytes calldata _pluginMetadata
     ) internal onlyInitializing {
+        if (address(_dao) == address(0)) revert EmptyDAOAddress();
+
         __PluginUUPSUpgradeable_init(_dao);
         _updateVotingSettings(_votingSettings);
         _setTargetConfig(_targetConfig);
