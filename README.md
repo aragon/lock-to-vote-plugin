@@ -29,10 +29,10 @@ See the [ERC20 token checklist](#erc20-token-checklist) below.
 The custodial contract managing token locks and allowing to vote in multiple proposals with a single lock
 
 - `LockManagerBase` contains the common logic, while `LockManagerERC20` includes the specific implementation to manage ERC20 token locks.
-- `lock()` deposits the current ERC20 allowance into the contract and updates the cumulative locked balance
+- `lock()` and `lock(amount)` deposits the available ERC20 allowance `min(allowance, balance)` into the contract and updates the cumulative locked balance
 - `vote()` allow users to use the currently locked balance on a given proposal
 - Locking and voting can be done at once with `lockAndVote()`
-- To prevent unlocking with votes on active proposals, it keeps track of them via the `proposalCreated()` and `proposalEnded()` hooks
+- To prevent unlocking with votes on active proposals, it keeps track of them via the `proposalCreated()` and `proposalSettled()` hooks
 
 #### LockToVote
 
@@ -175,7 +175,7 @@ When configuring the plugin deployment, make sure to check the implementation of
 
 - **Only ERC20s**: The LockManager only deals with underlying tokens of ERC-20 compatible standards. Other fungible token standards such as ERC-1155, are not supported.
 - **Double-entry-point tokens**, i.e. tokens that share the same tracking of balances but have two separate contract addresses from which these balances can be controlled. They should be usable without any issue.
-- **Non-reverting tokens**: ERC-20 Tokens historically handle errors in two possible ways, they either revert on errors or they simply return `false` as a result. SafeERC20 ensures that non reverting tokens do revert given in case of an insufficient balance.
+- **Non-reverting tokens**: ERC-20 Tokens historically handle errors in two possible ways, they either revert on errors or they simply return `false` as a result. The plugin uses SafeERC20, which ensures that non reverting tokens do revert given in case of an insufficient balance.
 - **ERC20s lacking `decimals()`**: Within the ERC-20 standard, the existence of a `decimals()` function is optional. The plugin has no need for this function's existence and supports tokens without it.
 - **Tokens with callbacks**: There exist various standard extensions such as ERC-223, ERC-677, ERC-777, etc., as well as custom ERC-20 compatible token implementations that call the sender, receiver, or both, during a token transfer. Furthermore, such implementations may choose to call before or after the token balances were updated. This is especially dangerous since it may allow re-entering the protocol and exploit incomplete state updates. Such tokens can be used safely.
 - **Tokens with strict allowance handling**: There are tokens that revert when attempting to change an existing token allowance from a non-zero value to another non-zero value. The plugin makes no calls to the token's `approve()` function and should have no issue in using them.
