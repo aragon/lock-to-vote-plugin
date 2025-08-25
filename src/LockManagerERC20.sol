@@ -9,7 +9,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 
 /// @title LockManagerERC20
 /// @author Aragon X 2025
-/// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
+/// @notice Helper contract acting as the vault for locked tokens used to vote on LockToGovern plugins.
 contract LockManagerERC20 is ILockManager, LockManagerBase {
     using SafeERC20 for IERC20;
 

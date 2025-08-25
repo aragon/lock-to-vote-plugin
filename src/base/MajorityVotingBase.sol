@@ -25,12 +25,13 @@ import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 ///
 /// ### Parameterization
 ///
-/// We define two parameters
+/// We define 3 parameters:
 /// $$\texttt{support} = \frac{N_\text{yes}}{N_\text{yes} + N_\text{no}} \in [0,1]$$
-/// and
 /// $$\texttt{participation} = \frac{N_\text{yes} + N_\text{no} + N_\text{abstain}}{N_\text{total}} \in [0,1],$$
 /// where $N_\text{yes}$, $N_\text{no}$, and $N_\text{abstain}$ are the yes, no, and abstain votes that have been
 /// cast and $N_\text{total}$ is the total voting power available at proposal creation time.
+/// and
+/// $$\texttt{approval} = \frac{N_\text{yes}}{N_\text{total}} \in [0,1]$$
 ///
 /// #### Limit Values: Support Threshold & Minimum Participation
 ///
@@ -145,8 +146,8 @@ abstract contract MajorityVotingBase is
     /// @param supportThresholdRatio The support threshold ratio.
     ///     Its value has to be in the interval [0, 10^6) defined by `RATIO_BASE = 10**6`.
     ///     This is intended as the primary metric for proposals to pass.
-    /// @param startDate The start date of the proposal vote.
-    /// @param endDate The end date of the proposal vote.
+    /// @param startDate The timestamp on which a proposal starts accepting votes. Range: `[startDate, endDate)`
+    /// @param endDate The timestamp on which a proposal no longer accepts votes.
     /// @param minParticipationRatio The minimum voting power ratio needed for a proposal to reach the minimum participation.
     ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     ///     This is a intended as secondary metric to prevent noise or spam from passing unadvertedly.
@@ -217,7 +218,7 @@ abstract contract MajorityVotingBase is
     /// @param caller The address calling vote().
     error VoteCallForbidden(address caller);
 
-    /// @notice Thrown if an account is not allowed to cast a vote. This can be because the vote
+    /// @notice Thrown if an account is not allowed to cast a vote. This can fail because the vote
     /// - has not started,
     /// - has ended,
     /// - was executed, or

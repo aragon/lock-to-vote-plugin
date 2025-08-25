@@ -10,7 +10,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 
 /// @title LockManagerBase
 /// @author Aragon X 2025
-/// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
+/// @notice Helper contract acting as the vault for locked tokens used to vote on LockToGovern plugins.
 abstract contract LockManagerBase is ILockManager {
     using EnumerableSet for EnumerableSet.UintSet;
 
@@ -41,6 +41,7 @@ abstract contract LockManagerBase is ILockManager {
 
     /// @notice Emitted when the plugin reports a proposal as settled
     /// @param proposalId The ID the proposal where votes can no longer be submitted or cleared
+    /// @dev The event could be emitted with a delay, compared to the effective proposal endDate
     event ProposalSettled(uint256 indexed proposalId);
 
     /// @notice Thrown when the address calling proposalSettled() is not the plugin's
