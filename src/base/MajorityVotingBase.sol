@@ -393,7 +393,8 @@ abstract contract MajorityVotingBase is
         return votingSettings.votingMode;
     }
 
-    /// @notice Returns the current voting settings
+    /// @notice Returns the current voting settings.
+    /// @return A struct containing the current plugin settings.
     function getVotingSettings() public view virtual returns (VotingSettings memory) {
         return votingSettings;
     }

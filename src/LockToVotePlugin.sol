@@ -25,8 +25,18 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @notice The ID of the permission required to call `vote` and `clearVote`.
     bytes32 public constant LOCK_MANAGER_PERMISSION_ID = keccak256("LOCK_MANAGER_PERMISSION");
 
+    /// @notice Thrown when a user's vote has been cleared.
+    /// @param proposalId the ID of the proposal where the vote was cleared.
+    /// @param voter The address of the token holder whose vote was cleared.
     event VoteCleared(uint256 indexed proposalId, address indexed voter);
 
+    /// @notice Thrown when attempting to call clearVote() from an address other than the LockManager.
+    /// @param caller The address calling clearVote().
+    error VoteRemovalUnauthorized(address caller);
+
+    /// @notice Thrown when attempting to remove a vote, because it is still active or because the plugin mode doesn't allow it.
+    /// @param proposalId The ID of the proposal.
+    /// @param voter The address of the voter.
     error VoteRemovalForbidden(uint256 proposalId, address voter);
 
     /// @notice Thrown when attempting to create a proposal with a non-empty endDate, which is not supported.
@@ -233,7 +243,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     function clearVote(uint256 _proposalId, address _voter) external {
         /// @dev The LockManager can always call clearVote(), regardless of LOCK_MANAGER_PERMISSION_ID
         if (msg.sender != address(lockManager)) {
-            revert VoteRemovalForbidden(_proposalId, _voter);
+            revert VoteRemovalUnauthorized(msg.sender);
         }
 
         Proposal storage proposal_ = proposals[_proposalId];

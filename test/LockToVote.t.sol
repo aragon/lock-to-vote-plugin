@@ -40,6 +40,7 @@ contract LockToVoteTest is TestBase {
     error NonexistentProposal(uint256 proposalId);
     error AlreadyInitialized();
     error NoBalance();
+    error VoteRemovalUnauthorized(address caller);
     error VoteRemovalForbidden(uint256 proposalId, address voter);
     error InvalidTargetAddress();
     error DelegateCallNotAllowed();
@@ -1081,15 +1082,15 @@ contract LockToVoteTest is TestBase {
 
         // revert
         vm.prank(address(dao));
-        vm.expectRevert(abi.encodeWithSelector(VoteRemovalForbidden.selector, proposalId, alice));
+        vm.expectRevert(abi.encodeWithSelector(VoteRemovalUnauthorized.selector, address(dao)));
         ltvPlugin.clearVote(proposalId, alice);
 
         vm.prank(address(ltvPlugin));
-        vm.expectRevert(abi.encodeWithSelector(VoteRemovalForbidden.selector, proposalId, alice));
+        vm.expectRevert(abi.encodeWithSelector(VoteRemovalUnauthorized.selector, address(ltvPlugin)));
         ltvPlugin.clearVote(proposalId, alice);
 
         vm.prank(david);
-        vm.expectRevert(abi.encodeWithSelector(VoteRemovalForbidden.selector, proposalId, alice));
+        vm.expectRevert(abi.encodeWithSelector(VoteRemovalUnauthorized.selector, david));
         ltvPlugin.clearVote(proposalId, alice);
     }
 
