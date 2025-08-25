@@ -210,6 +210,10 @@ abstract contract MajorityVotingBase is
     /// @param proposalId The ID of the proposal which doesn't exist.
     error NonexistentProposal(uint256 proposalId);
 
+    /// @notice Thrown when the address calling vote() is not the LockManager.
+    /// @param caller The address calling vote().
+    error VoteCallForbidden(address caller);
+
     /// @notice Thrown if an account is not allowed to cast a vote. This can be because the vote
     /// - has not started,
     /// - has ended,
