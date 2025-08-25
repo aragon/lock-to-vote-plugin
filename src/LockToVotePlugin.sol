@@ -31,6 +31,10 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
 
     error VoteRemovalForbidden(uint256 proposalId, address voter);
 
+    /// @notice Thrown when attempting to create a proposal with a non-empty endDate, which is not supported.
+    ///         End date is kept for compatibility with IProposal.
+    error EndDateMustBeZero();
+
     /// @notice Initializes the component.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
     /// @param _dao The IDAO interface of the associated DAO.
@@ -73,7 +77,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     }
 
     /// @inheritdoc IProposal
-    /// @param _endDate UNUSED: The parameter is kept for compatibility with IProposal but its value is computed internally.
+    /// @param _endDate UNUSED: The parameter is kept for compatibility with IProposal but its value is computed internally. It should be set to 0.
     /// @dev Requires the `CREATE_PROPOSAL_PERMISSION_ID` permission.
     function createProposal(
         bytes calldata _metadata,
@@ -94,6 +98,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
 
         /// @dev `minProposerVotingPower` is checked at the the permission condition behind auth(CREATE_PROPOSAL_PERMISSION_ID)
 
+        if (_endDate != 0) revert EndDateMustBeZero();
         (_startDate, _endDate) = _validateProposalDates(_startDate);
 
         proposalId = _createProposalId(keccak256(abi.encode(_actions, _metadata)));
