@@ -197,7 +197,7 @@ abstract contract MajorityVotingBase is
     /// @param actual The actual value.
     error DateOutOfBounds(uint64 limit, uint64 actual);
 
-    /// @notice Thrown if the proposal duration value is out of bounds (less than one hour or greater than 1 year).
+    /// @notice Thrown if the proposal duration value is out of bounds (less than one hour or greater than 1 month).
     /// @param limit The limit value.
     /// @param actual The actual value.
     error ProposalDurationOutOfBounds(uint64 limit, uint64 actual);
@@ -577,7 +577,7 @@ abstract contract MajorityVotingBase is
             }
         }
 
-        // Since `proposalDuration` is limited to 1 year,
+        // Since `proposalDuration` is limited to 1 month,
         // `startDate + proposalDuration` can only overflow if the `startDate` is after `type(uint64).max - proposalDuration`.
         // In this case, the proposal creation will revert and another date can be picked.
         endDate = startDate + votingSettings.proposalDuration;
