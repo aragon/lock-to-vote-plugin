@@ -15,7 +15,6 @@ import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/pro
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {MetadataExtensionUpgradeable} from
     "@aragon/osx-commons-contracts/src/utils/metadata/MetadataExtensionUpgradeable.sol";
-import {_applyRatioCeiled} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 
 /* solhint-enable max-line-length */
