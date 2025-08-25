@@ -33,6 +33,7 @@ interface ILockManager {
     function token() external view returns (address);
 
     /// @notice Returns the currently locked balance that the given account has on the contract.
+    /// @param account The address whose locked balance is returned.
     function getLockedBalance(address account) external view returns (uint256);
 
     /// @notice Returns how many active proposalID's were created by the given address
@@ -63,6 +64,7 @@ interface ILockManager {
 
     /// @notice Uses the locked balance to vote on the given proposal for the registered plugin
     /// @param proposalId The ID of the proposal where the vote will be registered
+    /// @param vote The vote to cast (Yes, No, Abstain)
     function vote(uint256 proposalId, IMajorityVoting.VoteOption vote) external;
 
     /// @notice Checks if an account can participate on a proposal. This can be because the proposal
@@ -95,6 +97,7 @@ interface ILockManager {
     /// @param proposalId The ID of the proposal that msg.sender is reporting as done.
     function proposalSettled(uint256 proposalId) external;
 
-    /// @notice Defines the given plugin address as the target for voting
-    function setPluginAddress(ILockToGovernBase _plugin) external;
+    /// @notice Defines the given plugin address as the target for voting.
+    /// @param plugin The address of the contract to use as the plugin.
+    function setPluginAddress(ILockToGovernBase plugin) external;
 }

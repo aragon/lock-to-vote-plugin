@@ -8,6 +8,7 @@ import {ILockManager} from "./ILockManager.sol";
 /// @author Aragon X 2024-2025
 interface ILockToGovernBase {
     /// @notice Returns the address of the manager contract, which holds the locked balances and the allocated vote balances.
+    /// @return The address of the LockManager contract associated with the plugin.
     function lockManager() external view returns (ILockManager);
 
     /// @notice Returns the address of the token contract used to determine the voting power.

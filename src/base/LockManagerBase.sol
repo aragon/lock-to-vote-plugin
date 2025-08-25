@@ -33,10 +33,14 @@ abstract contract LockManagerBase is ILockManager {
     /// @notice The address that can define the plugin address, once, after the deployment
     address immutable pluginSetter;
 
-    /// @notice Emitted when a token holder locks funds into the manager contract
+    /// @notice Emitted when a token holder locks funds into the LockManager contract.
+    /// @param voter The address of the account locking tokens.
+    /// @param amount The amount of tokens being added to the existing balance.
     event BalanceLocked(address indexed voter, uint256 amount);
 
     /// @notice Emitted when a token holder unlocks funds from the manager contract
+    /// @param voter The address of the account unlocking tokens.
+    /// @param amount The amount of tokens being unlocked.
     event BalanceUnlocked(address indexed voter, uint256 amount);
 
     /// @notice Emitted when the plugin reports a proposal as settled
@@ -69,11 +73,14 @@ abstract contract LockManagerBase is ILockManager {
     }
 
     /// @notice Returns the known proposalID at the given index
+    /// @param _index The position at which to read the proposalId
+    /// @return The ID of the proposal at the given index
     function knownProposalIdAt(uint256 _index) public view virtual returns (uint256) {
         return knownProposalIds.at(_index);
     }
 
     /// @notice Returns the number of known proposalID's
+    /// @return The number of known proposalID's
     function knownProposalIdsLength() public view virtual returns (uint256) {
         return knownProposalIds.length();
     }
