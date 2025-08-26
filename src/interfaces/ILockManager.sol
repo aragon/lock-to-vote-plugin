@@ -97,6 +97,12 @@ interface ILockManager {
     /// @param proposalId The ID of the proposal that msg.sender is reporting as done.
     function proposalSettled(uint256 proposalId) external;
 
+    /// @notice Triggers a manual cleanup of the known proposal ID's that have already ended.
+    ///         Settled proposals are garbage collected when they are executed or when a user unlocks his tokens.
+    ///         Use this method if a long list of unsettled yet ended proposals ever creates a gas bottleneck that discourages users from unlocking.
+    /// @param count How many proposals should be cleaned up, at most.
+    function pruneProposals(uint256 count) external;
+
     /// @notice Defines the given plugin address as the target for voting.
     /// @param plugin The address of the contract to use as the plugin.
     function setPluginAddress(ILockToGovernBase plugin) external;

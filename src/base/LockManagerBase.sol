@@ -187,6 +187,29 @@ abstract contract LockManagerBase is ILockManager {
     }
 
     /// @inheritdoc ILockManager
+    function pruneProposals(uint256 _count) external {
+        uint256 _proposalCount = knownProposalIds.length();
+        for (uint256 _i; _i < _proposalCount;) {
+            if (_count == 0) return;
+
+            uint256 _proposalId = knownProposalIds.at(_i);
+
+            if (plugin.isProposalEnded(_proposalId)) {
+                knownProposalIds.remove(_proposalId);
+                _count--;
+
+                // Recheck the same index (now, another proposalId)
+                _proposalCount = knownProposalIds.length();
+                continue;
+            }
+
+            unchecked {
+                _i++;
+            }
+        }
+    }
+
+    /// @inheritdoc ILockManager
     function setPluginAddress(ILockToGovernBase _newPluginAddress) public virtual {
         if (msg.sender != pluginSetter) {
             revert SetPluginAddressForbidden();
