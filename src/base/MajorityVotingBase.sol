@@ -218,7 +218,7 @@ abstract contract MajorityVotingBase is
     /// @param caller The address calling vote().
     error VoteCallForbidden(address caller);
 
-    /// @notice Thrown if an account is not allowed to cast a vote. This can fail because the vote
+    /// @notice Thrown if an account is not allowed to cast a vote. This can be because the vote
     /// - has not started,
     /// - has ended,
     /// - was executed, or

@@ -8,7 +8,7 @@ import {IMajorityVoting} from "./IMajorityVoting.sol";
 /// @author Aragon X
 /// @notice Governance plugin allowing token holders to use tokens locked without a snapshot requirement and engage in proposals immediately
 interface ILockToVote is ILockToGovernBase {
-    /// @notice Checks if an account can participate on a proposal. This can be because the vote
+    /// @notice Checks if an account can participate on a proposal. This can fail because the vote
     /// - has not started,
     /// - has ended,
     /// - was executed, or
