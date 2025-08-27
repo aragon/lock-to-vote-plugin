@@ -34,7 +34,8 @@ interface ILockToVote is ILockToGovernBase {
     function vote(uint256 proposalId, address voter, IMajorityVoting.VoteOption voteOption, uint256 votingPower)
         external;
 
-    /// @notice Reverts the existing voter's vote, if existing.
+    /// @notice Reverts if the vote cannot be cleared due to the voting settings. This can be because:
+    ///     - The plugin is in Standard votingMode and the voter has votes registered on active proposals
     /// @param proposalId The ID of the proposal.
     /// @param voter The voter's address.
     function clearVote(uint256 proposalId, address voter) external;
