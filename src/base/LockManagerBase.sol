@@ -267,9 +267,7 @@ abstract contract LockManagerBase is ILockManager {
                 ILockToVote(address(plugin)).clearVote(_proposalId, msg.sender);
             }
 
-            unchecked {
-                _i++;
-            }
+            _i++;
         }
     }
 }

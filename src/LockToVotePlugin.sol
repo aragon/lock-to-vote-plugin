@@ -145,13 +145,10 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
             proposal_.allowFailureMap = _allowFailureMap;
         }
 
-        for (uint256 i; i < _actions.length;) {
+        for (uint256 i; i < _actions.length; i++) {
             if (_actions[i].to == address(0)) revert EmptyActionTarget(i);
 
             proposal_.actions.push(_actions[i]);
-            unchecked {
-                ++i;
-            }
         }
 
         emit ProposalCreated(proposalId, _msgSender(), _startDate, _endDate, _metadata, _actions, _allowFailureMap);
