@@ -29,8 +29,8 @@ See the [ERC20 token checklist](#erc20-token-checklist) below.
 The custodial contract managing token locks and allowing to vote in multiple proposals with a single lock
 
 - `LockManagerBase` contains the common logic, while `LockManagerERC20` includes the specific implementation to manage ERC20 token locks.
-- `lock()` and `lock(amount)` deposits the available ERC20 allowance `min(allowance, balance)` into the contract and updates the cumulative locked balance
-- `vote()` allow users to use the currently locked balance on a given proposal
+- `lock()` and `lock(amount)` deposit the available ERC20 allowance into the contract and update the cumulative locked balance. If the balance is lower than the allowance, the whole balance is locked.
+- `vote()` calls `lockToVote.vote()` with the currently locked balance on behalf of the user
 - Locking and voting can be done at once with `lockAndVote()`
 - To prevent unlocking with votes on active proposals, it keeps track of them via the `proposalCreated()` and `proposalSettled()` hooks
 
