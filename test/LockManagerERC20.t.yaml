@@ -191,3 +191,9 @@ LockManagerERC20Test:
           - when: Calling knownProposalIdAt() with an out-of-bounds index
             then:
               - it: Should revert
+          - when: Calling pruneProposals()
+            then:
+              - it: Should keep the open proposals on the konwnProposalIds list
+              - it: Should remove the ended proposals from the list
+              - it: Executed proposals aren't on the list
+              - it: Should clean up to the amount of proposals specified

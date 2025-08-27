@@ -847,6 +847,87 @@ contract LockManagerERC20Test is TestBase {
         vm.expectRevert();
         lockManager.knownProposalIdAt(10);
     }
+
+    function test_WhenCallingPruneProposals()
+        external
+        givenTheContractIsInitialized
+        givenTheContractHasSeveralKnownProposalIDs
+    {
+        Action[] memory _actions = new Action[](0);
+        (dao, ltvPlugin, lockManager, lockableToken) = new DaoBuilder().withTokenHolder(alice, 1 ether).build();
+        dao.grant(address(ltvPlugin), address(this), ltvPlugin.EXECUTE_PROPOSAL_PERMISSION_ID());
+
+        vm.prank(alice);
+        lockableToken.approve(address(lockManager), 1 ether);
+        vm.prank(alice);
+        lockManager.lock();
+
+        // It Should keep the open proposals on the konwnProposalIds list
+
+        assertEq(lockManager.knownProposalIdsLength(), 0);
+
+        for (uint256 i = 0; i < 10; i++) {
+            proposalId = ltvPlugin.createProposal(bytes(vm.toString(i)), _actions, 0, 0, bytes(""));
+        }
+        assertEq(lockManager.knownProposalIdsLength(), 10);
+        lockManager.pruneProposals(10);
+        assertEq(lockManager.knownProposalIdsLength(), 10);
+
+        // clear
+        vm.warp(block.timestamp + ltvPlugin.proposalDuration() + 1 days);
+        lockManager.pruneProposals(10);
+
+        // It Should remove the ended proposals from the list
+
+        assertEq(lockManager.knownProposalIdsLength(), 0);
+        for (uint256 i = 10; i < 20; i++) {
+            proposalId = ltvPlugin.createProposal(bytes(vm.toString(i)), _actions, 0, 0, bytes(""));
+        }
+
+        vm.warp(block.timestamp + ltvPlugin.proposalDuration() + 1 days);
+
+        assertEq(lockManager.knownProposalIdsLength(), 10);
+        lockManager.pruneProposals(10);
+        assertEq(lockManager.knownProposalIdsLength(), 0);
+
+        // It Executed proposals aren't on the list
+
+        for (uint256 i = 20; i < 30; i++) {
+            proposalId = ltvPlugin.createProposal(bytes(vm.toString(i)), _actions, 0, 0, bytes(""));
+
+            vm.prank(alice);
+            lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
+
+            vm.warp(block.timestamp + ltvPlugin.proposalDuration() + 1 days);
+            ltvPlugin.execute(proposalId);
+        }
+
+        assertEq(lockManager.knownProposalIdsLength(), 0);
+        lockManager.pruneProposals(10);
+        assertEq(lockManager.knownProposalIdsLength(), 0);
+
+        // It Should clean up to the amount of proposals specified
+
+        assertEq(lockManager.knownProposalIdsLength(), 0);
+
+        for (uint256 i = 30; i < 80; i++) {
+            proposalId = ltvPlugin.createProposal(bytes(vm.toString(i)), _actions, 0, 0, bytes(""));
+        }
+
+        vm.warp(block.timestamp + ltvPlugin.proposalDuration() + 1 days);
+
+        assertEq(lockManager.knownProposalIdsLength(), 50);
+        lockManager.pruneProposals(0);
+        assertEq(lockManager.knownProposalIdsLength(), 50);
+        lockManager.pruneProposals(30);
+        assertEq(lockManager.knownProposalIdsLength(), 20);
+        lockManager.pruneProposals(7);
+        assertEq(lockManager.knownProposalIdsLength(), 13);
+        lockManager.pruneProposals(10);
+        assertEq(lockManager.knownProposalIdsLength(), 3);
+        lockManager.pruneProposals(10);
+        assertEq(lockManager.knownProposalIdsLength(), 0);
+    }
 }
 
 // Helpers

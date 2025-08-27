@@ -117,8 +117,12 @@ LockManagerERC20Test
     └── Given The contract has several known proposal IDs
         ├── When Calling knownProposalIdAt with a valid index
         │   └── It Should return the correct proposal ID at that index
-        └── When Calling knownProposalIdAt with an outofbounds index
-            └── It Should revert
+        ├── When Calling knownProposalIdAt with an outofbounds index
+        │   └── It Should revert
+        └── When Calling pruneProposals
+            ├── It Should keep the open proposals on the konwnProposalIds list
+            ├── It Should remove the ended proposals from the list
+            └── It Should remove the executed proposals from the list
 ```
 
 ```
