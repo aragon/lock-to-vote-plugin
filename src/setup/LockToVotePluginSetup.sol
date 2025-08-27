@@ -187,11 +187,13 @@ contract LockToVotePluginSetup is PluginSetup {
         returns (PermissionLib.MultiTargetPermission[] memory permissions)
     {
         // Prepare permissions.
-        uint256 helperLength = _payload.currentHelpers.length;
-        if (helperLength != 4) {
-            revert WrongHelpersArrayLength({length: helperLength});
+        if (_payload.currentHelpers.length != 4) {
+            revert WrongHelpersArrayLength({length: _payload.currentHelpers.length});
         }
         permissions = new PermissionLib.MultiTargetPermission[](8);
+        address _lockManager = _payload.currentHelpers[1];
+        address _createProposalCaller = _payload.currentHelpers[2];
+        address _executeCaller = _payload.currentHelpers[3];
 
         // Set permissions to be Revoked.
         LockToVotePlugin impl = LockToVotePlugin(implementation());
@@ -245,7 +247,7 @@ contract LockToVotePluginSetup is PluginSetup {
         permissions[5] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Revoke,
             where: _payload.plugin,
-            who: _payload.currentHelpers[2], // createProposalCaller,
+            who: _createProposalCaller,
             condition: PermissionLib.NO_CONDITION,
             permissionId: impl.CREATE_PROPOSAL_PERMISSION_ID()
         });
@@ -254,7 +256,7 @@ contract LockToVotePluginSetup is PluginSetup {
         permissions[6] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Revoke,
             where: _payload.plugin,
-            who: _payload.currentHelpers[1], // Lock Manager
+            who: _lockManager,
             condition: PermissionLib.NO_CONDITION,
             permissionId: impl.LOCK_MANAGER_PERMISSION_ID()
         });
@@ -263,7 +265,7 @@ contract LockToVotePluginSetup is PluginSetup {
         permissions[7] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Revoke,
             where: _payload.plugin,
-            who: _payload.currentHelpers[3], // executeCaller,
+            who: _executeCaller,
             condition: PermissionLib.NO_CONDITION,
             permissionId: impl.EXECUTE_PROPOSAL_PERMISSION_ID()
         });
