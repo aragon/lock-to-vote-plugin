@@ -4,9 +4,13 @@
 
 **An OSx governance plugin, enabling immediate voting through token locking**
 
-Built on Aragon OSx's modular framework, LockToVote redefines DAO participation by eliminating the need for *ahead of time* token snapshots with an [IVotes](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/governance/utils/IVotes.sol) compatible token. Any vanilla ERC20 can now be used to participate in DAO governance.
+Built on Aragon OSx's modular framework, LockToVote bypasses the need for *ahead of time* token snapshots via IVotes compatible tokens. **All ERC20 contracts** can now be used to participate in DAO governance.
 
 See the [ERC20 token checklist](#erc20-token-checklist) below.
+
+## Audit
+
+The source code of LockToVote has been [audited by Spearbit](./audit/report-cantinacode-aragon-0729.pdf) between July and August 2025.
 
 ## Overview
 
