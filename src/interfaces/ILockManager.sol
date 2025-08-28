@@ -92,7 +92,7 @@ interface ILockManager {
 
     /// @notice Called by the lock to vote plugin whenever a proposal is executed (or settled).
     ///     It instructs the manager to remove the proposal from the list of active proposal locks.
-    ///     There's no guarantee that `proposalEnded()` will be reliably called for a proposal ID.
+    ///     There's no guarantee that `proposalSettled()` will be reliably called for a proposal ID.
     ///     Manually checking a proposal's state may be necessary in order to verify that it has ended.
     /// @param proposalId The ID of the proposal that msg.sender is reporting as done.
     function proposalSettled(uint256 proposalId) external;
