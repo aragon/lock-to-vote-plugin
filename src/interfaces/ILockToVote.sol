@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.28;
 
 import {ILockToGovernBase} from "./ILockToGovernBase.sol";
 import {IMajorityVoting} from "./IMajorityVoting.sol";
@@ -9,7 +8,7 @@ import {IMajorityVoting} from "./IMajorityVoting.sol";
 /// @author Aragon X
 /// @notice Governance plugin allowing token holders to use tokens locked without a snapshot requirement and engage in proposals immediately
 interface ILockToVote is ILockToGovernBase {
-    /// @notice Checks if an account can participate on a proposal. This can be because the vote
+    /// @notice Checks if an account can participate on a proposal. This can fail because the vote
     /// - has not started,
     /// - has ended,
     /// - was executed, or
@@ -35,7 +34,8 @@ interface ILockToVote is ILockToGovernBase {
     function vote(uint256 proposalId, address voter, IMajorityVoting.VoteOption voteOption, uint256 votingPower)
         external;
 
-    /// @notice Reverts the existing voter's vote, if existing.
+    /// @notice Reverts if the vote cannot be cleared due to the voting settings. This can be because:
+    ///     - The plugin is in Standard votingMode and the voter has votes registered on active proposals
     /// @param proposalId The ID of the proposal.
     /// @param voter The voter's address.
     function clearVote(uint256 proposalId, address voter) external;

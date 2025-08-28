@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-
-pragma solidity ^0.8.8;
+pragma solidity ^0.8.28;
 
 /* solhint-disable max-line-length */
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ILockManager} from "../interfaces/ILockManager.sol";
 import {ILockManager} from "../interfaces/ILockManager.sol";
 import {ILockToGovernBase} from "../interfaces/ILockToGovernBase.sol";
 import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
@@ -14,9 +12,14 @@ import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/intro
 /// @title LockToGovernBase
 /// @author Aragon X 2024-2025
 abstract contract LockToGovernBase is ILockToGovernBase, IMembership, ERC165Upgradeable {
-    event LockManagerDefined(ILockManager lockManager);
+    /// @notice Emitted when the address of the LockManager is set.
+    /// @param lockManager The address of the LockManager contract
+    event LockManagerDefined(ILockManager indexed lockManager);
 
+    /// @notice Thrown when creating a proposal without any locked tokens.
     error NoVotingPower();
+
+    /// @notice Thrown when attempting to define the address of the LockManager after it was already set.
     error LockManagerAlreadyDefined();
 
     /// @inheritdoc ILockToGovernBase

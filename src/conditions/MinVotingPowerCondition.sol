@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-
-pragma solidity ^0.8.8;
+pragma solidity 0.8.28;
 
 import {ILockToGovernBase} from "../interfaces/ILockToGovernBase.sol";
 import {ILockManager} from "../interfaces/ILockManager.sol";
@@ -42,9 +41,15 @@ contract MinVotingPowerCondition is PermissionCondition {
     {
         (_where, _data, _permissionId);
 
-        uint256 _currentBalance = token.balanceOf(_who) + lockManager.getLockedBalance(_who);
-        uint256 _minProposerVotingPower = plugin.minProposerVotingPower();
+        uint256 _currentVotingPower = lockManager.getLockedBalance(_who);
 
-        return _currentBalance >= _minProposerVotingPower;
+        return _currentVotingPower >= getRequiredLockAmount(_who);
+    }
+
+    function getRequiredLockAmount(address _who) public view virtual returns (uint256) {
+        uint256 _minProposerVotingPower = plugin.minProposerVotingPower();
+        uint256 _multiplier = lockManager.activeProposalsCreatedBy(_who) + 1;
+
+        return _minProposerVotingPower * _multiplier;
     }
 }

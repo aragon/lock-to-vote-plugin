@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.28;
 
 import {ILockManager, LockManagerSettings, PluginMode} from "../interfaces/ILockManager.sol";
 import {ILockToGovernBase} from "../interfaces/ILockToGovernBase.sol";
@@ -10,7 +10,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 
 /// @title LockManagerBase
 /// @author Aragon X 2025
-/// @notice Helper contract acting as the vault for locked tokens used to vote on multiple plugins and proposals.
+/// @notice Helper contract acting as the vault for locked tokens used to vote on LockToGovern plugins.
 abstract contract LockManagerBase is ILockManager {
     using EnumerableSet for EnumerableSet.UintSet;
 
@@ -27,17 +27,28 @@ abstract contract LockManagerBase is ILockManager {
     /// @dev NOTE: Executed proposals will be actively reported, but defeated proposals will need to be garbage collected over time.
     EnumerableSet.UintSet internal knownProposalIds;
 
-    /// @notice Emitted when a token holder locks funds into the manager contract
-    event BalanceLocked(address voter, uint256 amount);
+    /// @notice Keeps track of who created each known proposalId
+    mapping(uint256 => address) public knownProposalIdCreators;
+
+    /// @notice The address that can define the plugin address, once, after the deployment
+    address immutable pluginSetter;
+
+    /// @notice Emitted when a token holder locks funds into the LockManager contract.
+    /// @param voter The address of the account locking tokens.
+    /// @param amount The amount of tokens being added to the existing balance.
+    event BalanceLocked(address indexed voter, uint256 amount);
 
     /// @notice Emitted when a token holder unlocks funds from the manager contract
-    event BalanceUnlocked(address voter, uint256 amount);
+    /// @param voter The address of the account unlocking tokens.
+    /// @param amount The amount of tokens being unlocked.
+    event BalanceUnlocked(address indexed voter, uint256 amount);
 
-    /// @notice Emitted when the plugin reports a proposal as ended
+    /// @notice Emitted when the plugin reports a proposal as settled
     /// @param proposalId The ID the proposal where votes can no longer be submitted or cleared
-    event ProposalEnded(uint256 proposalId);
+    /// @dev The event could be emitted with a delay, compared to the effective proposal endDate
+    event ProposalSettled(uint256 indexed proposalId);
 
-    /// @notice Thrown when the address calling proposalEnded() is not the plugin's
+    /// @notice Thrown when the address calling proposalSettled() is not the plugin's
     error InvalidPluginAddress();
 
     /// @notice Raised when the caller holds no tokens or didn't lock any tokens
@@ -49,25 +60,44 @@ abstract contract LockManagerBase is ILockManager {
     /// @notice Thrown when trying to set an invalid contract as the plugin
     error InvalidPlugin();
 
-    /// @notice Thrown when trying to set an invalid PluginMode value, or when trying to use an operation not supported by the current pluginMode
-    error InvalidPluginMode();
-
     /// @notice Thrown when trying to define the address of the plugin after it already was
     error SetPluginAddressForbidden();
 
-    /// @param _settings The operation mode of the contract (plugin mode)
-    constructor(LockManagerSettings memory _settings) {
-        settings.pluginMode = _settings.pluginMode;
+    /// @notice Thrown when attempting to unlock with a created proposal that is still active
+    /// @param proposalId The ID the active proposal
+    error ProposalCreatedStillActive(uint256 proposalId);
+
+    constructor() {
+        settings.pluginMode = PluginMode.Voting;
+        pluginSetter = msg.sender;
     }
 
     /// @notice Returns the known proposalID at the given index
+    /// @param _index The position at which to read the proposalId
+    /// @return The ID of the proposal at the given index
     function knownProposalIdAt(uint256 _index) public view virtual returns (uint256) {
         return knownProposalIds.at(_index);
     }
 
     /// @notice Returns the number of known proposalID's
+    /// @return The number of known proposalID's
     function knownProposalIdsLength() public view virtual returns (uint256) {
         return knownProposalIds.length();
+    }
+
+    /// @notice Returns how many of the known proposalID's were created by the given address
+    /// @param _creator The address to use for filtering
+    function activeProposalsCreatedBy(address _creator) public view virtual returns (uint256 _result) {
+        uint256 _proposalCount = knownProposalIds.length();
+        for (uint256 _i; _i < _proposalCount; _i++) {
+            uint256 _proposalId = knownProposalIds.at(_i);
+            if (knownProposalIdCreators[_proposalId] != _creator) {
+                continue;
+            } else if (plugin.isProposalEnded(_proposalId)) {
+                continue;
+            }
+            _result++;
+        }
     }
 
     /// @inheritdoc ILockManager
@@ -82,30 +112,18 @@ abstract contract LockManagerBase is ILockManager {
 
     /// @inheritdoc ILockManager
     function lockAndVote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) public virtual {
-        if (settings.pluginMode != PluginMode.Voting) {
-            revert InvalidPluginMode();
-        }
-
         _lock(_incomingTokenBalance());
         _vote(_proposalId, _voteOption);
     }
 
     /// @inheritdoc ILockManager
     function lockAndVote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption, uint256 _amount) public virtual {
-        if (settings.pluginMode != PluginMode.Voting) {
-            revert InvalidPluginMode();
-        }
-
         _lock(_amount);
         _vote(_proposalId, _voteOption);
     }
 
     /// @inheritdoc ILockManager
     function vote(uint256 _proposalId, IMajorityVoting.VoteOption _voteOption) public virtual {
-        if (settings.pluginMode != PluginMode.Voting) {
-            revert InvalidPluginMode();
-        }
-
         _vote(_proposalId, _voteOption);
     }
 
@@ -131,10 +149,12 @@ abstract contract LockManagerBase is ILockManager {
             revert NoBalance();
         }
 
-        /// @dev The plugin may decide to revert if its voting mode doesn't allow for it
-        _withdrawActiveVotingPower();
+        /// @dev Withdraw the votes on active proposals
+        /// @dev The plugin should revert if the voting mode doesn't allow to withdraw votes
+        /// @dev Ensure that no active proposal was created by msg.sender
+        _ensureCleanGovernance();
 
-        // All votes clear
+        // All votes and proposals are clear
 
         lockedBalances[msg.sender] = 0;
 
@@ -144,39 +164,62 @@ abstract contract LockManagerBase is ILockManager {
     }
 
     /// @inheritdoc ILockManager
-    function proposalCreated(uint256 _proposalId) public virtual {
+    function proposalCreated(uint256 _proposalId, address _creator) public virtual {
         if (msg.sender != address(plugin)) {
             revert InvalidPluginAddress();
         }
 
         // @dev Not checking for duplicate proposalId's
-        // @dev Both plugins already enforce unicity
+        // @dev The plugin already enforces unicity
 
         knownProposalIds.add(_proposalId);
+        knownProposalIdCreators[_proposalId] = _creator;
     }
 
     /// @inheritdoc ILockManager
-    function proposalEnded(uint256 _proposalId) public virtual {
+    function proposalSettled(uint256 _proposalId) public virtual {
         if (msg.sender != address(plugin)) {
             revert InvalidPluginAddress();
         }
 
-        emit ProposalEnded(_proposalId);
+        emit ProposalSettled(_proposalId);
         knownProposalIds.remove(_proposalId);
     }
 
     /// @inheritdoc ILockManager
+    function pruneProposals(uint256 _count) external {
+        uint256 _proposalCount = knownProposalIds.length();
+        for (uint256 _i; _i < _proposalCount;) {
+            if (_count == 0) return;
+
+            uint256 _proposalId = knownProposalIds.at(_i);
+
+            if (plugin.isProposalEnded(_proposalId)) {
+                knownProposalIds.remove(_proposalId);
+                _count--;
+
+                // Recheck the same index (now, another proposalId)
+                _proposalCount = knownProposalIds.length();
+                continue;
+            }
+
+            unchecked {
+                _i++;
+            }
+        }
+    }
+
+    /// @inheritdoc ILockManager
     function setPluginAddress(ILockToGovernBase _newPluginAddress) public virtual {
-        if (address(plugin) != address(0)) {
+        if (msg.sender != pluginSetter) {
+            revert SetPluginAddressForbidden();
+        } else if (address(plugin) != address(0)) {
             revert SetPluginAddressForbidden();
         } else if (!IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToGovernBase).interfaceId)) {
             revert InvalidPlugin();
         }
         // Is it the right type of plugin?
-        else if (
-            settings.pluginMode == PluginMode.Voting
-                && !IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToVote).interfaceId)
-        ) {
+        else if (!IERC165(address(_newPluginAddress)).supportsInterface(type(ILockToVote).interfaceId)) {
             revert InvalidPlugin();
         }
 
@@ -218,11 +261,12 @@ abstract contract LockManagerBase is ILockManager {
         ILockToVote(address(plugin)).vote(_proposalId, msg.sender, _voteOption, _currentVotingPower);
     }
 
-    function _withdrawActiveVotingPower() internal virtual {
+    /// @notice Clears the votes (if possible) on all active proposals and ensures that msg.sender created none of the active proposals
+    function _ensureCleanGovernance() internal virtual {
         uint256 _proposalCount = knownProposalIds.length();
         for (uint256 _i; _i < _proposalCount;) {
             uint256 _proposalId = knownProposalIds.at(_i);
-            if (!plugin.isProposalOpen(_proposalId)) {
+            if (plugin.isProposalEnded(_proposalId)) {
                 knownProposalIds.remove(_proposalId);
                 _proposalCount = knownProposalIds.length();
 
@@ -235,13 +279,18 @@ abstract contract LockManagerBase is ILockManager {
                 continue;
             }
 
+            // The proposal is open
+
+            if (knownProposalIdCreators[_proposalId] == msg.sender) {
+                revert ProposalCreatedStillActive(_proposalId);
+            }
+
             if (plugin.usedVotingPower(_proposalId, msg.sender) > 0) {
+                /// @dev The plugin should revert if the voting mode doesn't allow it
                 ILockToVote(address(plugin)).clearVote(_proposalId, msg.sender);
             }
 
-            unchecked {
-                _i++;
-            }
+            _i++;
         }
     }
 }

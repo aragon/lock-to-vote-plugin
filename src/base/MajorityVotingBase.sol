@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-
-pragma solidity ^0.8.8;
+pragma solidity ^0.8.28;
 
 /* solhint-disable max-line-length */
 
@@ -16,7 +15,6 @@ import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/pro
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
 import {MetadataExtensionUpgradeable} from
     "@aragon/osx-commons-contracts/src/utils/metadata/MetadataExtensionUpgradeable.sol";
-import {_applyRatioCeiled} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
 import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 
 /* solhint-enable max-line-length */
@@ -27,12 +25,13 @@ import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 ///
 /// ### Parameterization
 ///
-/// We define two parameters
+/// We define 3 parameters:
 /// $$\texttt{support} = \frac{N_\text{yes}}{N_\text{yes} + N_\text{no}} \in [0,1]$$
-/// and
 /// $$\texttt{participation} = \frac{N_\text{yes} + N_\text{no} + N_\text{abstain}}{N_\text{total}} \in [0,1],$$
 /// where $N_\text{yes}$, $N_\text{no}$, and $N_\text{abstain}$ are the yes, no, and abstain votes that have been
 /// cast and $N_\text{total}$ is the total voting power available at proposal creation time.
+/// and
+/// $$\texttt{approval} = \frac{N_\text{yes}}{N_\text{total}} \in [0,1]$$
 ///
 /// #### Limit Values: Support Threshold & Minimum Participation
 ///
@@ -72,52 +71,6 @@ import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 /// The contract allows votes to be replaced. Voters can vote multiple times
 /// and only the latest voteOption is tallied.
 ///
-/// ### Early Execution
-///
-/// This contract allows a proposal to be executed early,
-/// iff the vote outcome cannot change anymore by more people voting.
-/// Accordingly, vote replacement and early execution are mutually exclusive options.
-/// The outcome cannot change anymore
-/// iff the support threshold is met even if all remaining votes are no votes.
-/// We call this number the worst-case number of no votes and define it as
-///
-/// $$N_\text{no, worst-case} = N_\text{no} + \texttt{remainingVotes}$$
-///
-/// where
-///
-/// $$\texttt{remainingVotes} =
-/// N_\text{total}-\underbrace{(N_\text{yes}+N_\text{no}+N_\text{abstain})}_{\text{turnout}}.$$
-///
-/// We can use this quantity to calculate the worst-case support that would be obtained
-/// if all remaining votes are casted with no:
-///
-/// $$
-/// \begin{align*}
-///   \texttt{worstCaseSupport}
-///   &= \frac{N_\text{yes}}{N_\text{yes} + (N_\text{no, worst-case})} \\[3mm]
-///   &= \frac{N_\text{yes}}{N_\text{yes} + (N_\text{no} + \texttt{remainingVotes})} \\[3mm]
-///   &= \frac{N_\text{yes}}{N_\text{yes} +  N_\text{no} + N_\text{total}
-///      - (N_\text{yes} + N_\text{no} + N_\text{abstain})} \\[3mm]
-///   &= \frac{N_\text{yes}}{N_\text{total} - N_\text{abstain}}
-/// \end{align*}
-/// $$
-///
-/// In analogy, we can modify [the support criterion](#the-support-criterion)
-/// from above to allow for early execution:
-///
-/// $$
-/// \begin{align*}
-///   (1 - \texttt{supportThresholdRatio}) \cdot N_\text{yes}
-///   &> \texttt{supportThresholdRatio} \cdot  N_\text{no, worst-case} \\[3mm]
-///   &> \texttt{supportThresholdRatio} \cdot (N_\text{no} + \texttt{remainingVotes}) \\[3mm]
-///   &> \texttt{supportThresholdRatio} \cdot (N_\text{no}
-///     + N_\text{total}-(N_\text{yes}+N_\text{no}+N_\text{abstain})) \\[3mm]
-///   &> \texttt{supportThresholdRatio} \cdot (N_\text{total} - N_\text{yes} - N_\text{abstain})
-/// \end{align*}
-/// $$
-///
-/// Accordingly, early execution is possible when the vote is open,
-///     the modified support criterion, and the particicpation criterion are met.
 /// @dev This contract implements the `IMajorityVoting` interface.
 /// @custom:security-contact sirt@aragon.org
 abstract contract MajorityVotingBase is
@@ -131,30 +84,30 @@ abstract contract MajorityVotingBase is
     using SafeCastUpgradeable for uint256;
 
     /// @notice The different voting modes available.
-    /// @param Standard In standard mode, early execution and vote replacement are disabled.
-    /// @param EarlyExecution In early execution mode, a proposal can be executed
-    ///     early before the end date if the vote outcome cannot mathematically change by more voters voting.
+    /// @param Standard In standard mode, the voting power can be increased but votes cannot be replaced.
     /// @param VoteReplacement In vote replacement mode, voters can change their vote
     ///     multiple times and only the latest vote option is tallied.
     enum VotingMode {
         Standard,
-        EarlyExecution,
         VoteReplacement
     }
 
     /// @notice A container for the majority voting settings that will be applied as parameters on proposal creation.
     /// @param votingMode A parameter to select the vote mode.
-    ///     In standard mode (0), early execution and vote replacement are disabled.
-    ///     In early execution mode (1), a proposal can be executed early before the end date
-    ///     if the vote outcome cannot mathematically change by more voters voting.
-    ///     In vote replacement mode (2), voters can change their vote multiple times
+    ///     In standard mode (0), the voting power can be increased but votes cannot be replaced.
+    ///     In vote replacement mode (1), voters can change their vote multiple times
     ///     and only the latest vote option is tallied.
     /// @param supportThresholdRatio The support threshold ratio.
+    ///     Its value has to be in the interval [0, 10^6) defined by `RATIO_BASE = 10**6`.
+    ///     This is intended as the primary metric for proposals to pass.
+    /// @param minParticipationRatio The minimum voting power ratio needed for a proposal to reach the minimum participation.
     ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
-    /// @param minParticipationRatio The minimum participation ratio.
+    ///     This is a intended as secondary metric to prevent noise or spam from passing unadvertedly.
+    ///     Relatively high ratios are not encouraged.
+    /// @param minApprovalRatio Minimum ratio of allocated YES votes.
     ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
-    /// @param minApprovalRatio The minimum ratio of approvals the proposal needs to succeed.
-    ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    ///     This is a intended as secondary metric to prevent noise or spam from passing unadvertedly.
+    ///     Relatively high ratios are not encouraged.
     /// @param proposalDuration The duration of the proposal vote in seconds.
     /// @param minProposerVotingPower The minimum voting power required to create a proposal.
     struct VotingSettings {
@@ -191,13 +144,18 @@ abstract contract MajorityVotingBase is
     /// @notice A container for the proposal parameters at the time of proposal creation.
     /// @param votingMode A parameter to select the vote mode.
     /// @param supportThresholdRatio The support threshold ratio.
-    ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
-    /// @param startDate The start date of the proposal vote.
-    /// @param endDate The end date of the proposal vote.
-    /// @param minParticipationRatio The minimum voting power ratio needed for a proposal to reach minimum participation.
-    ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    ///     Its value has to be in the interval [0, 10^6) defined by `RATIO_BASE = 10**6`.
+    ///     This is intended as the primary metric for proposals to pass.
+    /// @param startDate The timestamp on which a proposal starts accepting votes. Range: `[startDate, endDate)`
+    /// @param endDate The timestamp on which a proposal no longer accepts votes.
+    /// @param minParticipationRatio The minimum voting power ratio needed for a proposal to reach the minimum participation.
+    ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    ///     This is a intended as secondary metric to prevent noise or spam from passing unadvertedly.
+    ///     Relatively high ratios are not encouraged.
     /// @param minApprovalRatio Minimum ratio of allocated YES votes.
-    ///     The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    ///     Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
+    ///     This is a intended as secondary metric to prevent noise or spam from passing unadvertedly.
+    ///     Relatively high ratios are not encouraged.
     struct ProposalParameters {
         VotingMode votingMode;
         uint32 supportThresholdRatio;
@@ -235,12 +193,15 @@ abstract contract MajorityVotingBase is
     /// @notice The struct storing the voting settings.
     VotingSettings private votingSettings;
 
+    /// @notice Thrown when the given DAO address is empty.
+    error EmptyDAOAddress();
+
     /// @notice Thrown if a date is out of bounds.
     /// @param limit The limit value.
     /// @param actual The actual value.
     error DateOutOfBounds(uint64 limit, uint64 actual);
 
-    /// @notice Thrown if the proposal duration value is out of bounds (less than one hour or greater than 1 year).
+    /// @notice Thrown if the proposal duration value is out of bounds (less than one hour or greater than 1 month).
     /// @param limit The limit value.
     /// @param actual The actual value.
     error ProposalDurationOutOfBounds(uint64 limit, uint64 actual);
@@ -252,6 +213,10 @@ abstract contract MajorityVotingBase is
     /// @notice Thrown when a proposal doesn't exist.
     /// @param proposalId The ID of the proposal which doesn't exist.
     error NonexistentProposal(uint256 proposalId);
+
+    /// @notice Thrown when the address calling vote() is not the LockManager.
+    /// @param caller The address calling vote().
+    error VoteCallForbidden(address caller);
 
     /// @notice Thrown if an account is not allowed to cast a vote. This can be because the vote
     /// - has not started,
@@ -302,6 +267,8 @@ abstract contract MajorityVotingBase is
         TargetConfig calldata _targetConfig,
         bytes calldata _pluginMetadata
     ) internal onlyInitializing {
+        if (address(_dao) == address(0)) revert EmptyDAOAddress();
+
         __PluginUUPSUpgradeable_init(_dao);
         _updateVotingSettings(_votingSettings);
         _setTargetConfig(_targetConfig);
@@ -373,35 +340,24 @@ abstract contract MajorityVotingBase is
     }
 
     /// @inheritdoc IMajorityVoting
-    function isSupportThresholdReachedEarly(uint256 _proposalId) public view virtual returns (bool) {
-        Proposal storage proposal_ = proposals[_proposalId];
-
-        uint256 noVotesWorstCase = currentTokenSupply() - proposal_.tally.yes - proposal_.tally.abstain;
-
-        // The code below implements the formula of the
-        // early execution support criterion explained in the top of this file.
-        // `(1 - supportThreshold) * N_yes > supportThreshold *  N_no,worst-case`
-        return (RATIO_BASE - proposal_.parameters.supportThresholdRatio) * proposal_.tally.yes
-            > proposal_.parameters.supportThresholdRatio * noVotesWorstCase;
-    }
-
-    /// @inheritdoc IMajorityVoting
     function isMinVotingPowerReached(uint256 _proposalId) public view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        uint256 _minVotingPower = _applyRatioCeiled(currentTokenSupply(), proposal_.parameters.minParticipationRatio);
+        /// @dev Multiplying both sides by RATIO_BASE, instead of dividing and losing precision
 
-        // The code below implements the formula of the
-        // participation criterion explained in the top of this file.
+        uint256 _minVotingPowerUpscaled = currentTokenSupply() * proposal_.parameters.minParticipationRatio;
+
+        // The code below implements the formula of the participation criterion explained in the top of this file.
         // `N_yes + N_no + N_abstain >= minVotingPower = minParticipationRatio * N_total`
-        return proposal_.tally.yes + proposal_.tally.no + proposal_.tally.abstain >= _minVotingPower;
+        // `RATIO_BASE * (N_yes + N_no + N_abstain) >= minVotingPowerUpscaled = (minParticipationRatio * N_total) * RATIO_BASE`
+        return
+            RATIO_BASE * (proposal_.tally.yes + proposal_.tally.no + proposal_.tally.abstain) >= _minVotingPowerUpscaled;
     }
 
     /// @inheritdoc IMajorityVoting
     function isMinApprovalReached(uint256 _proposalId) public view virtual returns (bool) {
-        uint256 _minApprovalPower =
-            _applyRatioCeiled(currentTokenSupply(), proposals[_proposalId].parameters.minApprovalRatio);
-        return proposals[_proposalId].tally.yes >= _minApprovalPower;
+        uint256 _minApprovalPower = currentTokenSupply() * proposals[_proposalId].parameters.minApprovalRatio;
+        return RATIO_BASE * proposals[_proposalId].tally.yes >= _minApprovalPower;
     }
 
     /// @inheritdoc IMajorityVoting
@@ -437,13 +393,15 @@ abstract contract MajorityVotingBase is
         return votingSettings.votingMode;
     }
 
-    /// @notice Returns the current voting settings
+    /// @notice Returns the current voting settings.
+    /// @return A struct containing the current plugin settings.
     function getVotingSettings() public view virtual returns (VotingSettings memory) {
         return votingSettings;
     }
 
     /// @notice Returns the current token supply.
-    /// @return The token supply.
+    ///         NOTE: It includes any non circulating supply that might be vesting, locked or undistributed.
+    /// @return The total token supply.
     function currentTokenSupply() public view virtual returns (uint256);
 
     /// @notice Returns all information for a proposal by its ID.
@@ -515,27 +473,12 @@ abstract contract MajorityVotingBase is
     function _hasSucceeded(uint256 _proposalId) internal view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        // Support threshold, depending on the status and mode
-        if (_isProposalOpen(proposal_)) {
-            // If the proposal is still open and the voting mode is not EarlyExecution,
-            // success cannot be determined until the voting period ends.
-            if (proposal_.parameters.votingMode != VotingMode.EarlyExecution) {
-                return false;
-            }
-            // For EarlyExecution, check if the support threshold
-            // has been reached early to determine success while proposal is still open.
-            else if (!isSupportThresholdReachedEarly(_proposalId)) {
-                return false;
-            }
-        } else {
-            // Normal execution
-            if (!isSupportThresholdReached(_proposalId)) {
-                return false;
-            }
-        }
-
-        // Check the rest
-        if (!isMinVotingPowerReached(_proposalId)) {
+        if (!_isProposalEnded(proposal_)) {
+            // Success cannot be determined until the voting period ends.
+            return false;
+        } else if (!isSupportThresholdReached(_proposalId)) {
+            return false;
+        } else if (!isMinVotingPowerReached(_proposalId)) {
             return false;
         } else if (!isMinApprovalReached(_proposalId)) {
             return false;
@@ -557,14 +500,6 @@ abstract contract MajorityVotingBase is
         } else if (!_hasSucceeded(_proposalId)) {
             return false;
         }
-        /// @dev Handling the case of Standard and VoteReplacement voting modes
-        /// @dev Enforce waiting until endDate, which is not covered by _hasSucceeded()
-        else if (
-            proposal_.parameters.votingMode != VotingMode.EarlyExecution
-                && block.timestamp.toUint64() < proposal_.parameters.endDate
-        ) {
-            return false;
-        }
 
         return true;
     }
@@ -577,6 +512,16 @@ abstract contract MajorityVotingBase is
 
         return proposal_.parameters.startDate <= currentTime && currentTime < proposal_.parameters.endDate
             && !proposal_.executed;
+    }
+
+    /// @notice Internal function to check if a proposal ended.
+    /// @param proposal_ The proposal struct.
+    /// @return True if the proposal is executed or past the endDate, false otherwise. False if it doesn't exist.
+    function _isProposalEnded(Proposal storage proposal_) internal view virtual returns (bool) {
+        if (proposal_.parameters.endDate == 0) return false;
+
+        uint64 currentTime = block.timestamp.toUint64();
+        return currentTime >= proposal_.parameters.endDate || proposal_.executed;
     }
 
     /// @notice Internal function to update the plugin-wide proposal settings.
@@ -593,8 +538,8 @@ abstract contract MajorityVotingBase is
             revert RatioOutOfBounds({limit: RATIO_BASE, actual: _votingSettings.minParticipationRatio});
         } else if (_votingSettings.proposalDuration < 60 minutes) {
             revert ProposalDurationOutOfBounds({limit: 60 minutes, actual: _votingSettings.proposalDuration});
-        } else if (_votingSettings.proposalDuration > 365 days) {
-            revert ProposalDurationOutOfBounds({limit: 365 days, actual: _votingSettings.proposalDuration});
+        } else if (_votingSettings.proposalDuration > 31 days) {
+            revert ProposalDurationOutOfBounds({limit: 31 days, actual: _votingSettings.proposalDuration});
         }
         // Require the minimum approval value to be in the interval [0, 10^6],
         // because `>=` comparison is used in the participation criterion.
@@ -624,15 +569,9 @@ abstract contract MajorityVotingBase is
     /// @notice Validates and returns the proposal dates.
     /// @param _start The start date of the proposal.
     ///     If 0, the current timestamp is used and the vote starts immediately.
-    /// @param _end The end date of the proposal. If 0, `_start + proposalDuration` is used.
     /// @return startDate The validated start date of the proposal.
-    /// @return endDate The validated end date of the proposal.
-    function _validateProposalDates(uint64 _start, uint64 _end)
-        internal
-        view
-        virtual
-        returns (uint64 startDate, uint64 endDate)
-    {
+    /// @return endDate The end date of the proposal.
+    function _validateProposalDates(uint64 _start) internal view virtual returns (uint64 startDate, uint64 endDate) {
         uint64 currentTimestamp = block.timestamp.toUint64();
 
         if (_start == 0) {
@@ -644,20 +583,11 @@ abstract contract MajorityVotingBase is
                 revert DateOutOfBounds({limit: currentTimestamp, actual: startDate});
             }
         }
-        // Since `proposalDuration` is limited to 1 year,
+
+        // Since `proposalDuration` is limited to 1 month,
         // `startDate + proposalDuration` can only overflow if the `startDate` is after `type(uint64).max - proposalDuration`.
         // In this case, the proposal creation will revert and another date can be picked.
-        uint64 earliestEndDate = startDate + votingSettings.proposalDuration;
-
-        if (_end == 0) {
-            endDate = earliestEndDate;
-        } else {
-            endDate = _end;
-
-            if (endDate < earliestEndDate) {
-                revert DateOutOfBounds({limit: earliestEndDate, actual: endDate});
-            }
-        }
+        endDate = startDate + votingSettings.proposalDuration;
     }
 
     /// @notice This empty reserved space is put in place to allow future versions to add

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-
-pragma solidity ^0.8.8;
+pragma solidity ^0.8.28;
 
 /// @title IMajorityVoting
 /// @author Aragon X - 2022-2024
@@ -53,13 +52,6 @@ interface IMajorityVoting {
     /// @param _proposalId The ID of the proposal.
     /// @return Returns `true` if the  support is greater than the support threshold and `false` otherwise.
     function isSupportThresholdReached(uint256 _proposalId) external view returns (bool);
-
-    /// @notice Checks if the worst-case support value defined as:
-    ///     $$\texttt{worstCaseSupport} = \frac{N_\text{yes}}{ N_\text{total}-N_\text{abstain}}$$
-    ///     for a proposal is greater than the support threshold.
-    /// @param _proposalId The ID of the proposal.
-    /// @return Returns `true` if the worst-case support is greater than the support threshold and `false` otherwise.
-    function isSupportThresholdReachedEarly(uint256 _proposalId) external view returns (bool);
 
     /// @notice Checks if the participation value defined as:
     ///     $$\texttt{participation} = \frac{N_\text{yes}+N_\text{no}+N_\text{abstain}}{N_\text{total}}$$

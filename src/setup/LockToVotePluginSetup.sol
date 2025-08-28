@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+pragma solidity 0.8.28;
 
-pragma solidity ^0.8.17;
-
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -26,11 +23,6 @@ import {createProxyAndCall} from "../util/proxy.sol";
 /// @custom:security-contact sirt@aragon.org
 contract LockToVotePluginSetup is PluginSetup {
     using Address for address;
-    using Clones for address;
-    using ERC165Checker for address;
-
-    /// @notice The address of the `LockManagerERC20` implementation.
-    LockManagerERC20 private immutable lockManagerImpl;
 
     /// @notice Struct containing all the parameters to set up the plugin, helpers and permissions
     /// @param token The address of the token that users can lock for voting (staking token in most cases)
@@ -61,9 +53,7 @@ contract LockToVotePluginSetup is PluginSetup {
     error WrongHelpersArrayLength(uint256 length);
 
     /// @notice The contract constructor deploying the implementation contracts to use.
-    constructor() PluginSetup(address(new LockToVotePlugin())) {
-        lockManagerImpl = new LockManagerERC20(LockManagerSettings(PluginMode(0)), IERC20(address(0)));
-    }
+    constructor() PluginSetup(address(new LockToVotePlugin())) {}
 
     /// @inheritdoc IPluginSetup
     function prepareInstallation(address _dao, bytes calldata _installParameters)
@@ -78,7 +68,7 @@ contract LockToVotePluginSetup is PluginSetup {
         address[] memory helpers = new address[](3);
 
         // Lock Manager
-        helpers[0] = address(new LockManagerERC20(LockManagerSettings(PluginMode.Voting), installationParams.token));
+        helpers[0] = address(new LockManagerERC20(installationParams.token));
 
         if (!address(installationParams.token).isContract()) {
             revert TokenNotContract(address(installationParams.token));
@@ -159,7 +149,7 @@ contract LockToVotePluginSetup is PluginSetup {
 
         // createProposalCaller (possibly ANY_ADDR) can create proposals on the plugin
         permissions[5] = PermissionLib.MultiTargetPermission({
-            operation: PermissionLib.Operation.Grant,
+            operation: PermissionLib.Operation.GrantWithCondition,
             where: plugin,
             who: installationParams.createProposalCaller,
             condition: minVotingPowerCondition,

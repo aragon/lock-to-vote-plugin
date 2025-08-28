@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-pragma solidity ^0.8.13;
+pragma solidity 0.8.28;
 
 import {ILockManager} from "./interfaces/ILockManager.sol";
 import {LockToGovernBase} from "./base/LockToGovernBase.sol";
@@ -9,14 +9,12 @@ import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol"
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
-import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {MajorityVotingBase} from "./base/MajorityVotingBase.sol";
 import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
+import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
 
 contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
-    using SafeCastUpgradeable for uint256;
-
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
     bytes4 internal constant LOCK_TO_VOTE_INTERFACE_ID =
         this.minProposerVotingPower.selector ^ this.createProposal.selector;
@@ -27,9 +25,33 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @notice The ID of the permission required to call `vote` and `clearVote`.
     bytes32 public constant LOCK_MANAGER_PERMISSION_ID = keccak256("LOCK_MANAGER_PERMISSION");
 
-    event VoteCleared(uint256 proposalId, address voter);
+    /// @notice Thrown when a user's vote has been cleared.
+    /// @param proposalId the ID of the proposal where the vote was cleared.
+    /// @param voter The address of the token holder whose vote was cleared.
+    event VoteCleared(uint256 indexed proposalId, address indexed voter);
 
+    /// @notice Thrown when attempting to call clearVote() from an address other than the LockManager.
+    /// @param caller The address calling clearVote().
+    error VoteRemovalUnauthorized(address caller);
+
+    /// @notice Thrown when attempting to remove a vote, because it is still active or because the plugin mode doesn't allow it.
+    /// @param proposalId The ID of the proposal.
+    /// @param voter The address of the voter.
     error VoteRemovalForbidden(uint256 proposalId, address voter);
+
+    /// @notice Thrown when attempting to create a proposal with a non-empty endDate, which is not supported.
+    ///         End date is kept for compatibility with IProposal.
+    error EndDateMustBeZero();
+
+    /// @notice Thrown when atempting to set the plugin or the LockManager as execution targets
+    error InvalidTargetAddress();
+
+    /// @notice Thrown when attempting to make the plugin operate in DelegateCall mode
+    error DelegateCallNotAllowed();
+
+    /// @notice Thrown when a proposal action is targeting address(0)
+    /// @param actionIdx The index of the action
+    error EmptyActionTarget(uint256 actionIdx);
 
     /// @notice Initializes the component.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
@@ -73,6 +95,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     }
 
     /// @inheritdoc IProposal
+    /// @param _endDate UNUSED: The parameter is kept for compatibility with IProposal but its value is computed internally. It should be set to 0.
     /// @dev Requires the `CREATE_PROPOSAL_PERMISSION_ID` permission.
     function createProposal(
         bytes calldata _metadata,
@@ -80,7 +103,12 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         uint64 _startDate,
         uint64 _endDate,
         bytes memory _data
-    ) external auth(CREATE_PROPOSAL_PERMISSION_ID) returns (uint256 proposalId) {
+    )
+        external
+        /// @dev `minProposerVotingPower` is checked at the the permission condition behind auth(CREATE_PROPOSAL_PERMISSION_ID)
+        auth(CREATE_PROPOSAL_PERMISSION_ID)
+        returns (uint256 proposalId)
+    {
         uint256 _allowFailureMap;
 
         if (_data.length != 0) {
@@ -91,9 +119,8 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
             revert NoVotingPower();
         }
 
-        /// @dev `minProposerVotingPower` is checked at the the permission condition behind auth(CREATE_PROPOSAL_PERMISSION_ID)
-
-        (_startDate, _endDate) = _validateProposalDates(_startDate, _endDate);
+        if (_endDate != 0) revert EndDateMustBeZero();
+        (_startDate, _endDate) = _validateProposalDates(_startDate);
 
         proposalId = _createProposalId(keccak256(abi.encode(_actions, _metadata)));
 
@@ -118,16 +145,15 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
             proposal_.allowFailureMap = _allowFailureMap;
         }
 
-        for (uint256 i; i < _actions.length;) {
+        for (uint256 i; i < _actions.length; i++) {
+            if (_actions[i].to == address(0)) revert EmptyActionTarget(i);
+
             proposal_.actions.push(_actions[i]);
-            unchecked {
-                ++i;
-            }
         }
 
         emit ProposalCreated(proposalId, _msgSender(), _startDate, _endDate, _metadata, _actions, _allowFailureMap);
 
-        lockManager.proposalCreated(proposalId);
+        lockManager.proposalCreated(proposalId, _msgSender());
     }
 
     /// @inheritdoc ILockToVote
@@ -147,6 +173,13 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         override
         auth(LOCK_MANAGER_PERMISSION_ID)
     {
+        /// @dev The DAO can disable auth(LOCK_MANAGER_PERMISSION_ID) from above but not define an arbitrary address other than LockManager
+        if (msg.sender != address(lockManager)) {
+            revert VoteCallForbidden(address(lockManager));
+        } else if (!_proposalExists(_proposalId)) {
+            revert NonexistentProposal(_proposalId);
+        }
+
         Proposal storage proposal_ = proposals[_proposalId];
 
         if (!_canVote(proposal_, _voter, _voteOption, _newVotingPower)) {
@@ -201,14 +234,15 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         }
 
         emit VoteCast(_proposalId, _voter, _voteOption, _newVotingPower);
-
-        if (proposal_.parameters.votingMode == VotingMode.EarlyExecution) {
-            _attemptEarlyExecution(_proposalId, _msgSender());
-        }
     }
 
     /// @inheritdoc ILockToVote
-    function clearVote(uint256 _proposalId, address _voter) external auth(LOCK_MANAGER_PERMISSION_ID) {
+    function clearVote(uint256 _proposalId, address _voter) external {
+        /// @dev The LockManager can always call clearVote(), regardless of LOCK_MANAGER_PERMISSION_ID
+        if (msg.sender != address(lockManager)) {
+            revert VoteRemovalUnauthorized(msg.sender);
+        }
+
         Proposal storage proposal_ = proposals[_proposalId];
         if (!_isProposalOpen(proposal_)) {
             revert VoteRemovalForbidden(_proposalId, _voter);
@@ -230,6 +264,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
             proposal_.tally.abstain -= proposal_.votes[_voter].votingPower;
         }
         proposal_.votes[_voter].votingPower = 0;
+        proposal_.votes[_voter].voteOption = VoteOption.None;
 
         emit VoteCleared(_proposalId, _voter);
     }
@@ -238,6 +273,12 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     function isProposalOpen(uint256 _proposalId) external view returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
         return _isProposalOpen(proposal_);
+    }
+
+    /// @inheritdoc ILockToGovernBase
+    function isProposalEnded(uint256 _proposalId) external view returns (bool) {
+        Proposal storage proposal_ = proposals[_proposalId];
+        return _isProposalEnded(proposal_);
     }
 
     /// @inheritdoc MajorityVotingBase
@@ -257,6 +298,17 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
 
     // Internal helpers
 
+    /// @inheritdoc PluginUUPSUpgradeable
+    function _setTargetConfig(TargetConfig memory _targetConfig) internal virtual override {
+        if (_targetConfig.target == address(this) || _targetConfig.target == address(lockManager)) {
+            revert InvalidTargetAddress();
+        } else if (_targetConfig.operation == IPlugin.Operation.DelegateCall) {
+            revert DelegateCallNotAllowed();
+        }
+
+        super._setTargetConfig(_targetConfig);
+    }
+
     function _canVote(Proposal storage proposal_, address _voter, VoteOption _voteOption, uint256 _newVotingPower)
         internal
         view
@@ -270,7 +322,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         } else if (_voteOption == VoteOption.None) {
             return false;
         }
-        // Standard voting + early execution
+        // Standard voting
         else if (proposal_.parameters.votingMode != VotingMode.VoteReplacement) {
             // Lowering the existing voting power (or the same) is not allowed
             if (_newVotingPower <= _currentVotingPower) {
@@ -299,21 +351,11 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         return true;
     }
 
-    function _attemptEarlyExecution(uint256 _proposalId, address _voteCaller) internal {
-        if (!_canExecute(_proposalId)) {
-            return;
-        } else if (!dao().hasPermission(address(this), _voteCaller, EXECUTE_PROPOSAL_PERMISSION_ID, _msgData())) {
-            return;
-        }
-
-        _execute(_proposalId);
-    }
-
     function _execute(uint256 _proposalId) internal override {
         super._execute(_proposalId);
 
         // Notify the LockManager to stop tracking this proposal ID
-        lockManager.proposalEnded(_proposalId);
+        lockManager.proposalSettled(_proposalId);
     }
 
     /// @notice This empty reserved space is put in place to allow future versions to add
