@@ -234,7 +234,7 @@ contract PluginSetupForkTest is ForkTestBase {
                     minParticipationRatio: 100_000, // 10%
                     minApprovalRatio: 200_000, // 20%
                     proposalDuration: 1 hours,
-                    minProposerVotingPower: 10 ether // MIN VOTING POWER
+                    minProposerVotingPower: 7.5 ether // MIN VOTING POWER
                 }),
                 pluginMetadata: "ipfs://...",
                 createProposalCaller: ANY_ADDR, // anyone with minProposalVotingPower can propose
@@ -280,6 +280,11 @@ contract PluginSetupForkTest is ForkTestBase {
         token.mint(alice, 15 ether);
 
         vm.prank(alice);
+        token.approve(address(lockManager), 15 ether);
+        vm.prank(alice);
+        lockManager.lock();
+
+        vm.prank(alice);
         uint256 proposalId = plugin.createProposal("ipfs://1234", actions, 0, 0, bytes(""));
 
         // It Should revert otherwise
@@ -304,9 +309,7 @@ contract PluginSetupForkTest is ForkTestBase {
 
         // Make the proposal pass
         vm.prank(alice);
-        token.approve(address(lockManager), 15 ether);
-        vm.prank(alice);
-        lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
         vm.warp(block.timestamp + 1 hours);
 
@@ -379,9 +382,19 @@ contract PluginSetupForkTest is ForkTestBase {
         token.mint(bob, 12 ether);
 
         vm.prank(alice);
+        token.approve(address(lockManager), 15 ether);
+        vm.prank(alice);
+        lockManager.lock();
+
+        vm.prank(alice);
         uint256 proposalId = plugin.createProposal("ipfs://1234", actions, 0, 0, bytes(""));
 
         // It Should revert otherwise
+        vm.prank(bob);
+        token.approve(address(lockManager), 12 ether);
+        vm.prank(bob);
+        lockManager.lock();
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 DaoUnauthorized.selector, address(dao), address(pluginAddr), bob, plugin.CREATE_PROPOSAL_PERMISSION_ID()
@@ -403,9 +416,7 @@ contract PluginSetupForkTest is ForkTestBase {
 
         // Make the proposal pass
         vm.prank(alice);
-        token.approve(address(lockManager), 15 ether);
-        vm.prank(alice);
-        lockManager.lockAndVote(proposalId, IMajorityVoting.VoteOption.Yes);
+        lockManager.vote(proposalId, IMajorityVoting.VoteOption.Yes);
 
         vm.warp(block.timestamp + 1 hours);
 

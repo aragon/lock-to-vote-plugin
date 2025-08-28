@@ -60,11 +60,11 @@ lockManager.lockAndVote(proposalId, VoteOption.Yes);
 // Or lock first, vote later
 token.approve(address(lockManager), 0.5 ether);
 lockManager.lock();
-lockManager.vote(proposalId);
+lockManager.vote(proposalId, VoteOption.Abstain);
 
 // Deposit more tokens and vote with the new balance
 token.approve(address(lockManager), 5 ether);
-lockManager.lockAndVote(proposalId);
+lockManager.lockAndVote(proposalId, VoteOption.No);
 
 // Unlock your tokens (if the plugin voting mode allows it)
 lockManager.unlock();
