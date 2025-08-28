@@ -10,7 +10,7 @@ See the [ERC20 token checklist](#erc20-token-checklist) below.
 
 ## Audit
 
-The source code of LockToVote has been [audited by Spearbit](./audit/report-cantinacode-aragon-0729.pdf) between July and August 2025.
+The [source code of LockToVote](https://github.com/aragon/lock-to-vote-plugin/releases/tag/spearbit-review-end-2508) has been [audited by Spearbit](./audit/report-cantinacode-aragon-0729.pdf) between July and August 2025.
 
 ## Overview
 
