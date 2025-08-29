@@ -158,7 +158,7 @@ contract LockToVotePluginSetup is PluginSetup {
             permissionId: impl.CREATE_PROPOSAL_PERMISSION_ID()
         });
 
-        // The LockManager can vote and clearVote on the plugin
+        // The LockManager can call vote() on the plugin
         permissions[6] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Grant,
             where: plugin,

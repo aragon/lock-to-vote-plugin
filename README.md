@@ -66,7 +66,7 @@ lockManager.vote(proposalId, VoteOption.Abstain);
 token.approve(address(lockManager), 5 ether);
 lockManager.lockAndVote(proposalId, VoteOption.No);
 
-// Unlock your tokens (if the plugin voting mode allows it)
+// Unlock your tokens (if the proposal voting modes allow it)
 lockManager.unlock();
 ```
 
@@ -83,43 +83,57 @@ Otherwise, the `unlock()` will revert until the proposals with votes have ended.
 
 To get started, ensure that [Foundry](https://getfoundry.sh/) and [Make](https://www.gnu.org/software/make/) are installed on your computer.
 
+Next, customize the values of `.env`.
+
+### Environment file
+
+Copy `.env.example` into `.env`:
+
+The env.example file contains descriptions for all the initial settings. You don't need all of these right away but should review prior to fork tests and deployments
+
 ### Using the Makefile
 
 The `Makefile` is the target launcher of the project. It's the recommended way to work with it. It manages the env variables of common tasks and executes only the steps that need to be run.
+
+Run `make` to see all the available targets:
 
 ```
 $ make
 Available targets:
 
-- make init       Check the dependencies and prompt to install if needed
-- make clean      Clean the build artifacts
+- make help               Display the available targets
 
-- make test            Run unit tests, locally
-- make test-coverage   Generate an HTML coverage report under ./report
+- make init               Check the dependencies and prompt to install if needed
+- make clean              Clean the build artifacts
 
-- make sync-tests       Scaffold or sync tree files into solidity tests
-- make check-tests      Checks if solidity files are out of sync
-- make markdown-tests   Generates a markdown file with the test definitions rendered as a tree
+Testing lifecycle:
 
-- make pre-deploy-testnet        Simulate a deployment to the testnet
-- make pre-deploy-prodnet        Simulate a deployment to the production network
+- make test               Run unit tests, locally
+- make test-fork          Run fork tests, using RPC_URL
+- make test-coverage      Generate an HTML coverage report under ./report
 
-- make deploy-testnet        Deploy to the testnet and verify
-- make deploy-prodnet        Deploy to the production network and verify
+- make sync-tests         Scaffold or sync test definitions into solidity tests
+- make check-tests        Checks if the solidity test files are out of sync
+- make test-tree          Generates a markdown file with the test definitions
 
-- make refund   Refund the remaining balance left on the deployment account
+Deployment targets:
+
+- make predeploy          Simulate a protocol deployment
+- make deploy             Deploy the protocol, verify the source code and write to ./artifacts
+- make resume             Retry pending deployment transactions, verify the code and write to ./artifacts
+
+Verification:
+
+- make verify-etherscan   Verify the last deployment on an Etherscan (compatible) explorer
+- make verify-blockscout  Verify the last deployment on BlockScout
+- make verify-sourcify    Verify the last deployment on Sourcify
+
+- make refund             Refund the remaining balance left on the deployment account
 ```
 
 Run `make init`:
 - It ensures that Foundry is installed
 - It runs a first compilation of the project
-- It copies `.env.example` into `.env`
-
-Next, customize the values of `.env`.
-
-### Understanding `.env.example`
-
-The env.example file contains descriptions for all the initial settings. You don't need all of these right away but should review prior to fork tests and deployments
 
 ### Deployment Checklist
 
