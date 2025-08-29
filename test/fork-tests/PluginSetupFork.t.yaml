@@ -1,0 +1,23 @@
+PluginSetupForkTest:
+  - given: The deployer can install plugins
+    and:
+      - when: Preparing and applying an installation
+        then:
+          - it: Successfully sets the appropriate permissions
+      - when: Installing without a minimum proposer voting power
+        then:
+          - it: Anyone with the permission can create proposals
+          - it: Should revert when creating a proposal without permission
+          - it: Anyone with the permission can execute proposals
+      - given: Installing with a minimum proposer voting power
+        then:
+          - when: The proposer is ANY_ADDR
+            then:
+              - it: Anyone with enough voting power can create proposals
+              - it: Should revert otherwise
+              - it: Anyone with the permission can execute proposals
+          - when: The proposer is not ANY_ADDR
+            then:
+              - it: Anyone with the permission and enough voting power can create proposals
+              - it: Should revert otherwise
+              - it: Anyone with the permission can execute proposals

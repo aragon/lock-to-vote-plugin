@@ -37,4 +37,6 @@ jobs:
       - name: Run Forge tests
         run: |
           forge test -vvv
+        env:
+          RPC_URL: https://sepolia.drpc.org
         id: test
