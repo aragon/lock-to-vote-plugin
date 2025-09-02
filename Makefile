@@ -246,7 +246,7 @@ refund: ## Refund the remaining balance left on the deployment account
 	fi
 	@BALANCE=$(shell cast balance $(DEPLOYMENT_ADDRESS) --rpc-url $(RPC_URL)) && \
 		GAS_PRICE=$(shell cast gas-price --rpc-url $(RPC_URL)) && \
-		REMAINING=$$(echo "$$BALANCE - $$GAS_PRICE * 21000" | bc) && \
+		REMAINING=$$(echo "$$BALANCE - $$GAS_PRICE * 50000" | bc) && \
 		\
 		ENOUGH_BALANCE=$$(echo "$$REMAINING > 0" | bc) && \
 		if [ "$$ENOUGH_BALANCE" = "0" ]; then \

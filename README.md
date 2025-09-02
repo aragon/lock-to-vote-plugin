@@ -137,26 +137,32 @@ Run `make init`:
 
 ### Deployment Checklist
 
-- [ ] I have cloned the official repository on my computer and I have checked out the corresponding branch
+- [ ] I have cloned the official repository on my computer and I have checked out the `main` branch
 - [ ] I am using the latest official docker engine, running a Debian Linux (stable) image
   - [ ] I have run `docker run --rm -it -v .:/deployment debian:bookworm-slim`
-  - [ ] I have run `apt update && apt install -y make curl git vim neovim bc`
-  - [ ] I have run `curl -L https://foundry.paradigm.xyz | bash`
-  - [ ] I have run `source /root/.bashrc && foundryup`
+  - [ ] I have run `apt update && apt install -y make curl git vim neovim bc jq`
+  - On **standard EVM networks**:
+    - [ ] I have run `curl -L https://foundry.paradigm.xyz | bash`
+    - [ ] I have run `source /root/.bashrc`
+    - [ ] I have run `foundryup`
+  - On **ZkSync networks**:
+    - [ ] I have run `curl -L https://raw.githubusercontent.com/matter-labs/foundry-zksync/main/install-foundry-zksync | bash`
+    - [ ] I have run `source /root/.bashrc`
+    - [ ] I have run `foundryup-zksync`
   - [ ] I have run `cd /deployment`
+  - [ ] I have run `cp .env.example .env`
   - [ ] I have run `make init`
-  - [ ] I have printed the contents of `.env` on the screen
 - [ ] I am opening an editor on the `/deployment` folder, within the Docker container
 - [ ] The `.env` file contains the correct parameters for the deployment
-  - [ ] I have created a brand new burner wallet with `cast wallet new` and copied the private key to `DEPLOYMENT_PRIVATE_KEY` within `.env`
-  - [ ] I have reviewed the target network and RPC URL
-  - The plugin ENS subdomain
-    - [ ] Contains a meaningful and unique value
-  - The given OSx addresses:
-    - [ ] Exist on the target network
-    - [ ] Contain the latest stable official version of the OSx DAO implementation, the Plugin Setup Processor and the Plugin Repo Factory
-    - [ ] I have verified the values on https://www.npmjs.com/package/@aragon/osx-commons-configs?activeTab=code > `/@aragon/osx-commons-configs/dist/deployments/json/`
-- [ ] All the unit tests pass (`make test`)
+  - [ ] I have created a new burner wallet with `cast wallet new` and copied the private key to `DEPLOYMENT_PRIVATE_KEY` within `.env`
+  - [ ] I have set the correct `RPC_URL` for the network
+  - [ ] I have set the correct `CHAIN_ID` for the network
+  - [ ] The value of `NETWORK_NAME` is listed within `constants.mk`, at the appropriate place
+  - [ ] I have set `ETHERSCAN_API_KEY` or `BLOCKSCOUT_HOST_NAME` (when relevant to the target network)
+  - [ ] (TO DO: Add a step to check your own variables here)
+  - [ ] I have printed the contents of `.env` to the screen
+  - [ ] I am the only person of the ceremony that will operate the deployment wallet
+- [ ] All the tests run clean (`make test`)
 - [ ] My deployment wallet is a newly created account, ready for safe production deploys.
 - My computer:
   - [ ] Is running in a safe physical location and a trusted network

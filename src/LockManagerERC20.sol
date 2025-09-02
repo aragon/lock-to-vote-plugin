@@ -17,7 +17,7 @@ contract LockManagerERC20 is ILockManager, LockManagerBase {
     IERC20 private immutable erc20Token;
 
     /// @param _token The address of the token contract that users can lock
-    constructor(IERC20 _token) LockManagerBase() {
+    constructor(IERC20 _token) {
         erc20Token = _token;
     }
 
