@@ -1,0 +1,20 @@
+{
+  "lib/ens-contracts": {
+    "rev": "a6139f0381ce6bcc584cbce36933c5ea95837212"
+  },
+  "lib/forge-std": {
+    "rev": "1eea5bae12ae557d589f9f0f0edae2faa47cb262"
+  },
+  "lib/openzeppelin-contracts": {
+    "rev": "dc44c9f1a4c3b10af99492eed84f83ed244203f6"
+  },
+  "lib/openzeppelin-contracts-upgradeable": {
+    "rev": "2d081f24cac1a867f6f73d512f2022e1fa987854"
+  },
+  "lib/osx": {
+    "rev": "e0ba7b60b08fa1665ecac92dc12ea89e4245e7dc"
+  },
+  "lib/osx-commons": {
+    "rev": "c66603f2db78333d85d6fc5751f4ccc73f704aef"
+  }
+}

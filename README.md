@@ -157,26 +157,20 @@ Run `make init`:
     - [ ] Contain the latest stable official version of the OSx DAO implementation, the Plugin Setup Processor and the Plugin Repo Factory
     - [ ] I have verified the values on https://www.npmjs.com/package/@aragon/osx-commons-configs?activeTab=code > `/@aragon/osx-commons-configs/dist/deployments/json/`
 - [ ] All the unit tests pass (`make test`)
-- **Target test network**
-  - [ ] I have run a preview deployment on the testnet
-    - `make pre-deploy-testnet`
-  - [ ] I have deployed my contracts successfully to the target testnet
-    - `make deploy-testnet`
-  - [ ] I have tested that these contracts work successfully
 - [ ] My deployment wallet is a newly created account, ready for safe production deploys.
 - My computer:
   - [ ] Is running in a safe physical location and a trusted network
   - [ ] It exposes no services or ports
   - [ ] The wifi or wired network used does does not have open ports to a WAN
 - [ ] I have previewed my deploy without any errors
-  - `make pre-deploy-prodnet`
+  - `make predeploy`
 - [ ] The deployment wallet has sufficient native token for gas
   - At least, 15% more than the estimated simulation
 - [ ] Unit tests still run clean
 - [ ] I have run `git status` and it reports no local changes
 - [ ] The current local git branch (`main`) corresponds to its counterpart on `origin`
   - [ ] I confirm that the rest of members of the ceremony pulled the last commit of my branch and reported the same commit hash as my output for `git log -n 1`
-- [ ] I have initiated the production deployment with `make deploy-prodnet`
+- [ ] I have initiated the production deployment with `make deploy`
 
 ### Post deployment checklist
 
@@ -184,7 +178,7 @@ Run `make init`:
 - [ ] The deployed factory was deployed by the deployment address
 - [ ] The reported contracts have been created created by the newly deployed factory
 - [ ] The smart contracts are correctly verified on Etherscan or the corresponding block explorer
-- [ ] The output of the latest `deployment-*.log` file corresponds to the console output
+- [ ] The output of the latest `logs/deployment-*.log` file corresponds to the console output
 - [ ] I have transferred the remaining funds of the deployment wallet to the address that originally funded it
   - `make refund`
 
