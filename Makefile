@@ -41,7 +41,7 @@ endif
 # Conditional assignments
 
 ifeq ($(VERIFIER), etherscan)
-	# VERIFIER_URL := https://api.etherscan.io/api
+	VERIFIER_URL := https://api.etherscan.io/api
 	VERIFIER_API_KEY := $(ETHERSCAN_API_KEY)
 	VERIFIER_PARAMS := --verifier $(VERIFIER) --etherscan-api-key $(ETHERSCAN_API_KEY)
 endif
@@ -284,5 +284,5 @@ clean-nonce:
 	cast send --private-key $(DEPLOYMENT_PRIVATE_KEY) \
  			--rpc-url $(RPC_URL) \
  			--value 0 \
-      --nonce $(nonce) \
+            --nonce $(nonce) \
  			$(DEPLOYMENT_ADDRESS)
