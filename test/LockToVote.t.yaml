@@ -32,7 +32,6 @@ LockToVoteTest:
         and:
           - it: should revert if the new target is the pugin
           - it: should revert if the new target is the LockManager
-          - it: should revert if the new operation is delegatecall
 
   # ERC165
   - when: calling supportsInterface

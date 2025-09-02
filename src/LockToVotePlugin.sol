@@ -46,8 +46,8 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @notice Thrown when atempting to set the plugin or the LockManager as execution targets
     error InvalidTargetAddress();
 
-    /// @notice Thrown when attempting to make the plugin operate in DelegateCall mode
-    error DelegateCallNotAllowed();
+    /// @notice Thrown when attempting to target LockToVote or LockManager while delegate call is active
+    error ForbiddenTargetOnDelegateCall();
 
     /// @notice Thrown when a proposal action is targeting address(0)
     /// @param actionIdx The index of the action
@@ -146,7 +146,14 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         }
 
         for (uint256 i; i < _actions.length; i++) {
-            if (_actions[i].to == address(0)) revert EmptyActionTarget(i);
+            if (_actions[i].to == address(0)) {
+                revert EmptyActionTarget(i);
+            } else if (
+                proposal_.targetConfig.operation == IPlugin.Operation.DelegateCall
+                    && (_actions[i].to == address(this) || _actions[i].to == address(lockManager))
+            ) {
+                revert ForbiddenTargetOnDelegateCall();
+            }
 
             proposal_.actions.push(_actions[i]);
         }
@@ -302,8 +309,6 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     function _setTargetConfig(TargetConfig memory _targetConfig) internal virtual override {
         if (_targetConfig.target == address(this) || _targetConfig.target == address(lockManager)) {
             revert InvalidTargetAddress();
-        } else if (_targetConfig.operation == IPlugin.Operation.DelegateCall) {
-            revert DelegateCallNotAllowed();
         }
 
         super._setTargetConfig(_targetConfig);

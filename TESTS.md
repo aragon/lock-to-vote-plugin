@@ -147,8 +147,7 @@ LockToVoteTest
 ├── When calling setTargetConfig
 │   └── Given the caller has no permission to call setTargetConfig
 │       ├── It should revert if the new target is the pugin
-│       ├── It should revert if the new target is the LockManager
-│       └── It should revert if the new operation is delegatecall
+│       └── It should revert if the new target is the LockManager
 ├── When calling supportsInterface
 │   ├── It does not support the empty interface
 │   ├── It supports IERC165Upgradeable
@@ -444,4 +443,3 @@ PluginSetupForkTest
             ├── It Should revert otherwise
             └── It Anyone with the permission can execute proposals
 ```
-
