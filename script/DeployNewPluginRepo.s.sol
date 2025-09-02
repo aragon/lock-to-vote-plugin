@@ -89,7 +89,7 @@ contract DeployNewPluginRepoScript is Script {
 
         console.log("Implementation");
         console.log(
-            "- LockToVote plugin:                 ", LockToVotePluginSetup(lockToVotePluginSetup).implementation()
+            "- LockToVote plugin:                ", LockToVotePluginSetup(lockToVotePluginSetup).implementation()
         );
         console.log("");
     }
