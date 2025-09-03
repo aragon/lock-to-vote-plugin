@@ -101,8 +101,9 @@ help: ## Display the available targets
 init: ## Check the dependencies and prompt to install if needed
 	@which forge > /dev/null || curl -L https://foundry.paradigm.xyz | bash
 	@which lcov > /dev/null || echo "Note: lcov can be installed by running 'sudo apt install lcov'"
-	@forge build
+	@git submodule init && git submodule update
 	@make lib
+	@forge build --sizes
 
 .PHONY: clean
 clean: ## Clean the build artifacts
