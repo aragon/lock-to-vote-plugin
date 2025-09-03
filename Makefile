@@ -102,12 +102,28 @@ init: ## Check the dependencies and prompt to install if needed
 	@which forge > /dev/null || curl -L https://foundry.paradigm.xyz | bash
 	@which lcov > /dev/null || echo "Note: lcov can be installed by running 'sudo apt install lcov'"
 	@forge build
+	@make lib
 
 .PHONY: clean
 clean: ## Clean the build artifacts
 	forge clean
 	rm -f $(TEST_TREE_FILES)
 	rm -Rf ./out/* lcov.info* ./report/*
+	rm -Rf src/lib ; mkdir src/lib
+
+# Adapted dependencies under /src/lib
+
+lib: src/lib/PluginUUPSUpgradeable.sol
+
+# Creating a local copy of PluginUUPSUpgradeable.sol with createProposal() being public
+# This file will be built transparently
+src/lib/PluginUUPSUpgradeable.sol:
+	mkdir -p $$(dirname $(@))
+	cat lib/osx-commons/contracts/src/plugin/PluginUUPSUpgradeable.sol \
+		| sed "s/) public auth(SET_TARGET_CONFIG_PERMISSION_ID) {/) public virtual auth(SET_TARGET_CONFIG_PERMISSION_ID) {/g" \
+		| sed "s/} from \"\.\.\//} from \"@aragon\/osx-commons-contracts\/src\//g" \
+		| sed "s/} from \"\.\//} from \"@aragon\/osx-commons-contracts\/src\/plugin\//g" \
+		> $(@)
 
 ## Testing lifecycle:
 
@@ -115,14 +131,14 @@ clean: ## Clean the build artifacts
 test: export ETHERSCAN_API_KEY=
 
 .PHONY: test
-test: ## Run unit tests, locally
+test: lib ## Run unit tests, locally
 	forge test $(VERBOSITY) $(FORGE_EXTRA_PARAMS) --no-match-path ./test/fork-tests/*.sol
 
 .PHONY: test-fork
-test-fork: ## Run fork tests, using RPC_URL
+test-fork: lib ## Run fork tests, using RPC_URL
 	forge test $(VERBOSITY) $(FORGE_EXTRA_PARAMS) --match-path ./test/fork-tests/*.sol
 
-test-coverage: report/index.html ## Generate an HTML coverage report under ./report
+test-coverage: lib report/index.html ## Generate an HTML coverage report under ./report
 	@which open > /dev/null && open report/index.html || true
 	@which xdg-open > /dev/null && xdg-open report/index.html || true
 
@@ -191,7 +207,7 @@ $(TEST_TREE_FILES): $(TEST_SOURCE_FILES)
 predeploy: export SIMULATION=true
 
 .PHONY: predeploy
-predeploy: ## Simulate a plugin deployment
+predeploy: lib ## Simulate a plugin deployment
 	@echo "Simulating the deployment"
 	forge script $(DEPLOYMENT_SCRIPT_PARAM) \
 		--rpc-url $(RPC_URL) \
@@ -199,7 +215,7 @@ predeploy: ## Simulate a plugin deployment
 		$(VERBOSITY)
 
 .PHONY: deploy
-deploy: test ## Deploy the plugin, verify the source code and write to ./artifacts
+deploy: lib test ## Deploy the plugin, verify the source code and write to ./artifacts
 	@echo "Starting the deployment"
 	@mkdir -p $(LOGS_FOLDER) $(ARTIFACTS_FOLDER)
 	forge script $(DEPLOYMENT_SCRIPT_PARAM) \
@@ -214,7 +230,7 @@ deploy: test ## Deploy the plugin, verify the source code and write to ./artifac
 		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
 
 .PHONY: resume
-resume: test ## Retry pending deployment transactions, verify the code and write to ./artifacts
+resume: lib test ## Retry pending deployment transactions, verify the code and write to ./artifacts
 	@echo "Retrying the deployment"
 	@mkdir -p $(LOGS_FOLDER) $(ARTIFACTS_FOLDER)
 	forge script $(DEPLOYMENT_SCRIPT_PARAM) \
