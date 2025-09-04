@@ -67,6 +67,14 @@ ifneq ($(filter $(VERIFIER), routescan-mainnet routescan-testnet),)
 	VERIFIER_PARAMS = --verifier $(VERIFIER) --verifier-url '$(VERIFIER_URL)' --etherscan-api-key $(VERIFIER_API_KEY)
 endif
 
+# ZkSync flag for Foundry
+ifeq ($(CHAIN_ID),300)
+    FORGE_EXTRA_PARAMS := --zksync
+endif
+ifeq ($(CHAIN_ID),324)
+    FORGE_EXTRA_PARAMS := --zksync
+endif
+
 # When invoked like `make deploy slow=true`
 ifeq ($(slow),true)
 	SLOW_FLAG := --slow
@@ -108,11 +116,11 @@ test: export ETHERSCAN_API_KEY=
 
 .PHONY: test
 test: ## Run unit tests, locally
-	forge test $(VERBOSITY) --no-match-path ./test/fork-tests/*.sol
+	forge test $(VERBOSITY) $(FORGE_EXTRA_PARAMS) --no-match-path ./test/fork-tests/*.sol
 
 .PHONY: test-fork
 test-fork: ## Run fork tests, using RPC_URL
-	forge test $(VERBOSITY) --match-path ./test/fork-tests/*.sol
+	forge test $(VERBOSITY) $(FORGE_EXTRA_PARAMS) --match-path ./test/fork-tests/*.sol
 
 test-coverage: report/index.html ## Generate an HTML coverage report under ./report
 	@which open > /dev/null && open report/index.html || true
@@ -122,7 +130,7 @@ report/index.html: lcov.info
 	genhtml $^ -o report
 
 lcov.info: $(TEST_COVERAGE_SRC_FILES)
-	forge coverage --report lcov
+	forge coverage $(FORGE_EXTRA_PARAMS) --report lcov
 
 ##
 
@@ -181,9 +189,6 @@ $(TEST_TREE_FILES): $(TEST_SOURCE_FILES)
 ## Deployment targets:
 
 predeploy: export SIMULATION=true
-predeploy-zk: export FORGE_EXTRA_PARAMS=--zksync
-deploy-zk: export FORGE_EXTRA_PARAMS=--zksync
-resume-zk: export FORGE_EXTRA_PARAMS=--zksync
 
 .PHONY: predeploy
 predeploy: ## Simulate a plugin deployment
@@ -223,12 +228,6 @@ resume: test ## Retry pending deployment transactions, verify the code and write
 		$(VERIFIER_PARAMS) \
 		$(FORGE_EXTRA_PARAMS) \
 		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
-
-##
-
-predeploy-zk: predeploy ## Simulate a ZkSync deployment
-deploy-zk: deploy ## Deploy the plugin to a ZkSync network
-resume-zk: resume ## Retry pending deployment transactions on a ZkSync network
 
 ## Verification:
 
