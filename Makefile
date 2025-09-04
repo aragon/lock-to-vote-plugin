@@ -181,16 +181,20 @@ $(TEST_TREE_FILES): $(TEST_SOURCE_FILES)
 ## Deployment targets:
 
 predeploy: export SIMULATION=true
+predeploy-zk: export FORGE_EXTRA_PARAMS=--zksync
+deploy-zk: export FORGE_EXTRA_PARAMS=--zksync
+resume-zk: export FORGE_EXTRA_PARAMS=--zksync
 
 .PHONY: predeploy
-predeploy: ## Simulate a protocol deployment
+predeploy: ## Simulate a plugin deployment
 	@echo "Simulating the deployment"
 	forge script $(DEPLOYMENT_SCRIPT_PARAM) \
 		--rpc-url $(RPC_URL) \
+		$(FORGE_EXTRA_PARAMS) \
 		$(VERBOSITY)
 
 .PHONY: deploy
-deploy: test ## Deploy the protocol, verify the source code and write to ./artifacts
+deploy: test ## Deploy the plugin, verify the source code and write to ./artifacts
 	@echo "Starting the deployment"
 	@mkdir -p $(LOGS_FOLDER) $(ARTIFACTS_FOLDER)
 	forge script $(DEPLOYMENT_SCRIPT_PARAM) \
@@ -201,6 +205,7 @@ deploy: test ## Deploy the protocol, verify the source code and write to ./artif
 		$(SLOW_FLAG) \
 		--verify \
 		$(VERIFIER_PARAMS) \
+		$(FORGE_EXTRA_PARAMS) \
 		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
 
 .PHONY: resume
@@ -216,7 +221,14 @@ resume: test ## Retry pending deployment transactions, verify the code and write
 		--verify \
 		--resume \
 		$(VERIFIER_PARAMS) \
+		$(FORGE_EXTRA_PARAMS) \
 		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
+
+##
+
+predeploy-zk: predeploy ## Simulate a ZkSync deployment
+deploy-zk: deploy ## Deploy the plugin to a ZkSync network
+resume-zk: resume ## Retry pending deployment transactions on a ZkSync network
 
 ## Verification:
 

@@ -118,9 +118,13 @@ Testing lifecycle:
 
 Deployment targets:
 
-- make predeploy          Simulate a protocol deployment
-- make deploy             Deploy the protocol, verify the source code and write to ./artifacts
+- make predeploy          Simulate a plugin deployment
+- make deploy             Deploy the plugin, verify the source code and write to ./artifacts
 - make resume             Retry pending deployment transactions, verify the code and write to ./artifacts
+
+- make predeploy-zk       Simulate a ZkSync deployment
+- make deploy-zk          Deploy the plugin to a ZkSync network
+- make resume-zk          Retry pending deployment transactions on a ZkSync network
 
 Verification:
 
