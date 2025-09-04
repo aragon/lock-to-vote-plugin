@@ -186,8 +186,9 @@ predeploy: export SIMULATION=true
 predeploy: ## Simulate a protocol deployment
 	@echo "Simulating the deployment"
 	forge script $(DEPLOYMENT_SCRIPT_PARAM) \
+		--zksync \
 		--rpc-url $(RPC_URL) \
-		$(VERBOSITY)
+		-vvvv
 
 .PHONY: deploy
 deploy: test ## Deploy the protocol, verify the source code and write to ./artifacts

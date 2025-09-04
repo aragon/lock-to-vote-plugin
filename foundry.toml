@@ -5,8 +5,11 @@ libs = ["lib"]
 
 fs_permissions = [{ access = "write", path = "./artifacts" }]
 
-evm_version = "cancun"
+evm_version = "london"
 optimizer = true
 optimizer-runs = 200
 solc = "0.8.28"
 via_ir = false
+
+[profile.default.zksync]
+zksolc = "1.5.12"
