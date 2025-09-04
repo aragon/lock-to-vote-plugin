@@ -39,10 +39,6 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @param voter The address of the voter.
     error VoteRemovalForbidden(uint256 proposalId, address voter);
 
-    /// @notice Thrown when attempting to create a proposal with a non-empty endDate, which is not supported.
-    ///         End date is kept for compatibility with IProposal.
-    error EndDateMustBeZero();
-
     /// @notice Thrown when atempting to set the plugin or the LockManager as execution targets
     error InvalidTargetAddress();
 
@@ -116,7 +112,6 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
             revert NoVotingPower();
         }
 
-        if (_endDate != 0) revert EndDateMustBeZero();
         (_startDate, _endDate) = _validateProposalDates(_startDate);
 
         proposalId = _createProposalId(keccak256(abi.encode(_actions, _metadata)));
