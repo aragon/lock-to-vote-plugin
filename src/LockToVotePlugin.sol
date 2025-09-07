@@ -44,7 +44,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
 
     /// @notice Thrown when a proposal action is targeting address(0)
     /// @param actionIdx The index of the action
-    error EmptyActionTarget(uint256 actionIdx);
+    error InvalidActionTarget(uint256 actionIdx, address target);
 
     /// @notice Initializes the component.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
@@ -138,7 +138,9 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         }
 
         for (uint256 i; i < _actions.length; i++) {
-            if (_actions[i].to == address(0)) revert EmptyActionTarget(i);
+            if (_actions[i].to == address(0) || _actions[i].to == address(lockManager)) {
+                revert InvalidActionTarget(i, _actions[i].to);
+            }
 
             proposal_.actions.push(_actions[i]);
         }
