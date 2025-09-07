@@ -122,7 +122,8 @@ LockManagerERC20Test
         └── When Calling pruneProposals
             ├── It Should keep the open proposals on the konwnProposalIds list
             ├── It Should remove the ended proposals from the list
-            └── It Should remove the executed proposals from the list
+            ├── It Executed proposals aren't on the list
+            └── It Should clean up to the amount of proposals specified
 ```
 
 ```
@@ -166,6 +167,8 @@ LockToVoteTest
 │   │   │   ├── It should succeed when the creator has enough balance
 │   │   │   └── It should revert otherwise
 │   │   ├── Given invalid dates
+│   │   │   └── It should revert
+│   │   ├── Given invalid action targets
 │   │   │   └── It should revert
 │   │   └── Given duplicate proposal ID
 │   │       └── It should revert
@@ -443,3 +446,4 @@ PluginSetupForkTest
             ├── It Should revert otherwise
             └── It Anyone with the permission can execute proposals
 ```
+

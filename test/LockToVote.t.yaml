@@ -62,6 +62,9 @@ LockToVoteTest:
           - given: invalid dates
             then:
               - it: should revert
+          - given: invalid action targets
+            then:
+              - it: should revert
           - given: duplicate proposal ID
             then:
               - it: should revert
