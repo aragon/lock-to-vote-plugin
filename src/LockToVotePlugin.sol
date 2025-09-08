@@ -111,7 +111,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
             revert NoVotingPower();
         }
 
-        (_startDate, _endDate) = _validateProposalDates(_startDate);
+        (_startDate, _endDate) = _computeProposalDates(_startDate);
 
         proposalId = _createProposalId(keccak256(abi.encode(_actions, _metadata)));
 

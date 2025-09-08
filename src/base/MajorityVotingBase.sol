@@ -571,7 +571,7 @@ abstract contract MajorityVotingBase is
     ///     If 0, the current timestamp is used and the vote starts immediately.
     /// @return startDate The validated start date of the proposal.
     /// @return endDate The end date of the proposal.
-    function _validateProposalDates(uint64 _start) internal view virtual returns (uint64 startDate, uint64 endDate) {
+    function _computeProposalDates(uint64 _start) internal view virtual returns (uint64 startDate, uint64 endDate) {
         uint64 currentTimestamp = block.timestamp.toUint64();
 
         if (_start == 0) {
