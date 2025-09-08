@@ -41,8 +41,9 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @notice Thrown when atempting to set the plugin or the LockManager as execution targets
     error InvalidTargetAddress();
 
-    /// @notice Thrown when a proposal action is targeting address(0)
+    /// @notice Thrown when a proposal action is targeting address(0) or the LockManager
     /// @param actionIdx The index of the action
+    /// @param target The invalid address that was passed
     error InvalidActionTarget(uint256 actionIdx, address target);
 
     /// @notice Initializes the component.
