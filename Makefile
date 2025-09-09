@@ -41,7 +41,7 @@ endif
 # Conditional assignments
 
 ifeq ($(VERIFIER), etherscan)
-	# VERIFIER_URL := https://api.etherscan.io/api
+	VERIFIER_URL := https://api.etherscan.io/api
 	VERIFIER_API_KEY := $(ETHERSCAN_API_KEY)
 	VERIFIER_PARAMS := --verifier $(VERIFIER) --etherscan-api-key $(ETHERSCAN_API_KEY)
 endif
@@ -65,6 +65,14 @@ ifneq ($(filter $(VERIFIER), routescan-mainnet routescan-testnet),)
 	VERIFIER := custom
 	VERIFIER_API_KEY := "verifyContract"
 	VERIFIER_PARAMS = --verifier $(VERIFIER) --verifier-url '$(VERIFIER_URL)' --etherscan-api-key $(VERIFIER_API_KEY)
+endif
+
+# ZkSync flag for Foundry
+ifeq ($(CHAIN_ID),300)
+    FORGE_EXTRA_PARAMS := --zksync
+endif
+ifeq ($(CHAIN_ID),324)
+    FORGE_EXTRA_PARAMS := --zksync
 endif
 
 # When invoked like `make deploy slow=true`
@@ -108,11 +116,11 @@ test: export ETHERSCAN_API_KEY=
 
 .PHONY: test
 test: ## Run unit tests, locally
-	forge test $(VERBOSITY) --no-match-path ./test/fork-tests/*.sol
+	forge test $(VERBOSITY) $(FORGE_EXTRA_PARAMS) --no-match-path ./test/fork-tests/*.sol
 
 .PHONY: test-fork
 test-fork: ## Run fork tests, using RPC_URL
-	forge test $(VERBOSITY) --match-path ./test/fork-tests/*.sol
+	forge test $(VERBOSITY) $(FORGE_EXTRA_PARAMS) --match-path ./test/fork-tests/*.sol
 
 test-coverage: report/index.html ## Generate an HTML coverage report under ./report
 	@which open > /dev/null && open report/index.html || true
@@ -122,7 +130,7 @@ report/index.html: lcov.info
 	genhtml $^ -o report
 
 lcov.info: $(TEST_COVERAGE_SRC_FILES)
-	forge coverage --report lcov
+	forge coverage $(FORGE_EXTRA_PARAMS) --report lcov
 
 ##
 
@@ -183,14 +191,15 @@ $(TEST_TREE_FILES): $(TEST_SOURCE_FILES)
 predeploy: export SIMULATION=true
 
 .PHONY: predeploy
-predeploy: ## Simulate a protocol deployment
+predeploy: ## Simulate a plugin deployment
 	@echo "Simulating the deployment"
 	forge script $(DEPLOYMENT_SCRIPT_PARAM) \
 		--rpc-url $(RPC_URL) \
+		$(FORGE_EXTRA_PARAMS) \
 		$(VERBOSITY)
 
 .PHONY: deploy
-deploy: test ## Deploy the protocol, verify the source code and write to ./artifacts
+deploy: test ## Deploy the plugin, verify the source code and write to ./artifacts
 	@echo "Starting the deployment"
 	@mkdir -p $(LOGS_FOLDER) $(ARTIFACTS_FOLDER)
 	forge script $(DEPLOYMENT_SCRIPT_PARAM) \
@@ -201,6 +210,7 @@ deploy: test ## Deploy the protocol, verify the source code and write to ./artif
 		$(SLOW_FLAG) \
 		--verify \
 		$(VERIFIER_PARAMS) \
+		$(FORGE_EXTRA_PARAMS) \
 		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
 
 .PHONY: resume
@@ -216,6 +226,7 @@ resume: test ## Retry pending deployment transactions, verify the code and write
 		--verify \
 		--resume \
 		$(VERIFIER_PARAMS) \
+		$(FORGE_EXTRA_PARAMS) \
 		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
 
 ## Verification:
@@ -246,7 +257,7 @@ refund: ## Refund the remaining balance left on the deployment account
 	fi
 	@BALANCE=$(shell cast balance $(DEPLOYMENT_ADDRESS) --rpc-url $(RPC_URL)) && \
 		GAS_PRICE=$(shell cast gas-price --rpc-url $(RPC_URL)) && \
-		REMAINING=$$(echo "$$BALANCE - $$GAS_PRICE * 21000" | bc) && \
+		REMAINING=$$(echo "$$BALANCE - $$GAS_PRICE * 50000" | bc) && \
 		\
 		ENOUGH_BALANCE=$$(echo "$$REMAINING > 0" | bc) && \
 		if [ "$$ENOUGH_BALANCE" = "0" ]; then \
@@ -284,5 +295,5 @@ clean-nonce:
 	cast send --private-key $(DEPLOYMENT_PRIVATE_KEY) \
  			--rpc-url $(RPC_URL) \
  			--value 0 \
-      --nonce $(nonce) \
+            --nonce $(nonce) \
  			$(DEPLOYMENT_ADDRESS)

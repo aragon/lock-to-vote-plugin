@@ -12,12 +12,14 @@ docs/
 
 # Dotenv file
 .env
+.env-*
 
 # Development
 .DS_Store
 lcov.info
 report
 *.tree
+zkout/
 
 # Deployment
 logs/*

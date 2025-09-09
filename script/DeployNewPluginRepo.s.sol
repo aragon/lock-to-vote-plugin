@@ -18,7 +18,6 @@ contract DeployNewPluginRepoScript is Script {
     address deployer;
     address maintainer;
     string ltvEnsSubdomain;
-    string ltaEnsSubdomain;
     PluginRepoFactory pluginRepoFactory;
 
     // Artifacts
@@ -79,7 +78,7 @@ contract DeployNewPluginRepoScript is Script {
 
     function printDeployment() internal view {
         console.log("Plugin setup's");
-        console.log("- LockToVotePluginSetup:       ", lockToVotePluginSetup);
+        console.log("- LockToVotePluginSetup:            ", lockToVotePluginSetup);
         console.log("");
 
         console.log("Plugin repositories");
@@ -87,13 +86,19 @@ contract DeployNewPluginRepoScript is Script {
         console.log("- LockToVote repo ENS:              ", string.concat(ltvEnsSubdomain, ".plugin.dao.eth"));
         console.log("- Maintainer:                       ", address(maintainer));
         console.log("");
+
+        console.log("Implementation");
+        console.log(
+            "- LockToVote plugin:                ", LockToVotePluginSetup(lockToVotePluginSetup).implementation()
+        );
+        console.log("");
     }
 
     function writeJsonArtifacts() internal {
         string memory artifacts = "output";
         artifacts.serialize("lockToVotePluginRepo", address(lockToVotePluginRepo));
         artifacts.serialize("pluginRepoMaintainer", maintainer);
-        artifacts.serialize("lockToVoteEnsDomain", string.concat(ltvEnsSubdomain, ".plugin.dao.eth"));
+        artifacts = artifacts.serialize("lockToVoteEnsDomain", string.concat(ltvEnsSubdomain, ".plugin.dao.eth"));
 
         string memory networkName = vm.envString("NETWORK_NAME");
         string memory filePath = string.concat(
