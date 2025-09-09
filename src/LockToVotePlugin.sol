@@ -12,7 +12,6 @@ import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/pro
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {MajorityVotingBase} from "./base/MajorityVotingBase.sol";
 import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
-import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
 
 contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
@@ -39,19 +38,13 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @param voter The address of the voter.
     error VoteRemovalForbidden(uint256 proposalId, address voter);
 
-    /// @notice Thrown when attempting to create a proposal with a non-empty endDate, which is not supported.
-    ///         End date is kept for compatibility with IProposal.
-    error EndDateMustBeZero();
-
     /// @notice Thrown when atempting to set the plugin or the LockManager as execution targets
     error InvalidTargetAddress();
 
-    /// @notice Thrown when attempting to make the plugin operate in DelegateCall mode
-    error DelegateCallNotAllowed();
-
-    /// @notice Thrown when a proposal action is targeting address(0)
+    /// @notice Thrown when a proposal action is targeting address(0) or the LockManager
     /// @param actionIdx The index of the action
-    error EmptyActionTarget(uint256 actionIdx);
+    /// @param target The invalid address that was passed
+    error InvalidActionTarget(uint256 actionIdx, address target);
 
     /// @notice Initializes the component.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
@@ -119,8 +112,7 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
             revert NoVotingPower();
         }
 
-        if (_endDate != 0) revert EndDateMustBeZero();
-        (_startDate, _endDate) = _validateProposalDates(_startDate);
+        (_startDate, _endDate) = _computeProposalDates(_startDate);
 
         proposalId = _createProposalId(keccak256(abi.encode(_actions, _metadata)));
 
@@ -146,7 +138,9 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         }
 
         for (uint256 i; i < _actions.length; i++) {
-            if (_actions[i].to == address(0)) revert EmptyActionTarget(i);
+            if (_actions[i].to == address(0) || _actions[i].to == address(lockManager)) {
+                revert InvalidActionTarget(i, _actions[i].to);
+            }
 
             proposal_.actions.push(_actions[i]);
         }
@@ -296,18 +290,25 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         return proposals[_proposalId].votes[_voter].votingPower;
     }
 
-    // Internal helpers
-
-    /// @inheritdoc PluginUUPSUpgradeable
-    function _setTargetConfig(TargetConfig memory _targetConfig) internal virtual override {
+    /// @notice Defines of the IExecutor contract where executable actions will be sent to.
+    ///         IMPORTANT: The executor address (target) should only be set to the DAO or to the Executor contract deployed by Aragon.
+    ///         IMPORTANT: Defining any other executor in DelegateCall mode (operation), can lead to undefined behaviour.
+    /// @param _targetConfig The target Config containing the executor address and operation mode.
+    /// @dev The caller must have the `SET_TARGET_CONFIG_PERMISSION_ID` permission.
+    function setTargetConfig(TargetConfig calldata _targetConfig)
+        public
+        virtual
+        override
+        auth(SET_TARGET_CONFIG_PERMISSION_ID)
+    {
         if (_targetConfig.target == address(this) || _targetConfig.target == address(lockManager)) {
             revert InvalidTargetAddress();
-        } else if (_targetConfig.operation == IPlugin.Operation.DelegateCall) {
-            revert DelegateCallNotAllowed();
         }
 
-        super._setTargetConfig(_targetConfig);
+        _setTargetConfig(_targetConfig);
     }
+
+    // Internal helpers
 
     function _canVote(Proposal storage proposal_, address _voter, VoteOption _voteOption, uint256 _newVotingPower)
         internal

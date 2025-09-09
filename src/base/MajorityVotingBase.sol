@@ -9,7 +9,7 @@ import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/mat
 
 import {ProposalUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/ProposalUpgradeable.sol";
 import {RATIO_BASE, RatioOutOfBounds} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
-import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
+import {PluginUUPSUpgradeable} from "../lib/PluginUUPSUpgradeable.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
 import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
@@ -571,7 +571,7 @@ abstract contract MajorityVotingBase is
     ///     If 0, the current timestamp is used and the vote starts immediately.
     /// @return startDate The validated start date of the proposal.
     /// @return endDate The end date of the proposal.
-    function _validateProposalDates(uint64 _start) internal view virtual returns (uint64 startDate, uint64 endDate) {
+    function _computeProposalDates(uint64 _start) internal view virtual returns (uint64 startDate, uint64 endDate) {
         uint64 currentTimestamp = block.timestamp.toUint64();
 
         if (_start == 0) {

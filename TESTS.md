@@ -122,7 +122,8 @@ LockManagerERC20Test
         └── When Calling pruneProposals
             ├── It Should keep the open proposals on the konwnProposalIds list
             ├── It Should remove the ended proposals from the list
-            └── It Should remove the executed proposals from the list
+            ├── It Executed proposals aren't on the list
+            └── It Should clean up to the amount of proposals specified
 ```
 
 ```
@@ -147,8 +148,7 @@ LockToVoteTest
 ├── When calling setTargetConfig
 │   └── Given the caller has no permission to call setTargetConfig
 │       ├── It should revert if the new target is the pugin
-│       ├── It should revert if the new target is the LockManager
-│       └── It should revert if the new operation is delegatecall
+│       └── It should revert if the new target is the LockManager
 ├── When calling supportsInterface
 │   ├── It does not support the empty interface
 │   ├── It supports IERC165Upgradeable
@@ -167,6 +167,8 @@ LockToVoteTest
 │   │   │   ├── It should succeed when the creator has enough balance
 │   │   │   └── It should revert otherwise
 │   │   ├── Given invalid dates
+│   │   │   └── It should revert
+│   │   ├── Given invalid action targets
 │   │   │   └── It should revert
 │   │   └── Given duplicate proposal ID
 │   │       └── It should revert

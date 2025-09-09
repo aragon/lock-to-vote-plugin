@@ -31,12 +31,13 @@ jobs:
 
       - name: Run Forge build
         run: |
-          forge build --sizes
+          cp .env.example .env
+          make init
         id: build
 
       - name: Run Forge tests
         run: |
-          forge test -vvv
+          make test
         env:
           RPC_URL: https://sepolia.drpc.org
         id: test

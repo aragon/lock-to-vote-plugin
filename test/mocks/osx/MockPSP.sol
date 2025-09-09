@@ -6,7 +6,7 @@ import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165C
 
 import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
-import {PluginUUPSUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/PluginUUPSUpgradeable.sol";
+import {PluginUUPSUpgradeable} from "../../../src/lib/PluginUUPSUpgradeable.sol";
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 
 import {PluginRepo} from "@aragon/osx/src/framework/plugin/repo/PluginRepo.sol";

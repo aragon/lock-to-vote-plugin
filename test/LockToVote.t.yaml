@@ -32,7 +32,6 @@ LockToVoteTest:
         and:
           - it: should revert if the new target is the pugin
           - it: should revert if the new target is the LockManager
-          - it: should revert if the new operation is delegatecall
 
   # ERC165
   - when: calling supportsInterface
@@ -61,6 +60,9 @@ LockToVoteTest:
               - it: should succeed when the creator has enough balance
               - it: should revert otherwise
           - given: invalid dates
+            then:
+              - it: should revert
+          - given: invalid action targets
             then:
               - it: should revert
           - given: duplicate proposal ID

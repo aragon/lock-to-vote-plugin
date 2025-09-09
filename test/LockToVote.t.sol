@@ -35,6 +35,7 @@ contract LockToVoteTest is TestBase {
     Action[] internal actions;
 
     error DateOutOfBounds(uint256 limit, uint256 actual);
+    error InvalidActionTarget(uint256 actionIdx, address target);
     error ProposalAlreadyExists(uint256 proposalId);
     error VoteCastForbidden(uint256 proposalId, address account);
     error NonexistentProposal(uint256 proposalId);
@@ -43,7 +44,6 @@ contract LockToVoteTest is TestBase {
     error VoteRemovalUnauthorized(address caller);
     error VoteRemovalForbidden(uint256 proposalId, address voter);
     error InvalidTargetAddress();
-    error DelegateCallNotAllowed();
 
     event ProposalCreated(
         uint256 indexed proposalId,
@@ -222,12 +222,6 @@ contract LockToVoteTest is TestBase {
             IPlugin.TargetConfig({target: address(lockManager), operation: IPlugin.Operation.Call})
         );
 
-        // It should revert if the new operation is delegatecall
-        vm.expectRevert(DelegateCallNotAllowed.selector);
-        ltvPlugin.setTargetConfig(
-            IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.DelegateCall})
-        );
-
         // OK
         ltvPlugin.setTargetConfig(IPlugin.TargetConfig({target: address(dao), operation: IPlugin.Operation.Call}));
     }
@@ -366,6 +360,32 @@ contract LockToVoteTest is TestBase {
         // ok
         vm.prank(alice);
         ltvPlugin.createProposal("", actions, 0, 0, bytes(""));
+    }
+
+    function test_RevertGiven_InvalidActionTargets() external whenCallingCreateProposal givenCreatePermission {
+        // It should revert
+        Action[] memory _actions = new Action[](1);
+        _actions[0].to = address(0);
+
+        vm.expectRevert(abi.encodeWithSelector(InvalidActionTarget.selector, 0, address(0)));
+        vm.prank(alice);
+        ltvPlugin.createProposal("", _actions, 0, 0, bytes(""));
+
+        //
+        _actions = new Action[](2);
+        _actions[0].to = address(1);
+        _actions[1].to = address(lockManager);
+        vm.expectRevert(abi.encodeWithSelector(InvalidActionTarget.selector, 1, address(lockManager)));
+        vm.prank(alice);
+        ltvPlugin.createProposal("", _actions, 0, 0, bytes(""));
+
+        // ok
+        _actions = new Action[](3);
+        _actions[0].to = address(1234);
+        _actions[1].to = address(5678);
+        _actions[2].to = address(ltvPlugin);
+        vm.prank(alice);
+        ltvPlugin.createProposal("", _actions, 0, 0, bytes(""));
     }
 
     function test_RevertGiven_DuplicateProposalID() external whenCallingCreateProposal givenCreatePermission {
