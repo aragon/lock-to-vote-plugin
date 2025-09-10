@@ -250,6 +250,22 @@ resume: lib test ## Retry pending deployment transactions, verify the code and w
 		$(FORGE_SCRIPT_CUSTOM_PARAMS) \
 		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
 
+## Metadata targets:
+
+.PHONY: pin-metadata
+
+pin-metadata: ## Uploads and pins the release/build metadata on IPFS
+	@if ! command -v deno >/dev/null 2>&1; then \
+	    echo "Note: deno can be installed by running 'curl -fsSL https://deno.land/install.sh | sh'" ; \
+	    exit 1 ; \
+	fi
+	@echo "Uploading build-metadata.json..."
+	@echo ipfs://$$(deno run --allow-read --allow-env --allow-net script/ipfs-pin.ts script/metadata/build-metadata.json)
+	@echo
+	@echo "Uploading release-metadata.json..."
+	@echo ipfs://$$(deno run --allow-read --allow-env --allow-net script/ipfs-pin.ts script/metadata/release-metadata.json)
+
+
 ## Verification:
 
 .PHONY: verify-etherscan

@@ -1,0 +1,112 @@
+{
+  "ui": {},
+  "change": "v1.1\n Initial release",
+  "pluginSetup": {
+    "prepareInstallation": {
+      "description": "The information required for the installation.",
+      "inputs": [
+        {
+          "components": [
+            {
+              "name": "token",
+              "type": "address",
+              "internalType": "address",
+              "description": "The token address that users can deposit and use for voting."
+            },
+            {
+              "components": [
+                {
+                  "name": "votingMode",
+                  "type": "uint8",
+                  "internalType": "enum MajorityVotingBase.VotingMode",
+                  "description": "A parameter to select the vote mode. In standard mode (0), early execution and vote replacement are disabled. In early execution mode (1), a proposal can be executed early before the end date if the vote outcome cannot mathematically change by more voters voting. In vote replacement mode (2), voters can change their vote multiple times and only the latest vote option is tallied."
+                },
+                {
+                  "name": "supportThresholdRatio",
+                  "type": "uint32",
+                  "internalType": "uint32",
+                  "description": "The support threshold value. Its value has to be in the interval [0, 10^6) defined by `RATIO_BASE = 10**6`."
+                },
+                {
+                  "name": "minParticipationRatio",
+                  "type": "uint32",
+                  "internalType": "uint32",
+                  "description": "The minimum participation value. Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`."
+                },
+                {
+                  "name": "minApprovalRatio",
+                  "type": "uint32",
+                  "internalType": "uint32",
+                  "description": "The minimum ratio of approvals required. Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`."
+                },
+                {
+                  "name": "proposalDuration",
+                  "type": "uint64",
+                  "internalType": "uint64",
+                  "description": "The duration of the proposal in seconds."
+                },
+                {
+                  "name": "minProposerVotingPower",
+                  "type": "uint256",
+                  "internalType": "uint256",
+                  "description": "The minimum voting power required to create a proposal."
+                }
+              ],
+              "name": "votingSettings",
+              "type": "tuple",
+              "internalType": "struct MajorityVotingBase.VotingSettings",
+              "description": "The voting settings that will be enforced when proposals are created."
+            },
+            {
+              "name": "pluginMetadata",
+              "type": "bytes",
+              "internalType": "bytes",
+              "description": "The URI of the plugin metadata file on IPFS"
+            },
+            {
+              "name": "createProposalCaller",
+              "type": "address",
+              "internalType": "address",
+              "description": "The address that can create proposals (could be ANY_ADDR)"
+            },
+            {
+              "name": "executeCaller",
+              "type": "address",
+              "internalType": "address",
+              "description": "The address that can execute proposals that have succeeded (could be ANY_ADDR)"
+            },
+            {
+              "components": [
+                {
+                  "name": "target",
+                  "type": "address",
+                  "internalType": "address",
+                  "description": "The address of the IExecutorwhere execute() will be called"
+                },
+                {
+                  "name": "operation",
+                  "type": "uint8",
+                  "internalType": "enum IPlugin.Operation",
+                  "description": "Wether execution triggers a call or a delegate call"
+                }
+              ],
+              "internalType": "struct IPlugin.TargetConfig",
+              "name": "targetConfig",
+              "type": "tuple",
+              "description": "The plugin settings that determine who the executor is and how it is used."
+            }
+          ],
+          "name": "installParameters",
+          "type": "tuple",
+          "internalType": "struct LockToVotePluginSetup.InstallationParameters",
+          "description": "The parameters of the plugin installation."
+        }
+      ]
+    },
+    "prepareUpdate": {},
+    "prepareUninstallation": {
+      "description": "No input is required for the uninstallation.",
+      "inputs": []
+    }
+  }
+}
