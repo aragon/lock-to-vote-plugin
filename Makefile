@@ -67,12 +67,13 @@ ifneq ($(filter $(VERIFIER), routescan-mainnet routescan-testnet),)
 	VERIFIER_PARAMS = --verifier $(VERIFIER) --verifier-url '$(VERIFIER_URL)' --etherscan-api-key $(VERIFIER_API_KEY)
 endif
 
-# ZkSync flag for Foundry
-ifeq ($(CHAIN_ID),300)
-    FORGE_EXTRA_PARAMS := --zksync
-endif
-ifeq ($(CHAIN_ID),324)
-    FORGE_EXTRA_PARAMS := --zksync
+# Additional chain-dependent params (Foundry)
+ifeq ($(CHAIN_ID),88888)
+	FORGE_SCRIPT_CUSTOM_PARAMS := --priority-gas-price 1000000000 --gas-price 5200000000000
+else ifeq ($(CHAIN_ID),300)
+	FORGE_BUILD_CUSTOM_PARAMS := --zksync
+else ifeq ($(CHAIN_ID),324)
+	FORGE_BUILD_CUSTOM_PARAMS := --zksync
 endif
 
 # When invoked like `make deploy slow=true`
@@ -103,7 +104,7 @@ init: ## Check the dependencies and prompt to install if needed
 	@which lcov > /dev/null || echo "Note: lcov can be installed by running 'sudo apt install lcov'"
 	@git submodule init && git submodule update
 	@make lib
-	@forge build --sizes
+	@forge build $(FORGE_BUILD_CUSTOM_PARAMS) --sizes
 
 .PHONY: clean
 clean: ## Clean the build artifacts
@@ -133,11 +134,11 @@ test: export ETHERSCAN_API_KEY=
 
 .PHONY: test
 test: lib ## Run unit tests, locally
-	forge test $(VERBOSITY) $(FORGE_EXTRA_PARAMS) --no-match-path ./test/fork-tests/*.sol
+	forge test $(FORGE_BUILD_CUSTOM_PARAMS) $(VERBOSITY) --no-match-path ./test/fork-tests/*.sol
 
 .PHONY: test-fork
 test-fork: lib ## Run fork tests, using RPC_URL
-	forge test $(VERBOSITY) $(FORGE_EXTRA_PARAMS) --match-path ./test/fork-tests/*.sol
+	forge test $(FORGE_BUILD_CUSTOM_PARAMS) $(VERBOSITY) --match-path ./test/fork-tests/*.sol
 
 test-coverage: lib report/index.html ## Generate an HTML coverage report under ./report
 	@which open > /dev/null && open report/index.html || true
@@ -147,7 +148,7 @@ report/index.html: lcov.info
 	genhtml $^ -o report
 
 lcov.info: $(TEST_COVERAGE_SRC_FILES)
-	forge coverage $(FORGE_EXTRA_PARAMS) --report lcov
+	forge coverage --report lcov
 
 ##
 
@@ -212,7 +213,8 @@ predeploy: lib ## Simulate a plugin deployment
 	@echo "Simulating the deployment"
 	forge script $(DEPLOYMENT_SCRIPT_PARAM) \
 		--rpc-url $(RPC_URL) \
-		$(FORGE_EXTRA_PARAMS) \
+		$(FORGE_BUILD_CUSTOM_PARAMS) \
+		$(FORGE_SCRIPT_CUSTOM_PARAMS) \
 		$(VERBOSITY)
 
 .PHONY: deploy
@@ -224,10 +226,11 @@ deploy: lib test ## Deploy the plugin, verify the source code and write to ./art
 		--retries 10 \
 		--delay 8 \
 		--broadcast \
-		$(SLOW_FLAG) \
 		--verify \
 		$(VERIFIER_PARAMS) \
-		$(FORGE_EXTRA_PARAMS) \
+		$(SLOW_FLAG) \
+		$(FORGE_BUILD_CUSTOM_PARAMS) \
+		$(FORGE_SCRIPT_CUSTOM_PARAMS) \
 		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
 
 .PHONY: resume
@@ -239,28 +242,45 @@ resume: lib test ## Retry pending deployment transactions, verify the code and w
 		--retries 10 \
 		--delay 8 \
 		--broadcast \
-		$(SLOW_FLAG) \
 		--verify \
 		--resume \
 		$(VERIFIER_PARAMS) \
-		$(FORGE_EXTRA_PARAMS) \
+		$(SLOW_FLAG) \
+		$(FORGE_BUILD_CUSTOM_PARAMS) \
+		$(FORGE_SCRIPT_CUSTOM_PARAMS) \
 		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
+
+## Metadata targets:
+
+.PHONY: pin-metadata
+
+pin-metadata: ## Uploads and pins the release/build metadata on IPFS
+	@if ! command -v deno >/dev/null 2>&1; then \
+	    echo "Note: deno can be installed by running 'curl -fsSL https://deno.land/install.sh | sh'" ; \
+	    exit 1 ; \
+	fi
+	@echo "Uploading build-metadata.json..."
+	@echo ipfs://$$(deno run --allow-read --allow-env --allow-net script/ipfs-pin.ts script/metadata/build-metadata.json)
+	@echo
+	@echo "Uploading release-metadata.json..."
+	@echo ipfs://$$(deno run --allow-read --allow-env --allow-net script/ipfs-pin.ts script/metadata/release-metadata.json)
+
 
 ## Verification:
 
 .PHONY: verify-etherscan
 verify-etherscan: broadcast/$(DEPLOYMENT_SCRIPT).s.sol/$(CHAIN_ID)/run-latest.json ## Verify the last deployment on an Etherscan (compatible) explorer
-	forge build
+	forge build $(FORGE_BUILD_CUSTOM_PARAMS)
 	bash $(VERIFY_CONTRACTS_SCRIPT) $(CHAIN_ID) $(VERIFIER) $(VERIFIER_URL) $(VERIFIER_API_KEY)
 
 .PHONY: verify-blockscout
 verify-blockscout: broadcast/$(DEPLOYMENT_SCRIPT).s.sol/$(CHAIN_ID)/run-latest.json ## Verify the last deployment on BlockScout
-	forge build
+	forge build $(FORGE_BUILD_CUSTOM_PARAMS)
 	bash $(VERIFY_CONTRACTS_SCRIPT) $(CHAIN_ID) $(VERIFIER) https://$(BLOCKSCOUT_HOST_NAME)/api $(VERIFIER_API_KEY)
 
 .PHONY: verify-sourcify
 verify-sourcify: broadcast/$(DEPLOYMENT_SCRIPT).s.sol/$(CHAIN_ID)/run-latest.json ## Verify the last deployment on Sourcify
-	forge build
+	forge build $(FORGE_BUILD_CUSTOM_PARAMS)
 	bash $(VERIFY_CONTRACTS_SCRIPT) $(CHAIN_ID) $(VERIFIER) "" ""
 
 ##
