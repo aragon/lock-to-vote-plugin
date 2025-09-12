@@ -11,7 +11,7 @@ SHELL:=/bin/bash
 DEPLOYMENT_SCRIPT := DeployNewPluginRepo
 
 SOLC_VERSION := $(shell cat foundry.toml | grep solc | cut -d= -f2 | xargs echo || echo "0.8.28")
-SUPPORTED_VERIFIERS := etherscan blockscout sourcify routescan-mainnet routescan-testnet
+SUPPORTED_VERIFIERS := etherscan blockscout sourcify zksync routescan-mainnet routescan-testnet
 MAKE_TEST_TREE_CMD := deno run ./script/make-test-tree.ts
 VERIFY_CONTRACTS_SCRIPT := script/verify-contracts.sh
 TEST_TREE_MARKDOWN := TESTS.md
@@ -23,6 +23,7 @@ VERBOSITY := -vvv
 NETWORK_NAME:=$(strip $(subst ',, $(subst ",,$(NETWORK_NAME))))
 CHAIN_ID:=$(strip $(subst ',, $(subst ",,$(CHAIN_ID))))
 VERIFIER:=$(strip $(subst ',, $(subst ",,$(VERIFIER))))
+BLOCKSCOUT_HOST_NAME:=$(strip $(subst ',, $(subst ",,$(BLOCKSCOUT_HOST_NAME))))
 
 TEST_COVERAGE_SRC_FILES := $(wildcard test/*.sol test/**/*.sol src/*.sol src/**/*.sol)
 TEST_SOURCE_FILES := $(wildcard test/*.t.yaml test/fork-tests/*.t.yaml)
@@ -44,18 +45,20 @@ ifeq ($(VERIFIER), etherscan)
 	VERIFIER_URL := https://api.etherscan.io/api
 	VERIFIER_API_KEY := $(ETHERSCAN_API_KEY)
 	VERIFIER_PARAMS := --verifier $(VERIFIER) --etherscan-api-key $(ETHERSCAN_API_KEY)
-endif
-
-ifeq ($(VERIFIER), blockscout)
+else ifeq ($(VERIFIER), blockscout)
 	VERIFIER_URL := https://$(BLOCKSCOUT_HOST_NAME)/api\?
 	VERIFIER_API_KEY := ""
 	VERIFIER_PARAMS = --verifier $(VERIFIER) --verifier-url "$(VERIFIER_URL)"
-endif
-
-# ifeq ($(VERIFIER), sourcify)
-# endif
-
-ifneq ($(filter $(VERIFIER), routescan-mainnet routescan-testnet),)
+else ifeq ($(VERIFIER), sourcify)
+else ifeq ($(VERIFIER), zksync)
+	ifeq ($(CHAIN_ID),300)
+		VERIFIER_URL := https://explorer.sepolia.era.zksync.dev/contract_verification
+	else ifeq ($(CHAIN_ID),324)
+	    VERIFIER_URL := https://zksync2-mainnet-explorer.zksync.io/contract_verification
+	endif
+	VERIFIER_API_KEY := ""
+	VERIFIER_PARAMS = --verifier $(VERIFIER) --verifier-url "$(VERIFIER_URL)"
+else ifneq ($(filter $(VERIFIER), routescan-mainnet routescan-testnet),)
 	ifeq ($(VERIFIER), routescan-mainnet)
 		VERIFIER_URL := https://api.routescan.io/v2/network/mainnet/evm/$(CHAIN_ID)/etherscan
 	else
@@ -270,7 +273,7 @@ verify-etherscan: broadcast/$(DEPLOYMENT_SCRIPT).s.sol/$(CHAIN_ID)/run-latest.js
 .PHONY: verify-blockscout
 verify-blockscout: broadcast/$(DEPLOYMENT_SCRIPT).s.sol/$(CHAIN_ID)/run-latest.json ## Verify the last deployment on BlockScout
 	forge build $(FORGE_BUILD_CUSTOM_PARAMS)
-	bash $(VERIFY_CONTRACTS_SCRIPT) $(CHAIN_ID) $(VERIFIER) https://$(BLOCKSCOUT_HOST_NAME)/api $(VERIFIER_API_KEY)
+	bash $(VERIFY_CONTRACTS_SCRIPT) $(CHAIN_ID) $(VERIFIER) "https://$(BLOCKSCOUT_HOST_NAME)/api" $(VERIFIER_API_KEY)
 
 .PHONY: verify-sourcify
 verify-sourcify: broadcast/$(DEPLOYMENT_SCRIPT).s.sol/$(CHAIN_ID)/run-latest.json ## Verify the last deployment on Sourcify
