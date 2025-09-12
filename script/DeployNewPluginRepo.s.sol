@@ -10,7 +10,6 @@ import {LockToVotePluginSetup} from "../src/setup/LockToVotePluginSetup.sol";
 import {PluginRepoFactory} from "@aragon/osx/src/framework/plugin/repo/PluginRepoFactory.sol";
 import {PluginRepo} from "@aragon/osx/src/framework/plugin/repo/PluginRepo.sol";
 import {PluginSetupProcessor} from "@aragon/osx/src/framework/plugin/setup/PluginSetupProcessor.sol";
-import {TestToken} from "../test/mocks/TestToken.sol";
 
 contract DeployNewPluginRepoScript is Script {
     using stdJson for string;
