@@ -71,14 +71,11 @@ endif
 ifeq ($(CHAIN_ID),88888)
 	FORGE_SCRIPT_CUSTOM_PARAMS := --priority-gas-price 1000000000 --gas-price 5200000000000
 else ifeq ($(CHAIN_ID),300)
+	FORGE_SCRIPT_CUSTOM_PARAMS := --slow
 	FORGE_BUILD_CUSTOM_PARAMS := --zksync
 else ifeq ($(CHAIN_ID),324)
+	FORGE_SCRIPT_CUSTOM_PARAMS := --slow
 	FORGE_BUILD_CUSTOM_PARAMS := --zksync
-endif
-
-# When invoked like `make deploy slow=true`
-ifeq ($(slow),true)
-	SLOW_FLAG := --slow
 endif
 
 # TARGETS
@@ -110,8 +107,7 @@ init: ## Check the dependencies and prompt to install if needed
 clean: ## Clean the build artifacts
 	forge clean
 	rm -f $(TEST_TREE_FILES)
-	rm -Rf ./out/* lcov.info* ./report/*
-	rm -Rf src/lib ; mkdir src/lib
+	rm -Rf ./out ./zkout lcov.info* ./report
 
 # Adapted dependencies under /src/lib
 
@@ -228,7 +224,6 @@ deploy: lib test ## Deploy the plugin, verify the source code and write to ./art
 		--broadcast \
 		--verify \
 		$(VERIFIER_PARAMS) \
-		$(SLOW_FLAG) \
 		$(FORGE_BUILD_CUSTOM_PARAMS) \
 		$(FORGE_SCRIPT_CUSTOM_PARAMS) \
 		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
@@ -245,7 +240,6 @@ resume: lib test ## Retry pending deployment transactions, verify the code and w
 		--verify \
 		--resume \
 		$(VERIFIER_PARAMS) \
-		$(SLOW_FLAG) \
 		$(FORGE_BUILD_CUSTOM_PARAMS) \
 		$(FORGE_SCRIPT_CUSTOM_PARAMS) \
 		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
