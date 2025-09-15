@@ -6,11 +6,11 @@ import {stdJson} from "forge-std/StdJson.sol";
 
 import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
+import {LockToVotePlugin} from "../src/LockToVotePlugin.sol";
 import {LockToVotePluginSetup} from "../src/setup/LockToVotePluginSetup.sol";
 import {PluginRepoFactory} from "@aragon/osx/src/framework/plugin/repo/PluginRepoFactory.sol";
 import {PluginRepo} from "@aragon/osx/src/framework/plugin/repo/PluginRepo.sol";
 import {PluginSetupProcessor} from "@aragon/osx/src/framework/plugin/setup/PluginSetupProcessor.sol";
-import {TestToken} from "../test/mocks/TestToken.sol";
 
 contract DeployNewPluginRepoScript is Script {
     using stdJson for string;
@@ -74,6 +74,9 @@ contract DeployNewPluginRepoScript is Script {
         lockToVotePluginRepo = pluginRepoFactory.createPluginRepoWithFirstVersion(
             ltvEnsSubdomain, address(lockToVotePluginSetup), maintainer, " ", " "
         );
+
+        // Dummy contract creation to force verifying on all block explorers
+        new LockToVotePlugin();
     }
 
     function printDeployment() internal view {
