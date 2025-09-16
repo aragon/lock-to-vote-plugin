@@ -36,10 +36,9 @@ yarn build
 
 The `build` script will:
 1. Move to `src`.
-2. Install its dependencies.
-3. Compile the contracts using Hardhat.
-4. Generate their ABI.
-5. Extract their ABI and embed it into on `npm-artifacts/src/abi.ts`.
+2. Compile the contracts using Foundry.
+3. Generate their ABI.
+4. Extract the ABI's and embed them into `npm-artifacts/src/abi.ts`.
 
 ### Publishing
 
