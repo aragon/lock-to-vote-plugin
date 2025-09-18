@@ -1,0 +1,28 @@
+{
+  "name": "@aragon/lock-to-vote-plugin-artifacts",
+  "author": "Aragon X",
+  "version": "1.1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aragon/lock-to-vote-plugin",
+    "directory": "npm-artifacts"
+  },
+  "homepage": "https://github.com/aragon/lock-to-vote-plugin/tree/main/npm-artifacts#readme",
+  "license": "AGPL-3.0-or-later",
+  "description": "The ABI definition of the Lock to Vote plugin",
+  "typings": "dist/index.d.ts",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "yarn prepare-abi && rm -Rf dist && tsc -p tsconfig.json",
+    "prepare-abi": "bash ./prepare-abi.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

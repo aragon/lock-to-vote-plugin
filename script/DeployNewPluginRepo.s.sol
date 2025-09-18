@@ -101,7 +101,8 @@ contract DeployNewPluginRepoScript is Script {
         string memory artifacts = "output";
         artifacts.serialize("lockToVotePluginRepo", address(lockToVotePluginRepo));
         artifacts.serialize("pluginRepoMaintainer", maintainer);
-        artifacts = artifacts.serialize("lockToVoteEnsDomain", string.concat(ltvEnsSubdomain, ".plugin.dao.eth"));
+        artifacts =
+            artifacts = artifacts.serialize("lockToVoteEnsDomain", string.concat(ltvEnsSubdomain, ".plugin.dao.eth"));
 
         string memory networkName = vm.envString("NETWORK_NAME");
         string memory filePath = string.concat(
