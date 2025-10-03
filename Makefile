@@ -247,6 +247,23 @@ resume: lib test ## Retry pending deployment transactions, verify the code and w
 		$(FORGE_SCRIPT_CUSTOM_PARAMS) \
 		$(VERBOSITY) 2>&1 | tee -a $(LOGS_FOLDER)/$(DEPLOYMENT_LOG_FILE)
 
+##
+
+.PHONY: deploy-verify
+deploy-verify: lib ## Deploy internal (dummy) contracts to force code verification
+	@echo "Starting the deployment"
+	@mkdir -p $(LOGS_FOLDER) $(ARTIFACTS_FOLDER)
+	forge script script/ForceVerification.s.sol:ForceVerificationScript \
+		--rpc-url $(RPC_URL) \
+		--retries 10 \
+		--delay 8 \
+		--broadcast \
+		--verify \
+		$(VERIFIER_PARAMS) \
+		$(FORGE_BUILD_CUSTOM_PARAMS) \
+		$(FORGE_SCRIPT_CUSTOM_PARAMS) \
+		$(VERBOSITY)
+
 ## Metadata targets:
 
 .PHONY: pin-metadata
