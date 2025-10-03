@@ -4,13 +4,20 @@ pragma solidity ^0.8.17;
 import {Script, console} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 
-import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
+import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
-import {LockToVotePlugin} from "../src/LockToVotePlugin.sol";
+import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
+import {LockManagerERC20} from "../src/LockManagerERC20.sol";
 import {LockToVotePluginSetup} from "../src/setup/LockToVotePluginSetup.sol";
+import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
 import {PluginRepoFactory} from "@aragon/osx/src/framework/plugin/repo/PluginRepoFactory.sol";
 import {PluginRepo} from "@aragon/osx/src/framework/plugin/repo/PluginRepo.sol";
 import {PluginSetupProcessor} from "@aragon/osx/src/framework/plugin/setup/PluginSetupProcessor.sol";
+import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {createProxyAndCall} from "../src/util/proxy.sol";
+import {MinVotingPowerCondition} from "../src/conditions/MinVotingPowerCondition.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployNewPluginRepoScript is Script {
     using stdJson for string;
@@ -57,6 +64,8 @@ contract DeployNewPluginRepoScript is Script {
 
         printDeployment();
 
+        internalDummyDeploy();
+
         // Write the addresses to a JSON file
         if (!vm.envOr("SIMULATION", false)) {
             writeJsonArtifacts();
@@ -74,9 +83,44 @@ contract DeployNewPluginRepoScript is Script {
         lockToVotePluginRepo = pluginRepoFactory.createPluginRepoWithFirstVersion(
             ltvEnsSubdomain, address(lockToVotePluginSetup), maintainer, " ", " "
         );
+    }
 
-        // Dummy contract creation to force verifying on all block explorers
-        new LockToVotePlugin();
+    function internalDummyDeploy() private {
+        // Deploying dummy contract instances to force verifying on all block explorers
+        console.log("Deploying static (dummy) contracts to force verification");
+
+        LockToVotePlugin pluginImplementation = new LockToVotePlugin();
+
+        // Lock Manager
+        LockManagerERC20 lockManager = new LockManagerERC20(IERC20(address(0)));
+
+        // Condition
+        IPlugin.TargetConfig memory targetConfig =
+            IPlugin.TargetConfig({target: address(1234), operation: IPlugin.Operation.Call});
+
+        MajorityVotingBase.VotingSettings memory votingSettings = MajorityVotingBase.VotingSettings({
+            votingMode: MajorityVotingBase.VotingMode.Standard,
+            supportThresholdRatio: 500_000,
+            minParticipationRatio: 500_000,
+            minApprovalRatio: 500_000,
+            proposalDuration: 10 days,
+            minProposerVotingPower: 0
+        });
+
+        LockToVotePlugin ltvPlugin = LockToVotePlugin(
+            createProxyAndCall(
+                address(pluginImplementation),
+                abi.encodeCall(
+                    LockToVotePlugin.initialize,
+                    (IDAO(address(1234)), lockManager, votingSettings, targetConfig, bytes(""))
+                )
+            )
+        );
+
+        new MinVotingPowerCondition(ILockToGovernBase(ltvPlugin));
+
+        // Proxy
+        new ERC1967Proxy(address(ltvPlugin), bytes(""));
     }
 
     function printDeployment() internal view {
