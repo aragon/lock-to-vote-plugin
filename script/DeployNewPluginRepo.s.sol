@@ -49,7 +49,7 @@ contract DeployNewPluginRepoScript is Script {
 
         maintainer = vm.envAddress("PLUGIN_REPO_MAINTAINER_ADDRESS");
         pluginRepoFactory = PluginRepoFactory(vm.envAddress("PLUGIN_REPO_FACTORY_ADDRESS"));
-        ltvEnsSubdomain = vm.envString("LOCK_TO_VOTE_ENS_SUBDOMAIN");
+        ltvEnsSubdomain = vm.envString("PLUGIN_ENS_SUBDOMAIN");
 
         vm.label(maintainer, "Maintainer");
         vm.label(address(pluginRepoFactory), "PluginRepoFactory");
