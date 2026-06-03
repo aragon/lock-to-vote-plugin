@@ -2,15 +2,15 @@
 pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
-import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
+import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {createProxyAndCall, createSaltedProxyAndCall, predictProxyAddress} from "../../src/util/proxy.sol";
 import {ALICE_ADDRESS} from "../constants.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../../src/LockToVotePlugin.sol";
 import {LockManagerERC20} from "../../src/LockManagerERC20.sol";
 import {LockManagerSettings, PluginMode} from "../../src/interfaces/ILockManager.sol";
 import {ILockToGovernBase} from "../../src/interfaces/ILockToGovernBase.sol";
-import {RATIO_BASE} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
-import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
+import {RATIO_BASE} from "@aragon/osx/common/utils/math/Ratio.sol";
+import {IPlugin} from "@aragon/osx/common/plugin/IPlugin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TestToken} from "../mocks/TestToken.sol";
 

@@ -5,11 +5,11 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
-import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
-import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
-import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
-import {PluginSetup, IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/PluginSetup.sol";
+import {IDAO} from "@aragon/osx/common/dao/IDAO.sol";
+import {DAO} from "@aragon/osx/core/dao/DAO.sol";
+import {PermissionLib} from "@aragon/osx/common/permission/PermissionLib.sol";
+import {IPlugin} from "@aragon/osx/common/plugin/IPlugin.sol";
+import {PluginSetup, IPluginSetup} from "@aragon/osx/common/plugin/setup/PluginSetup.sol";
 import {LockToVotePlugin} from "../LockToVotePlugin.sol";
 import {LockManagerERC20} from "../LockManagerERC20.sol";
 import {LockManagerSettings, PluginMode} from "../../src/interfaces/ILockManager.sol";

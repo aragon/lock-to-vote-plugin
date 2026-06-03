@@ -4,12 +4,12 @@ pragma solidity ^0.8.17;
 import {Vm} from "forge-std/Test.sol";
 import {TestBase} from "./TestBase.sol";
 
-import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
-import {DAOFactory} from "@aragon/osx/src/framework/dao/DAOFactory.sol";
-import {PluginRepoFactory} from "@aragon/osx/src/framework/plugin/repo/PluginRepoFactory.sol";
-import {PluginRepo} from "@aragon/osx/src/framework/plugin/repo/PluginRepo.sol";
-import {PluginSetupProcessor} from "@aragon/osx/src/framework/plugin/setup/PluginSetupProcessor.sol";
-import {PluginSetupRef} from "@aragon/osx/src/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
+import {DAO} from "@aragon/osx/core/dao/DAO.sol";
+import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
+import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
+import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
+import {PluginSetupProcessor} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
+import {PluginSetupRef} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
 
 contract ForkTestBase is TestBase {
     // Defaults for OSx v1.4 on Sepolia

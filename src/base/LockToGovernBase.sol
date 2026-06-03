@@ -6,7 +6,7 @@ pragma solidity ^0.8.28;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ILockManager} from "../interfaces/ILockManager.sol";
 import {ILockToGovernBase} from "../interfaces/ILockToGovernBase.sol";
-import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
+import {IMembership} from "@aragon/osx/common/plugin/extensions/membership/IMembership.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 
 /// @title LockToGovernBase

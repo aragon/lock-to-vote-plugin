@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.17;
 
-import {IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
-import {InterfaceBasedRegistry} from "@aragon/osx/src/test/utils/InterfaceBasedRegistryMock.sol";
-import {IPluginRepo} from "@aragon/osx/src/framework/plugin/repo/IPluginRepo.sol";
+import {IDAO} from "@aragon/osx/core/dao/DAO.sol";
+import {InterfaceBasedRegistry} from "@aragon/osx/framework/utils/InterfaceBasedRegistry.sol";
+import {IPluginRepo} from "@aragon/osx/framework/plugin/repo/IPluginRepo.sol";
 
 /// @title MockPluginRepoRegistry
 /// @author Aragon Association - 2022-2023

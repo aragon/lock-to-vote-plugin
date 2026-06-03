@@ -5,8 +5,8 @@ import {ILockToGovernBase} from "../interfaces/ILockToGovernBase.sol";
 import {ILockManager} from "../interfaces/ILockManager.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IPermissionCondition} from "@aragon/osx-commons-contracts/src/permission/condition/IPermissionCondition.sol";
-import {PermissionCondition} from "@aragon/osx-commons-contracts/src/permission/condition/PermissionCondition.sol";
+import {IPermissionCondition} from "@aragon/osx/common/permission/condition/IPermissionCondition.sol";
+import {PermissionCondition} from "@aragon/osx/common/permission/condition/PermissionCondition.sol";
 
 /// @title MinVotingPowerCondition
 /// @author Aragon X - 2024

@@ -3,9 +3,9 @@ pragma solidity ^0.8.17;
 
 import {TestBase} from "./lib/TestBase.sol";
 import {DaoBuilder} from "./builders/DaoBuilder.sol";
-import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
+import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
-import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
+import {Action} from "@aragon/osx/common/executors/IExecutor.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MinVotingPowerCondition} from "../src/conditions/MinVotingPowerCondition.sol";
 import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";

@@ -7,14 +7,14 @@ import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/intro
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-import {ProposalUpgradeable} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/ProposalUpgradeable.sol";
-import {RATIO_BASE, RatioOutOfBounds} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
+import {ProposalUpgradeable} from "@aragon/osx/common/plugin/extensions/proposal/ProposalUpgradeable.sol";
+import {RATIO_BASE, RatioOutOfBounds} from "@aragon/osx/common/utils/math/Ratio.sol";
 import {PluginUUPSUpgradeable} from "../lib/PluginUUPSUpgradeable.sol";
-import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
-import {IProposal} from "@aragon/osx-commons-contracts/src/plugin/extensions/proposal/IProposal.sol";
-import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
+import {IDAO} from "@aragon/osx/common/dao/IDAO.sol";
+import {IProposal} from "@aragon/osx/common/plugin/extensions/proposal/IProposal.sol";
+import {Action} from "@aragon/osx/common/executors/IExecutor.sol";
 import {MetadataExtensionUpgradeable} from
-    "@aragon/osx-commons-contracts/src/utils/metadata/MetadataExtensionUpgradeable.sol";
+    "@aragon/osx/common/utils/metadata/MetadataExtensionUpgradeable.sol";
 import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
 
 /* solhint-enable max-line-length */
