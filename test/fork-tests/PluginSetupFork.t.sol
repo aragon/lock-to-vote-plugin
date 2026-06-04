@@ -13,19 +13,19 @@ import {ForkBuilder} from "../builders/ForkBuilder.sol";
 import {NON_EMPTY_BYTES} from "../constants.sol";
 
 // Aragon OSx Contracts
-import {DAO} from "@aragon/osx/src/core/dao/DAO.sol";
-import {PermissionManager} from "@aragon/osx/src/core/permission/PermissionManager.sol";
-import {PluginRepo} from "@aragon/osx/src/framework/plugin/repo/PluginRepo.sol";
-import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
-import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
+import {DAO} from "@aragon/osx/core/dao/DAO.sol";
+import {PermissionManager} from "@aragon/osx/core/permission/PermissionManager.sol";
+import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
+import {DaoUnauthorized} from "@aragon/osx/common/permission/auth/auth.sol";
+import {Action} from "@aragon/osx/common/executors/IExecutor.sol";
 import {
     PluginSetupRef,
     hashHelpers,
     hashPermissions
-} from "@aragon/osx/src/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
-import {PluginSetupProcessor} from "@aragon/osx/src/framework/plugin/setup/PluginSetupProcessor.sol";
-import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
-import {IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/IPluginSetup.sol";
+} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
+import {PluginSetupProcessor} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
+import {IPlugin} from "@aragon/osx/common/plugin/IPlugin.sol";
+import {IPluginSetup} from "@aragon/osx/common/plugin/setup/IPluginSetup.sol";
 import {TestToken} from "../mocks/TestToken.sol";
 
 contract PluginSetupForkTest is ForkTestBase {

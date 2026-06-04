@@ -3,11 +3,11 @@ pragma solidity ^0.8.17;
 
 import {ForkTestBase} from "../lib/ForkTestBase.sol";
 
-import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
-import {DAOFactory} from "@aragon/osx/src/framework/dao/DAOFactory.sol";
-import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
-import {PermissionManager} from "@aragon/osx/src/core/permission/PermissionManager.sol";
-import {PluginRepo} from "@aragon/osx/src/framework/plugin/repo/PluginRepo.sol";
+import {DAO, IDAO} from "@aragon/osx/core/dao/DAO.sol";
+import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
+import {Action} from "@aragon/osx/common/executors/IExecutor.sol";
+import {PermissionManager} from "@aragon/osx/core/permission/PermissionManager.sol";
+import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
 import {LockToVotePluginSetup} from "../../src/setup/LockToVotePluginSetup.sol";
 import {TestToken} from "../mocks/TestToken.sol";
 

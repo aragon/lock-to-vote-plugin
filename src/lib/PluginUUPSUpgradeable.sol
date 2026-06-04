@@ -7,12 +7,12 @@ import {IERC1822ProxiableUpgradeable} from "@openzeppelin/contracts-upgradeable/
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {ERC165CheckerUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165CheckerUpgradeable.sol";
 
-import {IProtocolVersion} from "@aragon/osx-commons-contracts/src/utils/versioning/IProtocolVersion.sol";
-import {ProtocolVersion} from "@aragon/osx-commons-contracts/src/utils/versioning/ProtocolVersion.sol";
-import {DaoAuthorizableUpgradeable} from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizableUpgradeable.sol";
-import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
-import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
-import {IExecutor, Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
+import {IProtocolVersion} from "@aragon/osx/common/utils/versioning/IProtocolVersion.sol";
+import {ProtocolVersion} from "@aragon/osx/common/utils/versioning/ProtocolVersion.sol";
+import {DaoAuthorizableUpgradeable} from "@aragon/osx/common/permission/auth/DaoAuthorizableUpgradeable.sol";
+import {IPlugin} from "@aragon/osx/common/plugin/IPlugin.sol";
+import {IDAO} from "@aragon/osx/common/dao/IDAO.sol";
+import {IExecutor, Action} from "@aragon/osx/common/executors/IExecutor.sol";
 
 /// @title PluginUUPSUpgradeable
 /// @author Aragon X - 2022-2024

@@ -3,15 +3,15 @@ pragma solidity ^0.8.28;
 
 import {TestBase} from "./lib/TestBase.sol";
 import {DaoBuilder} from "./builders/DaoBuilder.sol";
-import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
-import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
+import {DAO, IDAO} from "@aragon/osx/core/dao/DAO.sol";
+import {Action} from "@aragon/osx/common/executors/IExecutor.sol";
 import {createProxyAndCall} from "../src/util/proxy.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
 import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
 import {LockManagerBase} from "../src/base/LockManagerBase.sol";
 import {LockManagerERC20} from "../src/LockManagerERC20.sol";
-import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
+import {DaoUnauthorized} from "@aragon/osx/common/permission/auth/auth.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TestToken, TestERC20NoRevert} from "./mocks/TestToken.sol";
 import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";

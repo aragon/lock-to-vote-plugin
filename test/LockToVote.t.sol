@@ -3,24 +3,24 @@ pragma solidity ^0.8.17;
 
 import {TestBase} from "./lib/TestBase.sol";
 import {DaoBuilder} from "./builders/DaoBuilder.sol";
-import {DAO, IDAO} from "@aragon/osx/src/core/dao/DAO.sol";
-import {Action} from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
+import {DAO, IDAO} from "@aragon/osx/core/dao/DAO.sol";
+import {Action} from "@aragon/osx/common/executors/IExecutor.sol";
 import {createProxyAndCall} from "../src/util/proxy.sol";
 import {LockToVotePlugin, MajorityVotingBase} from "../src/LockToVotePlugin.sol";
 import {LockManagerSettings, PluginMode} from "../src/interfaces/ILockManager.sol";
 import {IMajorityVoting} from "../src/interfaces/IMajorityVoting.sol";
 import {LockManagerERC20} from "../src/LockManagerERC20.sol";
-import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
+import {DaoUnauthorized} from "@aragon/osx/common/permission/auth/auth.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TestToken} from "./mocks/TestToken.sol";
 import {ILockToVote} from "../src/interfaces/ILockToVote.sol";
 import {ILockToGovernBase} from "../src/interfaces/ILockToGovernBase.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
-import {IMembership} from "@aragon/osx-commons-contracts/src/plugin/extensions/membership/IMembership.sol";
+import {IPlugin} from "@aragon/osx/common/plugin/IPlugin.sol";
+import {IMembership} from "@aragon/osx/common/plugin/extensions/membership/IMembership.sol";
 import {IERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {RATIO_BASE} from "@aragon/osx-commons-contracts/src/utils/math/Ratio.sol";
+import {RATIO_BASE} from "@aragon/osx/common/utils/math/Ratio.sol";
 import {MinVotingPowerCondition} from "../src/conditions/MinVotingPowerCondition.sol";
 
 contract LockToVoteTest is TestBase {
