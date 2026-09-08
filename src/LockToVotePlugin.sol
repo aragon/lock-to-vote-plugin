@@ -13,6 +13,35 @@ import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/mat
 import {MajorityVotingBase} from "./base/MajorityVotingBase.sol";
 import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
 
+/// @title LockToVotePlugin
+/// @author Aragon X
+/// @notice Majority voting plugin where voting power comes from tokens locked in a `LockManager`,
+///         not from an ahead-of-time snapshot.
+///
+/// ### Intended use
+///
+/// This plugin is designed for **exceptional participation** (emergency stops, vetoes, safety
+/// valves), not for ordinary day-to-day governance. The incentive model assumes that holders keep
+/// their tokens productive elsewhere and only lock them in when they need to weigh in, and that
+/// whichever party benefits from a proposal's outcome executes it immediately once it passes.
+///
+/// ### Dynamic supply: important
+///
+/// Threshold checks (`minParticipationRatio`, `supportThresholdRatio`, `minApprovalRatio`) are
+/// evaluated against the token's **live** `totalSupply()` (see `currentTokenSupply()`), not a
+/// snapshot taken at proposal creation. Because the underlying supply can change after voting
+/// ends, a proposal's outcome can flip between voting-end and execution:
+/// - A passing proposal can become non-executable if supply grows.
+/// - A failed-by-quorum proposal can become executable if supply shrinks.
+///
+/// Locked balances (the numerator of the tally) are also dynamic during the voting window.
+///
+/// Consequences for integrators:
+/// - Do not rely on `minParticipation` as a rejection mechanism: voting explicitly.
+/// - Execute passing proposals immediately.
+/// - If stable, snapshot-based thresholds are required, use a snapshot voting plugin instead.
+///
+/// See the README's "When to use this plugin" section for the full guidance.
 contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
     bytes4 internal constant LOCK_TO_VOTE_INTERFACE_ID =
@@ -281,6 +310,10 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     }
 
     /// @inheritdoc MajorityVotingBase
+    /// @dev Reads the token's live `totalSupply()` at every call — including during threshold
+    ///      checks at execution time. As a result, all supply-relative thresholds
+    ///      (`minParticipationRatio`, `supportThresholdRatio`, `minApprovalRatio`) remain dynamic
+    ///      until a proposal is executed. See the contract-level NatSpec for the implications.
     function currentTokenSupply() public view override returns (uint256) {
         return IERC20(lockManager.token()).totalSupply();
     }
