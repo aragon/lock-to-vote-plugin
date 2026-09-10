@@ -32,7 +32,7 @@ contract DeployNewPluginRepoScript is Script {
     address lockToVotePluginSetup;
 
     modifier broadcast() {
-        uint256 privKey = vm.envUint("DEPLOYMENT_PRIVATE_KEY");
+        uint256 privKey = vm.envUint("DEPLOYER_KEY");
         vm.startBroadcast(privKey);
         console.log("Chain ID:", block.chainid);
         console.log("Deploying from:", vm.addr(privKey));
@@ -47,9 +47,11 @@ contract DeployNewPluginRepoScript is Script {
         // Pick the contract addresses from
         // https://github.com/aragon/osx/blob/main/packages/artifacts/src/addresses.json
 
-        maintainer = vm.envAddress("PLUGIN_REPO_MAINTAINER_ADDRESS");
+        // Default the maintainer to the Aragon management DAO (from the active network file).
+        // Override with PLUGIN_REPO_MAINTAINER_ADDRESS in .env for a custom maintainer.
+        maintainer = vm.envOr("PLUGIN_REPO_MAINTAINER_ADDRESS", vm.envAddress("MANAGEMENT_DAO_ADDRESS"));
         pluginRepoFactory = PluginRepoFactory(vm.envAddress("PLUGIN_REPO_FACTORY_ADDRESS"));
-        ltvEnsSubdomain = vm.envString("PLUGIN_ENS_SUBDOMAIN");
+        ltvEnsSubdomain = vm.envOr("PLUGIN_ENS_SUBDOMAIN", string(""));
 
         vm.label(maintainer, "Maintainer");
         vm.label(address(pluginRepoFactory), "PluginRepoFactory");
@@ -75,11 +77,7 @@ contract DeployNewPluginRepoScript is Script {
     function prepareLockToVote() internal {
         lockToVotePluginSetup = address(new LockToVotePluginSetup());
 
-        // Use a random value if empty
-        if (bytes(ltvEnsSubdomain).length == 0) {
-            ltvEnsSubdomain = string.concat("lock-to-vote-plugin-", vm.toString(block.timestamp));
-        }
-
+        // Empty subdomain: OSx skips ENS registration (see PluginRepoRegistry.registerPluginRepo).
         lockToVotePluginRepo = pluginRepoFactory.createPluginRepoWithFirstVersion(
             ltvEnsSubdomain, address(lockToVotePluginSetup), maintainer, " ", " "
         );
@@ -130,7 +128,9 @@ contract DeployNewPluginRepoScript is Script {
 
         console.log("Plugin repositories");
         console.log("- LockToVote plugin repository:     ", address(lockToVotePluginRepo));
-        console.log("- LockToVote repo ENS:              ", string.concat(ltvEnsSubdomain, ".plugin.dao.eth"));
+        if (bytes(ltvEnsSubdomain).length > 0) {
+            console.log("- LockToVote repo ENS:              ", string.concat(ltvEnsSubdomain, ".plugin.dao.eth"));
+        }
         console.log("- Maintainer:                       ", address(maintainer));
         console.log("");
 
@@ -144,9 +144,10 @@ contract DeployNewPluginRepoScript is Script {
     function writeJsonArtifacts() internal {
         string memory artifacts = "output";
         artifacts.serialize("lockToVotePluginRepo", address(lockToVotePluginRepo));
-        artifacts.serialize("pluginRepoMaintainer", maintainer);
-        artifacts =
+        artifacts = artifacts.serialize("pluginRepoMaintainer", maintainer);
+        if (bytes(ltvEnsSubdomain).length > 0) {
             artifacts = artifacts.serialize("lockToVoteEnsDomain", string.concat(ltvEnsSubdomain, ".plugin.dao.eth"));
+        }
 
         string memory networkName = vm.envString("NETWORK_NAME");
         string memory filePath = string.concat(

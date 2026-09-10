@@ -79,68 +79,99 @@ Users can unlock their tokens as long as `LockToVote` allows it. For this:
 
 Otherwise, the `unlock()` will revert until the proposals with votes have ended.
 
-## Get Started
+## Prerequisites
 
-To get started, ensure that [Foundry](https://getfoundry.sh/) and [Make](https://www.gnu.org/software/make/) are installed on your computer.
+- [Foundry](https://getfoundry.sh/)
+- [just](https://github.com/casey/just)
 
-Next, customize the values of `.env`.
+Optional:
 
-### Environment file
+- [Docker](https://www.docker.com) or [Podman](https://podman.io) (recommended for deploying)
 
-Copy `.env.example` into `.env`:
+## Getting Started
 
-The env.example file contains descriptions for all the initial settings. You don't need all of these right away but should review prior to fork tests and deployments
+Clone the repository with submodules and initialize it for a network:
 
-### Using the Makefile
-
-The `Makefile` is the target launcher of the project. It's the recommended way to work with it. It manages the env variables of common tasks and executes only the steps that need to be run.
-
-Run `make` to see all the available targets:
-
-```
-$ make
-Available targets:
-
-- make help               Display the available targets
-
-- make init               Check the dependencies and prompt to install if needed
-- make clean              Clean the build artifacts
-
-Testing lifecycle:
-
-- make test               Run unit tests, locally
-- make test-fork          Run fork tests, using RPC_URL
-- make test-coverage      Generate an HTML coverage report under ./report
-
-- make sync-tests         Scaffold or sync test definitions into solidity tests
-- make check-tests        Checks if the solidity test files are out of sync
-- make test-tree          Generates a markdown file with the test definitions
-
-Deployment targets:
-
-- make predeploy          Simulate a plugin deployment
-- make deploy             Deploy the plugin, verify the source code and write to ./artifacts
-- make resume             Retry pending deployment transactions, verify the code and write to ./artifacts
-
-Verification:
-
-- make verify-etherscan   Verify the last deployment on an Etherscan (compatible) explorer
-- make verify-blockscout  Verify the last deployment on BlockScout
-- make verify-sourcify    Verify the last deployment on Sourcify
-
-- make refund             Refund the remaining balance left on the deployment account
+```bash
+git clone --recurse-submodules <repo-url>
+just init          # defaults to mainnet, e.g. `just init sepolia`
 ```
 
-Run `make init`:
-- It ensures that Foundry is installed
-- It runs a first compilation of the project
+`just init` fetches submodules, creates `.env` from `.env.example`, and selects the network. Edit `.env` to add your secrets (`DEPLOYER_KEY`, `ETHERSCAN_API_KEY`, `PINATA_JWT`, …). Alternatively — and recommended — resolve them with the [`vars`](https://github.com/vars-cli/vars) secret manager: the keys this project needs are declared in [`.vars.yaml`](./.vars.yaml), including per-network profiles (e.g. a `dev/DEPLOYER_KEY` on testnets, a real one on mainnet), and just-foundry's recipes call `vars resolve -p <network>` automatically when `vars` is installed.
+
+Network settings (RPC URL, chain id, verifier, and the Aragon OSx addresses) come from `lib/just-foundry/networks/<network>.env` — switch with `just switch <network>`, inspect the resolved values with `just env`, and create a local editable copy with `just switch <network> override`.
+
+### Using just
+
+`just` is the task launcher for the project; the generic recipes are imported from [`lib/just-foundry`](https://github.com/aragon/just-foundry). Run `just` (or `just help`) to list them:
+
+```
+$ just
+[setup]
+init network="mainnet"       Fetch submodules, scaffold .env and select the network
+switch network override=""   Select the active network
+setup                        Install Foundry
+
+[script]
+predeploy                    Dry-run the deploy script (no broadcast)
+deploy *args                 Run tests, then broadcast + verify
+deploy-verify *args          Broadcast dummy contracts to force source verification
+
+[metadata]
+pin-metadata                 Pin the release & build metadata to IPFS
+
+[test]
+test *args                   Run unit tests (fork tests excluded)
+test-fork *args              Run fork tests (requires RPC_URL)
+test-coverage                Generate an HTML coverage report under ./report
+
+[verification]
+verify type="" script=""     Verify the latest broadcast (etherscan|blockscout|sourcify)
+
+[develop]
+clean                        Clean build artifacts and reports
+storage-info contract        Show a contract's storage layout
+check-upgrade from to        Check storage-layout upgrade compatibility
+
+[helpers]
+env                          Show the resolved environment (values + sources)
+```
+
+There are also `balance`, `refund`, `gas-price`, `nonce` and `clean-nonce` deployer helpers (run `just <name>`).
+
+## Testing
+
+Run the suites with `just`:
+
+```sh
+just test          # unit tests (fork tests excluded)
+just test-fork     # fork tests (requires a reachable RPC_URL for the active network)
+just test-coverage # HTML coverage report under ./report
+```
+
+`just test` checks the logic's accordance to the specs; `just test-fork` additionally requires `RPC_URL` (from the selected network or `.env`).
+
+See [`TESTS.md`](./TESTS.md) for the visual test tree, and the `test/*.t.yaml` files for the source specifications.
+
+## Deployment 🚀
+
+Select the target network, then simulate and deploy:
+
+```sh
+just switch <network>
+just predeploy     # simulate (no broadcast)
+just deploy        # run tests, then broadcast + verify; logs to ./logs
+```
 
 ### Deployment Checklist
 
+When running a production deployment ceremony, you can use these steps as a reference:
+
 - [ ] I have cloned the official repository on my computer and I have checked out the `main` branch
-- [ ] I am using the latest official docker engine, running a Debian Linux (stable) image
-  - [ ] I have run `docker run --rm -it -v .:/deployment debian:bookworm-slim`
-  - [ ] I have run `apt update && apt install -y make curl git vim neovim bc jq`
+- [ ] I am running the ceremony inside a container from a Debian trixie image (using Docker or Podman)
+  - [ ] I have run `docker run --rm -it -v .:/deployment debian:trixie-slim`
+    - Or, with Podman: `podman run --rm -it -v .:/deployment:Z debian:trixie-slim`
+  - [ ] I have run `apt update && apt install -y curl git just vim neovim bc`
   - On **standard EVM networks**:
     - [ ] I have run `curl -L https://foundry.paradigm.xyz | bash`
     - [ ] I have run `source /root/.bashrc`
@@ -150,43 +181,43 @@ Run `make init`:
     - [ ] I have run `source /root/.bashrc`
     - [ ] I have run `foundryup-zksync`
   - [ ] I have run `cd /deployment`
-  - [ ] I have run `cp .env.example .env`
-  - [ ] I have run `make init`
-- [ ] I am opening an editor on the `/deployment` folder, within the Docker container
-- [ ] The `.env` file contains the correct parameters for the deployment
-  - [ ] I have created a new burner wallet with `cast wallet new` and copied the private key to `DEPLOYMENT_PRIVATE_KEY` within `.env`
-  - [ ] I have set the correct `RPC_URL` for the network
-  - [ ] I have set the correct `CHAIN_ID` for the network
-  - [ ] The value of `NETWORK_NAME` is listed within `constants.mk`, at the appropriate place
+  - [ ] I have run `just init <network>`
+- [ ] I am opening an editor on the `/deployment` folder, within the container
+- [ ] The `.env` file (or my `vars` store) contains the correct parameters for the deployment
+  - [ ] I have created a new burner wallet with `cast wallet new` and copied the private key to `DEPLOYER_KEY`
+  - [ ] I have selected the correct network with `just switch <network>` (this sets RPC_URL, CHAIN_ID and the verifier)
   - [ ] I have set `ETHERSCAN_API_KEY` or `BLOCKSCOUT_HOST_NAME` (when relevant to the target network)
-  - [ ] (TO DO: Add a step to check your own variables here)
-  - [ ] I have printed the contents of `.env` to the screen
+  - [ ] `PLUGIN_REPO_MAINTAINER_ADDRESS` is correct — defaults to the network's `MANAGEMENT_DAO_ADDRESS`; override only for a custom maintainer
+  - [ ] `PLUGIN_ENS_SUBDOMAIN` is set to the desired subdomain (or left empty to skip ENS registration)
+  - [ ] I have run `just env` and confirmed the resolved values (network, verifier, addresses, deployer)
+  - [ ] I have run `just balance` and confirmed the deployment wallet holds enough native token for gas
   - [ ] I am the only person of the ceremony that will operate the deployment wallet
-- [ ] All the tests run clean (`make test`)
-- [ ] My deployment wallet is a newly created account, ready for safe production deploys.
+- [ ] All the tests run clean (`just test`)
 - My computer:
-  - [ ] Is running in a safe physical location and a trusted network
+  - [ ] Is running in a safe location and using a trusted network
   - [ ] It exposes no services or ports
-  - [ ] The wifi or wired network used does does not have open ports to a WAN
-- [ ] I have previewed my deploy without any errors
-  - `make predeploy`
+    - MacOS: `sudo lsof -iTCP -sTCP:LISTEN -nP`
+    - Linux: `netstat -tulpn`
+    - Windows: `netstat -nao -p tcp`
+  - [ ] The wifi or wired network in use does not expose any ports to a WAN
+- [ ] I have run `just predeploy` and the simulation completes with no errors
 - [ ] The deployment wallet has sufficient native token for gas
-  - At least, 15% more than the estimated simulation
-- [ ] Unit tests still run clean
+  - At least, 15% more than the amount estimated during the simulation
+  - Re-check with `just balance`
+- [ ] `just test` still runs clean
 - [ ] I have run `git status` and it reports no local changes
 - [ ] The current local git branch (`main`) corresponds to its counterpart on `origin`
-  - [ ] I confirm that the rest of members of the ceremony pulled the last commit of my branch and reported the same commit hash as my output for `git log -n 1`
-- [ ] I have initiated the production deployment with `make deploy`
+  - [ ] I confirm that the rest of members of the ceremony pulled the last git commit on `main` and reported the same commit hash as my output for `git log -n 1`
+- [ ] I have initiated the production deployment with `just deploy`
 
 ### Post deployment checklist
 
 - [ ] The deployment process completed with no errors
-- [ ] The deployed factory was deployed by the deployment address
-- [ ] The reported contracts have been created created by the newly deployed factory
-- [ ] The smart contracts are correctly verified on Etherscan or the corresponding block explorer
-- [ ] The output of the latest `logs/deployment-*.log` file corresponds to the console output
+- [ ] The factory contract was deployed by the deployment address
+- [ ] All the project's smart contracts are correctly verified on the reference block explorer of the target network.
+- [ ] The output of the latest `logs/<script>-<network>-<timestamp>.log` file corresponds to the console output
 - [ ] I have transferred the remaining funds of the deployment wallet to the address that originally funded it
-  - `make refund`
+  - `just refund`
 
 ### ERC20 token checklist
 
@@ -208,117 +239,23 @@ Not supported:
   - If the balance decreases, those who withdraw (call `unlock()`) first will obtain their full balance, but not all users will be able to withdraw once funds have run out.
 - **NOT supported: Tokens with Transfer Fees**: There are tokens which may charge a fee for transfers. This fee could be applied on the value being sent, decreasing the amount reaching the receiver, or it could be applied on the sender's remaining balance. The plugin assumes that the value specified as amount during the transfer is exactly that value that actually arrived at the plugin, unless the transfer reverts. It does currently not handle the case where the received balance deviates from the requested amount.
 
-### Manual deployment (CLI)
+## Contract source verification
 
-You can of course run all commands from the command line:
+When running a deployment with `just deploy`, Foundry will attempt to verify the contracts on the corresponding block explorer.
 
-```sh
-# Load the env vars
-source .env
-```
+If you need to verify on multiple explorers, or the automatic verification did not work, use the `verify` recipe with the desired verifier:
 
 ```sh
-# run unit tests
-forge test --no-match-path "test/fork/**/*.sol"
+just verify etherscan   # or: blockscout, sourcify
+just verify blockscout
+just verify sourcify
 ```
 
-```sh
-# Set the right RPC URL
-RPC_URL="https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
-```
+These use the last deployment data under `broadcast/DeployNewPluginRepo.s.sol/<chain-id>/run-latest.json`.
+- Ensure that the required variables are set within the `.env` file (or the active network).
 
-```sh
-# Run the deployment script
+If some proxies or auxiliary contracts do not appear verified after a deployment, run `just deploy-verify` to broadcast dummy instances so the explorer can index the source.
 
-# If using Etherscan
-forge script --chain "$NETWORK" script/Deploy.s.sol:Deploy --rpc-url "$RPC_URL" --broadcast --verify
+## Test specifications
 
-# If using BlockScout
-forge script --chain "$NETWORK" script/Deploy.s.sol:Deploy --rpc-url "$RPC_URL" --broadcast --verify --verifier blockscout --verifier-url "https://sepolia.explorer.mode.network/api\?"
-```
-
-If you get the error Failed to get EIP-1559 fees, add `--legacy` to the command:
-
-```sh
-forge script --chain "$NETWORK" script/Deploy.s.sol:Deploy --rpc-url "$RPC_URL" --broadcast --verify --legacy
-```
-
-If some contracts fail to verify on Etherscan, retry with this command:
-
-```sh
-forge script --chain "$NETWORK" script/Deploy.s.sol:Deploy --rpc-url "$RPC_URL" --verify --legacy --private-key "$DEPLOYMENT_PRIVATE_KEY" --resume
-```
-
-## Testing
-
-See the [test tree](./TEST_TREE.md) file for a visual representation of the implemented tests.
-
-Tests can be described using yaml files. They will be automatically transformed into solidity test files with [bulloak](https://github.com/alexfertel/bulloak).
-
-Create a file with `.t.yaml` extension within the `test` folder and describe a hierarchy of test cases:
-
-```yaml
-# MyPluginTest.t.yaml
-
-MyPluginTest:
-- given: proposal exists
-  comment: Comment here
-  and:
-  - given: proposal is in the last stage
-    and:
-
-    - when: proposal can advance
-      then:
-      - it: Should return true
-
-    - when: proposal cannot advance
-      then:
-      - it: Should return false
-
-  - when: proposal is not in the last stage
-    then:
-    - it: should do A
-      comment: This is an important remark
-    - it: should do B
-    - it: should do C
-
-- when: proposal doesn't exist
-  comment: Testing edge cases here
-  then:
-  - it: should revert
-```
-
-Then use `make` to automatically sync the described branches into solidity test files.
-
-```sh
-$ make
-Available targets:
-# ...
-- make sync-tests       Scaffold or sync tree files into solidity tests
-- make check-tests      Checks if solidity files are out of sync
-- make markdown-tests   Generates a markdown file with the test definitions rendered as a tree
-
-$ make sync-tests
-```
-
-The final output will look like a human readable tree:
-
-```
-# MyPluginTest.tree
-
-MyPluginTest
-├── Given proposal exists // Comment here
-│   ├── Given proposal is in the last stage
-│   │   ├── When proposal can advance
-│   │   │   └── It Should return true
-│   │   └── When proposal cannot advance
-│   │       └── It Should return false
-│   └── When proposal is not in the last stage
-│       ├── It should do A // Careful here
-│       ├── It should do B
-│       └── It should do C
-└── When proposal doesn't exist // Testing edge cases here
-    └── It should revert
-```
-
-And the given tree file will be used by bulloak to produce test file templates where tests can be addeed to.
+Test intents are described as YAML trees under `test/*.t.yaml` and their rendered summary lives in [`TESTS.md`](./TESTS.md). These files are kept as reference documentation for the test surface — the corresponding `test/*.t.sol` implementations are the source of truth and are executed by `just test`.

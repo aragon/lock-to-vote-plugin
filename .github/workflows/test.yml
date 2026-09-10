@@ -32,13 +32,10 @@ jobs:
 
       - name: Run Forge build
         run: |
-          cp .env.example .env
-          make init
+          forge build
         id: build
 
       - name: Run Forge tests
         run: |
-          make test
-        env:
-          RPC_URL: https://sepolia.drpc.org
+          forge test -vvv --no-match-path "./test/fork-tests/*.sol"
         id: test
