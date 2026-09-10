@@ -1,5 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// Locally-patched copy of @aragon/osx's PluginUUPSUpgradeable. The upstream declares
+// `setTargetConfig(...)` as non-virtual, but LockToVotePlugin needs to override it to
+// reject targets pointing at the plugin itself or the LockManager. This file is the
+// upstream source with `virtual` added to `setTargetConfig` and its relative imports
+// rewritten to absolute `@aragon/osx/common/...` paths.
+//
+// To refresh from the current osx submodule: `just regenerate-plugin-wrapper`
+// Delete this file (and the recipe) once the upstream marks `setTargetConfig` as `virtual`.
+
 pragma solidity ^0.8.8;
 
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
