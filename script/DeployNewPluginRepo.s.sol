@@ -142,18 +142,22 @@ contract DeployNewPluginRepoScript is Script {
     }
 
     function writeJsonArtifacts() internal {
-        string memory artifacts = "output";
-        artifacts.serialize("lockToVotePluginRepo", address(lockToVotePluginRepo));
-        artifacts = artifacts.serialize("pluginRepoMaintainer", maintainer);
+        // stdJson.serialize keeps an in-memory object under the *first* argument (the key).
+        // Reassigning that variable to the returned JSON string would silently reroute later
+        // serializations to a fresh object and drop earlier fields, so keep the key separate.
+        string memory key = "output";
+        string memory json;
+        json = key.serialize("lockToVotePluginRepo", address(lockToVotePluginRepo));
+        json = key.serialize("pluginRepoMaintainer", maintainer);
         if (bytes(ltvEnsSubdomain).length > 0) {
-            artifacts = artifacts.serialize("lockToVoteEnsDomain", string.concat(ltvEnsSubdomain, ".plugin.dao.eth"));
+            json = key.serialize("lockToVoteEnsDomain", string.concat(ltvEnsSubdomain, ".plugin.dao.eth"));
         }
 
         string memory networkName = vm.envString("NETWORK_NAME");
         string memory filePath = string.concat(
             vm.projectRoot(), "/artifacts/deployment-", networkName, "-", vm.toString(block.timestamp), ".json"
         );
-        artifacts.write(filePath);
+        json.write(filePath);
 
         console.log("Deployment artifacts written to", filePath);
     }
