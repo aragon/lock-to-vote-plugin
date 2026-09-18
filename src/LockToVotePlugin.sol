@@ -12,11 +12,12 @@ import {IProposal} from "@aragon/osx/common/plugin/extensions/proposal/IProposal
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {MajorityVotingBase} from "./base/MajorityVotingBase.sol";
 import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
+import {IMajorityVotingBaseExtended} from "./interfaces/IMajorityVotingBaseExtended.sol";
 
 contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
     bytes4 internal constant LOCK_TO_VOTE_INTERFACE_ID =
-        this.minProposerVotingPower.selector ^ this.createProposal.selector;
+        this.minProposerVotingPower.selector ^ IProposal.createProposal.selector;
 
     /// @notice The ID of the permission required to call the `createProposal` functions.
     bytes32 public constant CREATE_PROPOSAL_PERMISSION_ID = keccak256("CREATE_PROPOSAL_PERMISSION");
@@ -137,15 +138,66 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
             proposal_.allowFailureMap = _allowFailureMap;
         }
 
+        _validateActions(_actions);
         for (uint256 i; i < _actions.length; i++) {
-            if (_actions[i].to == address(0) || _actions[i].to == address(lockManager)) {
-                revert InvalidActionTarget(i, _actions[i].to);
-            }
-
             proposal_.actions.push(_actions[i]);
         }
 
         emit ProposalCreated(proposalId, _msgSender(), _startDate, _endDate, _metadata, _actions, _allowFailureMap);
+
+        lockManager.proposalCreated(proposalId, _msgSender());
+    }
+
+    /// @inheritdoc IMajorityVotingBaseExtended
+    /// @dev Stores only `keccak256(abi.encode(_actions))`; the actions remain available in the event log.
+    function createProposal(
+        bytes calldata _metadata,
+        Action[] memory _actions,
+        uint64 _startDate,
+        uint64 _endDate,
+        uint256 _allowFailureMap
+    ) external override auth(CREATE_PROPOSAL_PERMISSION_ID) returns (uint256 proposalId) {
+        _validateActions(_actions);
+
+        bytes32 actionsHash = hashActions(_actions);
+        proposalId = _createHashBackedProposal(_metadata, actionsHash, _startDate, _endDate, _allowFailureMap);
+
+        Proposal storage proposal_ = proposals[proposalId];
+        emit ProposalCreatedWithActions(
+            proposalId,
+            _msgSender(),
+            proposal_.parameters.startDate,
+            proposal_.parameters.endDate,
+            _metadata,
+            _actions,
+            actionsHash,
+            _allowFailureMap
+        );
+
+        lockManager.proposalCreated(proposalId, _msgSender());
+    }
+
+    /// @inheritdoc IMajorityVotingBaseExtended
+    /// @dev The action preimage is deliberately absent from both storage and the creation event.
+    function createProposal(
+        bytes calldata _metadata,
+        bytes32 _actionsHash,
+        uint64 _startDate,
+        uint64 _endDate,
+        uint256 _allowFailureMap
+    ) external override auth(CREATE_PROPOSAL_PERMISSION_ID) returns (uint256 proposalId) {
+        proposalId = _createHashBackedProposal(_metadata, _actionsHash, _startDate, _endDate, _allowFailureMap);
+
+        Proposal storage proposal_ = proposals[proposalId];
+        emit ProposalCreatedWithActionHash(
+            proposalId,
+            _msgSender(),
+            proposal_.parameters.startDate,
+            proposal_.parameters.endDate,
+            _metadata,
+            _actionsHash,
+            _allowFailureMap
+        );
 
         lockManager.proposalCreated(proposalId, _msgSender());
     }
@@ -352,8 +404,62 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
         return true;
     }
 
+    function _createHashBackedProposal(
+        bytes memory _metadata,
+        bytes32 _actionsHash,
+        uint64 _startDate,
+        uint64 _endDate,
+        uint256 _allowFailureMap
+    ) internal returns (uint256 proposalId) {
+        if (_actionsHash == bytes32(0)) {
+            revert ZeroActionsHash();
+        }
+
+        if (currentTokenSupply() == 0) {
+            revert NoVotingPower();
+        }
+
+        (_startDate, _endDate) = _computeProposalDates(_startDate);
+
+        proposalId = _createProposalId(keccak256(abi.encode(_actionsHash, _metadata)));
+        if (_proposalExists(proposalId)) {
+            revert ProposalAlreadyExists(proposalId);
+        }
+
+        Proposal storage proposal_ = proposals[proposalId];
+        proposal_.parameters.votingMode = votingMode();
+        proposal_.parameters.supportThresholdRatio = supportThresholdRatio();
+        proposal_.parameters.startDate = _startDate;
+        proposal_.parameters.endDate = _endDate;
+        proposal_.parameters.minParticipationRatio = minParticipationRatio();
+        proposal_.parameters.minApprovalRatio = minApprovalRatio();
+        proposal_.targetConfig = getTargetConfig();
+
+        if (_allowFailureMap != 0) {
+            proposal_.allowFailureMap = _allowFailureMap;
+        }
+
+        proposalExecutionHashes[proposalId] = _actionsHash;
+    }
+
+    function _validateActions(Action[] memory _actions) internal view {
+        for (uint256 i; i < _actions.length; i++) {
+            if (_actions[i].to == address(0) || _actions[i].to == address(lockManager)) {
+                revert InvalidActionTarget(i, _actions[i].to);
+            }
+        }
+    }
+
     function _execute(uint256 _proposalId) internal override {
         super._execute(_proposalId);
+
+        // Notify the LockManager to stop tracking this proposal ID
+        lockManager.proposalSettled(_proposalId);
+    }
+
+    function _execute(uint256 _proposalId, Action[] memory _actions) internal override {
+        _validateActions(_actions);
+        super._execute(_proposalId, _actions);
 
         // Notify the LockManager to stop tracking this proposal ID
         lockManager.proposalSettled(_proposalId);
