@@ -13,9 +13,9 @@ import {PluginUUPSUpgradeable} from "../lib/PluginUUPSUpgradeable.sol";
 import {IDAO} from "@aragon/osx/common/dao/IDAO.sol";
 import {IProposal} from "@aragon/osx/common/plugin/extensions/proposal/IProposal.sol";
 import {Action} from "@aragon/osx/common/executors/IExecutor.sol";
-import {MetadataExtensionUpgradeable} from "@aragon/osx/common/utils/metadata/MetadataExtensionUpgradeable.sol";
+import {MetadataExtensionUpgradeable} from
+    "@aragon/osx/common/utils/metadata/MetadataExtensionUpgradeable.sol";
 import {IMajorityVoting} from "../interfaces/IMajorityVoting.sol";
-import {IMajorityVotingBaseExtended} from "../interfaces/IMajorityVotingBaseExtended.sol";
 
 /* solhint-enable max-line-length */
 
@@ -75,7 +75,6 @@ import {IMajorityVotingBaseExtended} from "../interfaces/IMajorityVotingBaseExte
 /// @custom:security-contact sirt@aragon.org
 abstract contract MajorityVotingBase is
     IMajorityVoting,
-    IMajorityVotingBaseExtended,
     Initializable,
     ERC165Upgradeable,
     MetadataExtensionUpgradeable,
@@ -194,10 +193,6 @@ abstract contract MajorityVotingBase is
     /// @notice The struct storing the voting settings.
     VotingSettings private votingSettings;
 
-    /// @notice Action commitments for proposals that do not store their actions on-chain.
-    /// @dev A zero value identifies a standard proposal whose actions are stored in `Proposal.actions`.
-    mapping(uint256 proposalId => bytes32 actionsHash) internal proposalExecutionHashes;
-
     /// @notice Thrown when the given DAO address is empty.
     error EmptyDAOAddress();
 
@@ -235,23 +230,6 @@ abstract contract MajorityVotingBase is
     /// @notice Thrown if the proposal execution is forbidden.
     /// @param proposalId The ID of the proposal.
     error ProposalExecutionForbidden(uint256 proposalId);
-
-    /// @notice Thrown when a hash-backed proposal is executed without supplying its actions.
-    /// @param proposalId The ID of the proposal.
-    error ActionPayloadRequired(uint256 proposalId);
-
-    /// @notice Thrown when actions are supplied for a standard, on-chain-actions proposal.
-    /// @param proposalId The ID of the proposal.
-    error ProposalNotHashBacked(uint256 proposalId);
-
-    /// @notice Thrown when supplied actions do not match a proposal's stored commitment.
-    /// @param proposalId The ID of the proposal.
-    /// @param expectedHash The commitment stored when the proposal was created.
-    /// @param actualHash The commitment computed from the supplied actions.
-    error ActionsHashMismatch(uint256 proposalId, bytes32 expectedHash, bytes32 actualHash);
-
-    /// @notice Thrown when a zero action commitment is used to create a hash-backed proposal.
-    error ZeroActionsHash();
 
     /// @notice Thrown if the proposal with same actions and metadata already exists.
     /// @param proposalId The id of the proposal.
@@ -308,7 +286,7 @@ abstract contract MajorityVotingBase is
         returns (bool)
     {
         return _interfaceId == MAJORITY_VOTING_BASE_INTERFACE_ID || _interfaceId == type(IMajorityVoting).interfaceId
-            || _interfaceId == type(IMajorityVotingBaseExtended).interfaceId || super.supportsInterface(_interfaceId);
+            || super.supportsInterface(_interfaceId);
     }
 
     /// @inheritdoc IProposal
@@ -323,36 +301,7 @@ abstract contract MajorityVotingBase is
             revert ProposalExecutionForbidden(_proposalId);
         }
 
-        if (proposalExecutionHashes[_proposalId] != bytes32(0)) {
-            revert ActionPayloadRequired(_proposalId);
-        }
-
         _execute(_proposalId);
-    }
-
-    /// @inheritdoc IMajorityVotingBaseExtended
-    /// @dev Requires the `EXECUTE_PROPOSAL_PERMISSION_ID` permission.
-    function execute(uint256 _proposalId, Action[] calldata _actions)
-        public
-        virtual
-        override
-        auth(EXECUTE_PROPOSAL_PERMISSION_ID)
-    {
-        if (!_canExecute(_proposalId)) {
-            revert ProposalExecutionForbidden(_proposalId);
-        }
-
-        bytes32 expectedHash = proposalExecutionHashes[_proposalId];
-        if (expectedHash == bytes32(0)) {
-            revert ProposalNotHashBacked(_proposalId);
-        }
-
-        bytes32 actualHash = hashActions(_actions);
-        if (actualHash != expectedHash) {
-            revert ActionsHashMismatch(_proposalId, expectedHash, actualHash);
-        }
-
-        _execute(_proposalId, _actions);
     }
 
     /// @inheritdoc IMajorityVoting
@@ -450,16 +399,6 @@ abstract contract MajorityVotingBase is
         return votingSettings;
     }
 
-    /// @inheritdoc IMajorityVotingBaseExtended
-    function proposalExecutionHash(uint256 _proposalId) public view virtual override returns (bytes32) {
-        return proposalExecutionHashes[_proposalId];
-    }
-
-    /// @inheritdoc IMajorityVotingBaseExtended
-    function hashActions(Action[] memory _actions) public pure virtual override returns (bytes32) {
-        return keccak256(abi.encode(_actions));
-    }
-
     /// @notice Returns the current token supply.
     ///         NOTE: It includes any non circulating supply that might be vesting, locked or undistributed.
     /// @return The total token supply.
@@ -515,28 +454,14 @@ abstract contract MajorityVotingBase is
     function _execute(uint256 _proposalId) internal virtual {
         Proposal storage proposal_ = proposals[_proposalId];
 
-        _executeActions(_proposalId, proposal_, proposal_.actions);
-    }
-
-    /// @notice Internal function to execute supplied actions for a hash-backed proposal.
-    /// @param _proposalId The ID of the proposal.
-    /// @param _actions The actions whose hash has already been verified.
-    function _execute(uint256 _proposalId, Action[] memory _actions) internal virtual {
-        Proposal storage proposal_ = proposals[_proposalId];
-
-        _executeActions(_proposalId, proposal_, _actions);
-    }
-
-    /// @notice Executes actions using the target configuration snapshotted at proposal creation.
-    function _executeActions(uint256 _proposalId, Proposal storage _proposal, Action[] memory _actions) private {
-        _proposal.executed = true;
+        proposal_.executed = true;
 
         _execute(
-            _proposal.targetConfig.target,
+            proposal_.targetConfig.target,
             bytes32(_proposalId),
-            _actions,
-            _proposal.allowFailureMap,
-            _proposal.targetConfig.operation
+            proposal_.actions,
+            proposal_.allowFailureMap,
+            proposal_.targetConfig.operation
         );
 
         emit ProposalExecuted(_proposalId);
@@ -669,5 +594,5 @@ abstract contract MajorityVotingBase is
     /// new variables without shifting down storage in the inheritance chain
     /// (see [OpenZeppelin's guide about storage gaps]
     /// (https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 }
