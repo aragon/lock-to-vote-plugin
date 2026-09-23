@@ -31,7 +31,7 @@ The [source code of LockToVote](https://github.com/aragon/lock-to-vote-plugin/re
 The incentive model assumes:
 
 - Holders unlock as soon as their vote is no longer needed, so they can put their tokens back to work.
-- Once a proposal reaches its outcome, whichever party benefits from that outcome executes it immediately.
+- Once voting ends and the proposal passes, whichever party benefits from that outcome (and holds the execution permission) executes it promptly.
 
 ### Good fits
 
@@ -41,13 +41,15 @@ The incentive model assumes:
 
 ### Not made for
 
-- **Ordinary governance** that relies on a stable, predictable quorum — this plugin cannot provide that (see below).
-- **Setups that treat `minParticipation` as a rejection mechanism**: because supply and locked balances are dynamic, a low turnout can flip into a passing quorum after the fact (and vice versa). Malicious proposals must be voted against explicitly, not left to fail by absence.
-- **Long, unattended voting windows**: the longer the gap between voting-end and execution, the more room for the outcome to change.
+- **Routine governance under a variable supply**: the plugin does not protect quorum or minimum approval against supply changes. With a fixed supply these requirements stay fixed, but the plugin is still tuned for holders who want to be able to participate *after* a proposal is created without having to lock in regularly, not for broad day-to-day turnout.
+- **Setups that treat `minParticipation` as a rejection mechanism** on a variable-supply token: because supply and locked balances can move, a low turnout can flip into a passing quorum after the fact (and vice versa). Malicious proposals must be voted against explicitly, not left to fail by absence.
+- **Long, unattended voting windows** on a variable-supply token: the longer the gap between voting-end and execution, the more room for supply changes to flip the outcome.
 
 ### Dynamic supply and thresholds (read this carefully)
 
-Thresholds (`minParticipation`, `supportThreshold`, `minApprovalTally`) are evaluated **against the token's total supply at the moment of execution**, not at proposal creation or voting-end. As a consequence, since the underlying token supply may be dynamic, every setting derived from it stays dynamic until a proposal is executed.
+The supply-relative thresholds (`minParticipation` and `minApprovalTally`) are evaluated **against the token's total supply at the moment of execution**, not at proposal creation or voting-end. As a consequence, since the underlying token supply may be dynamic, these requirements stay dynamic until a proposal is executed.
+
+`supportThreshold` is computed as `yes / (yes + no)` and does not depend on total supply.
 
 Practical consequences:
 
@@ -58,7 +60,7 @@ Practical consequences:
 Mitigation is behavioral, not technical:
 
 - Aim to win by a **comfortable margin** over the threshold.
-- **Execute successful proposals immediately** once they pass.
+- **Once voting ends and the proposal passes, someone with permission to execute should do so promptly.** Neither voting mode allows early execution.
 - **Always vote** on veto proposals. Do not rely on missed quorum.
 - If any of the above is not acceptable for your use case, use a snapshot-based governance plugin instead.
 

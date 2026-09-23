@@ -23,22 +23,24 @@ import {ILockToGovernBase} from "./interfaces/ILockToGovernBase.sol";
 /// This plugin is designed for **exceptional participation** (emergency stops, vetoes, safety
 /// valves), not for ordinary day-to-day governance. The incentive model assumes that holders keep
 /// their tokens productive elsewhere and only lock them in when they need to weigh in, and that
-/// whichever party benefits from a proposal's outcome executes it immediately once it passes.
+/// once voting ends and the proposal passes, someone with permission to execute does so promptly.
 ///
 /// ### Dynamic supply: important
 ///
-/// Threshold checks (`minParticipationRatio`, `supportThresholdRatio`, `minApprovalRatio`) are
+/// The supply-relative threshold checks (`minParticipationRatio` and `minApprovalRatio`) are
 /// evaluated against the token's **live** `totalSupply()` (see `currentTokenSupply()`), not a
-/// snapshot taken at proposal creation. Because the underlying supply can change after voting
-/// ends, a proposal's outcome can flip between voting-end and execution:
+/// snapshot taken at proposal creation. `supportThresholdRatio` is a `yes / (yes + no)` ratio and
+/// does not depend on total supply. Because the underlying supply can change after voting ends,
+/// a proposal's outcome can flip between voting-end and execution:
 /// - A passing proposal can become non-executable if supply grows.
 /// - A failed-by-quorum proposal can become executable if supply shrinks.
 ///
 /// Locked balances (the numerator of the tally) are also dynamic during the voting window.
 ///
 /// Consequences for integrators:
-/// - Do not rely on `minParticipation` as a rejection mechanism: voting explicitly.
-/// - Execute passing proposals immediately.
+/// - Do not rely on `minParticipation` as a rejection mechanism: vote explicitly.
+/// - Once voting ends and the proposal passes, someone with permission to execute should do so
+///   promptly. Neither voting mode allows early execution.
 /// - If stable, snapshot-based thresholds are required, use a snapshot voting plugin instead.
 ///
 /// See the README's "When to use this plugin" section for the full guidance.
@@ -311,9 +313,10 @@ contract LockToVotePlugin is ILockToVote, MajorityVotingBase, LockToGovernBase {
 
     /// @inheritdoc MajorityVotingBase
     /// @dev Reads the token's live `totalSupply()` at every call — including during threshold
-    ///      checks at execution time. As a result, all supply-relative thresholds
-    ///      (`minParticipationRatio`, `supportThresholdRatio`, `minApprovalRatio`) remain dynamic
-    ///      until a proposal is executed. See the contract-level NatSpec for the implications.
+    ///      checks at execution time. As a result, the supply-relative thresholds
+    ///      (`minParticipationRatio` and `minApprovalRatio`) remain dynamic until a proposal is
+    ///      executed. `supportThresholdRatio` is a `yes / (yes + no)` ratio and is unaffected.
+    ///      See the contract-level NatSpec for the implications.
     function currentTokenSupply() public view override returns (uint256) {
         return IERC20(lockManager.token()).totalSupply();
     }
